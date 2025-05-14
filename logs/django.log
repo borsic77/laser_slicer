@@ -1,0 +1,447 @@
+INFO 2025-05-14 10:36:06,466 django.utils.autoreload Watching for file changes with StatReloader
+INFO 2025-05-14 10:36:51,904 django.utils.autoreload /Users/boris/Documents/python programs/laser_slicer/core/utils/geocoding.py changed, reloading.
+INFO 2025-05-14 10:36:52,117 django.utils.autoreload Watching for file changes with StatReloader
+INFO 2025-05-14 10:36:58,887 core.utils.geocoding Geocoded Fiez, Switzerland to (46.8280744, 6.6240029)
+INFO 2025-05-14 10:36:58,891 django.server "POST /api/geocode/ HTTP/1.1" 200 34
+INFO 2025-05-14 10:38:53,273 core.utils.geocoding Geocoded Fiez, Switzerland to (46.8280744, 6.6240029)
+INFO 2025-05-14 10:38:53,277 django.server "POST /api/geocode/ HTTP/1.1" 200 34
+INFO 2025-05-14 10:38:57,198 core.utils.geocoding Geocoded Fiez, Switzerland to (46.8280744, 6.6240029)
+INFO 2025-05-14 10:38:57,200 django.server "POST /api/geocode/ HTTP/1.1" 200 34
+INFO 2025-05-14 10:45:52,624 django.utils.autoreload /Users/boris/Documents/python programs/laser_slicer/core/views.py changed, reloading.
+INFO 2025-05-14 10:45:52,913 django.utils.autoreload Watching for file changes with StatReloader
+INFO 2025-05-14 10:46:33,225 django.utils.autoreload /Users/boris/Documents/python programs/laser_slicer/core/urls.py changed, reloading.
+INFO 2025-05-14 10:46:33,438 django.utils.autoreload Watching for file changes with StatReloader
+INFO 2025-05-14 10:46:38,724 django.utils.autoreload /Users/boris/Documents/python programs/laser_slicer/core/urls.py changed, reloading.
+INFO 2025-05-14 10:46:38,928 django.utils.autoreload Watching for file changes with StatReloader
+INFO 2025-05-14 10:46:52,413 django.utils.autoreload /Users/boris/Documents/python programs/laser_slicer/core/urls.py changed, reloading.
+INFO 2025-05-14 10:46:52,604 django.utils.autoreload Watching for file changes with StatReloader
+INFO 2025-05-14 10:46:59,905 django.utils.autoreload /Users/boris/Documents/python programs/laser_slicer/core/urls.py changed, reloading.
+INFO 2025-05-14 10:47:00,098 django.utils.autoreload Watching for file changes with StatReloader
+INFO 2025-05-14 10:47:43,076 core.utils.geocoding Geocoded Fiez, Switzerland to (46.8280744, 6.6240029)
+INFO 2025-05-14 10:47:43,079 django.server "POST /api/geocode/ HTTP/1.1" 200 34
+INFO 2025-05-14 10:47:44,439 django.server "OPTIONS /api/slice/ HTTP/1.1" 200 0
+INFO 2025-05-14 10:47:44,442 django.server "POST /api/slice/ HTTP/1.1" 200 19
+INFO 2025-05-14 10:59:35,740 django.utils.autoreload /Users/boris/Documents/python programs/laser_slicer/core/views.py changed, reloading.
+INFO 2025-05-14 10:59:36,104 django.utils.autoreload Watching for file changes with StatReloader
+INFO 2025-05-14 11:28:09,966 django.utils.autoreload /Users/boris/Documents/python programs/laser_slicer/core/views.py changed, reloading.
+INFO 2025-05-14 11:28:10,324 django.utils.autoreload Watching for file changes with StatReloader
+INFO 2025-05-14 11:28:45,960 django.utils.autoreload /Users/boris/Documents/python programs/laser_slicer/core/utils/geocoding.py changed, reloading.
+INFO 2025-05-14 11:28:46,204 django.utils.autoreload Watching for file changes with StatReloader
+INFO 2025-05-14 11:29:05,108 django.utils.autoreload /Users/boris/Documents/python programs/laser_slicer/core/views.py changed, reloading.
+INFO 2025-05-14 11:29:05,349 django.utils.autoreload Watching for file changes with StatReloader
+INFO 2025-05-14 11:30:11,837 django.utils.autoreload /Users/boris/Documents/python programs/laser_slicer/core/views.py changed, reloading.
+INFO 2025-05-14 11:30:12,071 django.utils.autoreload Watching for file changes with StatReloader
+INFO 2025-05-14 11:33:11,099 django.utils.autoreload /Users/boris/Documents/python programs/laser_slicer/config/settings.py changed, reloading.
+INFO 2025-05-14 11:33:11,469 django.utils.autoreload Watching for file changes with StatReloader
+INFO 2025-05-14 11:33:53,273 django.utils.autoreload /Users/boris/Documents/python programs/laser_slicer/core/utils/slicer.py changed, reloading.
+INFO 2025-05-14 11:33:53,508 django.utils.autoreload Watching for file changes with StatReloader
+INFO 2025-05-14 11:38:32,651 django.utils.autoreload /Users/boris/Documents/python programs/laser_slicer/core/utils/slicer.py changed, reloading.
+INFO 2025-05-14 11:38:32,919 django.utils.autoreload Watching for file changes with StatReloader
+INFO 2025-05-14 11:39:16,655 django.utils.autoreload /Users/boris/Documents/python programs/laser_slicer/core/views.py changed, reloading.
+INFO 2025-05-14 11:39:16,897 django.utils.autoreload Watching for file changes with StatReloader
+INFO 2025-05-14 11:39:37,841 core.utils.geocoding Geocoded Fiez, Switzerland to (46.8280744, 6.6240029)
+INFO 2025-05-14 11:39:37,845 django.server "POST /api/geocode/ HTTP/1.1" 200 34
+INFO 2025-05-14 11:39:40,630 core.views Slicing bounds (46.80452464790989, 6.525707244873048) to (46.85150428371816, 6.722431182861329) with 10.0m per layer, 5 layers, simplify=0.5
+ERROR 2025-05-14 11:39:40,933 django.request Internal Server Error: /api/slice/
+ERROR 2025-05-14 11:39:40,934 django.server "POST /api/slice/ HTTP/1.1" 500 81
+INFO 2025-05-14 11:40:43,674 django.utils.autoreload Watching for file changes with StatReloader
+INFO 2025-05-14 11:40:49,273 core.utils.geocoding Geocoded Fiez, Switzerland to (46.8280744, 6.6240029)
+INFO 2025-05-14 11:40:49,274 django.server "POST /api/geocode/ HTTP/1.1" 200 34
+INFO 2025-05-14 11:40:51,307 core.views Slicing bounds (46.80452464790989, 6.525707244873048) to (46.85150428371816, 6.722431182861329) with 10.0m per layer, 5 layers, simplify=0.5
+ERROR 2025-05-14 11:40:51,590 django.request Internal Server Error: /api/slice/
+ERROR 2025-05-14 11:40:51,590 django.server "POST /api/slice/ HTTP/1.1" 500 81
+INFO 2025-05-14 11:41:36,755 django.utils.autoreload /Users/boris/Documents/python programs/laser_slicer/core/views.py changed, reloading.
+INFO 2025-05-14 11:41:37,137 django.utils.autoreload Watching for file changes with StatReloader
+INFO 2025-05-14 11:41:42,483 core.views Slicing bounds (46.80452464790989, 6.525707244873048) to (46.85150428371816, 6.722431182861329) with 10.0m per layer, 5 layers, simplify=0.5
+ERROR 2025-05-14 11:41:42,757 django.request Internal Server Error: /api/slice/
+ERROR 2025-05-14 11:41:42,758 django.server "POST /api/slice/ HTTP/1.1" 500 81
+INFO 2025-05-14 11:43:12,586 django.utils.autoreload /Users/boris/Documents/python programs/laser_slicer/core/views.py changed, reloading.
+INFO 2025-05-14 11:43:12,862 django.utils.autoreload Watching for file changes with StatReloader
+INFO 2025-05-14 11:43:48,320 django.utils.autoreload /Users/boris/Documents/python programs/laser_slicer/core/views.py changed, reloading.
+INFO 2025-05-14 11:43:48,692 django.utils.autoreload Watching for file changes with StatReloader
+INFO 2025-05-14 11:43:53,873 core.views Slicing bounds (46.80452464790989, 6.525707244873048) to (46.85150428371816, 6.722431182861329) with 10.0m per layer, 5 layers, simplify=0.5
+ERROR 2025-05-14 11:43:54,143 django.request Internal Server Error: /api/slice/
+ERROR 2025-05-14 11:43:54,144 django.server "POST /api/slice/ HTTP/1.1" 500 81
+INFO 2025-05-14 11:45:38,773 django.utils.autoreload /Users/boris/Documents/python programs/laser_slicer/core/utils/slicer.py changed, reloading.
+INFO 2025-05-14 11:45:39,051 django.utils.autoreload Watching for file changes with StatReloader
+INFO 2025-05-14 11:45:59,079 django.utils.autoreload /Users/boris/Documents/python programs/laser_slicer/core/utils/slicer.py changed, reloading.
+INFO 2025-05-14 11:45:59,373 django.utils.autoreload Watching for file changes with StatReloader
+INFO 2025-05-14 11:46:44,238 django.utils.autoreload /Users/boris/Documents/python programs/laser_slicer/core/utils/slicer.py changed, reloading.
+INFO 2025-05-14 11:46:44,485 django.utils.autoreload Watching for file changes with StatReloader
+INFO 2025-05-14 11:47:37,456 django.utils.autoreload /Users/boris/Documents/python programs/laser_slicer/core/utils/slicer.py changed, reloading.
+INFO 2025-05-14 11:47:37,706 django.utils.autoreload Watching for file changes with StatReloader
+INFO 2025-05-14 11:48:01,833 django.utils.autoreload /Users/boris/Documents/python programs/laser_slicer/core/utils/slicer.py changed, reloading.
+INFO 2025-05-14 11:48:02,056 django.utils.autoreload Watching for file changes with StatReloader
+INFO 2025-05-14 11:48:13,994 core.views Slicing bounds (46.80452464790989, 6.525707244873048) to (46.85150428371816, 6.722431182861329) with 10.0m per layer, 5 layers, simplify=0.5
+ERROR 2025-05-14 11:48:14,274 django.request Internal Server Error: /api/slice/
+ERROR 2025-05-14 11:48:14,274 django.server "POST /api/slice/ HTTP/1.1" 500 81
+INFO 2025-05-14 11:49:17,018 django.utils.autoreload /Users/boris/Documents/python programs/laser_slicer/core/utils/slicer.py changed, reloading.
+INFO 2025-05-14 11:49:17,278 django.utils.autoreload Watching for file changes with StatReloader
+INFO 2025-05-14 11:49:24,270 core.views Slicing bounds (46.80452464790989, 6.525707244873048) to (46.85150428371816, 6.722431182861329) with 10.0m per layer, 5 layers, simplify=0.5
+ERROR 2025-05-14 11:49:24,543 django.request Internal Server Error: /api/slice/
+ERROR 2025-05-14 11:49:24,543 django.server "POST /api/slice/ HTTP/1.1" 500 81
+INFO 2025-05-14 11:51:45,526 django.utils.autoreload /Users/boris/Documents/python programs/laser_slicer/core/utils/slicer.py changed, reloading.
+INFO 2025-05-14 11:51:45,802 django.utils.autoreload Watching for file changes with StatReloader
+INFO 2025-05-14 11:52:27,638 django.utils.autoreload /Users/boris/Documents/python programs/laser_slicer/config/settings.py changed, reloading.
+INFO 2025-05-14 11:52:28,008 django.utils.autoreload Watching for file changes with StatReloader
+INFO 2025-05-14 11:52:38,748 core.views Slicing bounds (46.80452464790989, 6.525707244873048) to (46.85150428371816, 6.722431182861329) with 10.0m per layer, 5 layers, simplify=0.5
+ERROR 2025-05-14 11:52:39,022 django.request Internal Server Error: /api/slice/
+ERROR 2025-05-14 11:52:39,022 django.server "POST /api/slice/ HTTP/1.1" 500 81
+INFO 2025-05-14 11:53:01,664 django.utils.autoreload /Users/boris/Documents/python programs/laser_slicer/config/settings.py changed, reloading.
+INFO 2025-05-14 11:53:02,016 django.utils.autoreload Watching for file changes with StatReloader
+INFO 2025-05-14 11:55:14,037 core.views Slicing bounds (46.80452464790989, 6.525707244873048) to (46.85150428371816, 6.722431182861329) with 10.0m per layer, 5 layers, simplify=0.5
+ERROR 2025-05-14 11:55:14,306 django.request Internal Server Error: /api/slice/
+ERROR 2025-05-14 11:55:14,307 django.server "POST /api/slice/ HTTP/1.1" 500 81
+INFO 2025-05-14 11:57:23,872 django.utils.autoreload Watching for file changes with StatReloader
+INFO 2025-05-14 11:57:28,063 core.views Slicing bounds (46.80452464790989, 6.525707244873048) to (46.85150428371816, 6.722431182861329) with 10.0m per layer, 5 layers, simplify=0.5
+ERROR 2025-05-14 11:57:28,329 django.request Internal Server Error: /api/slice/
+ERROR 2025-05-14 11:57:28,329 django.server "POST /api/slice/ HTTP/1.1" 500 81
+INFO 2025-05-14 11:58:14,949 django.utils.autoreload /Users/boris/Documents/python programs/laser_slicer/core/views.py changed, reloading.
+INFO 2025-05-14 11:58:15,289 django.utils.autoreload Watching for file changes with StatReloader
+INFO 2025-05-14 11:58:38,045 django.utils.autoreload /Users/boris/Documents/python programs/laser_slicer/core/views.py changed, reloading.
+INFO 2025-05-14 11:58:38,228 django.utils.autoreload Watching for file changes with StatReloader
+INFO 2025-05-14 11:58:59,297 django.utils.autoreload /Users/boris/Documents/python programs/laser_slicer/core/views.py changed, reloading.
+INFO 2025-05-14 11:58:59,538 django.utils.autoreload Watching for file changes with StatReloader
+INFO 2025-05-14 11:59:03,650 core.views Slicing bounds (46.80452464790989, 6.525707244873048) to (46.85150428371816, 6.722431182861329) with 10.0m per layer, 5 layers, simplify=0.5
+ERROR 2025-05-14 11:59:03,959 core.views Contour generation failed
+Traceback (most recent call last):
+  File "/Users/boris/Documents/python programs/laser_slicer/core/views.py", line 74, in slice_contours
+    contours = generate_contours(
+               ^^^^^^^^^^^^^^^^^^
+TypeError: generate_contours() got an unexpected keyword argument 'preview_path'
+ERROR 2025-05-14 11:59:03,960 django.request Internal Server Error: /api/slice/
+ERROR 2025-05-14 11:59:03,960 django.server "POST /api/slice/ HTTP/1.1" 500 81
+INFO 2025-05-14 11:59:34,093 django.utils.autoreload /Users/boris/Documents/python programs/laser_slicer/core/views.py changed, reloading.
+INFO 2025-05-14 11:59:34,439 django.utils.autoreload Watching for file changes with StatReloader
+INFO 2025-05-14 11:59:38,332 core.views Slicing bounds (46.80452464790989, 6.525707244873048) to (46.85150428371816, 6.722431182861329) with 10.0m per layer, 5 layers, simplify=0.5
+ERROR 2025-05-14 11:59:38,802 core.views Contour generation failed
+Traceback (most recent call last):
+  File "/Users/boris/Documents/python programs/laser_slicer/core/views.py", line 74, in slice_contours
+    contours = generate_contours(
+               ^^^^^^^^^^^^^^^^^^
+  File "/Users/boris/Documents/python programs/laser_slicer/core/utils/slicer.py", line 107, in generate_contours
+    cs = ax.contour(
+         ^^^^^^^^^^^
+  File "/Users/boris/Documents/python programs/laser_slicer/.venv/lib/python3.11/site-packages/matplotlib/__init__.py", line 1521, in inner
+    return func(
+           ^^^^^
+  File "/Users/boris/Documents/python programs/laser_slicer/.venv/lib/python3.11/site-packages/matplotlib/axes/_axes.py", line 6776, in contour
+    contours = mcontour.QuadContourSet(self, *args, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/boris/Documents/python programs/laser_slicer/.venv/lib/python3.11/site-packages/matplotlib/contour.py", line 701, in __init__
+    kwargs = self._process_args(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/boris/Documents/python programs/laser_slicer/.venv/lib/python3.11/site-packages/matplotlib/contour.py", line 1319, in _process_args
+    x, y, z = self._contour_args(args, kwargs)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/boris/Documents/python programs/laser_slicer/.venv/lib/python3.11/site-packages/matplotlib/contour.py", line 1359, in _contour_args
+    x, y, z = self._check_xyz(x, y, z_orig, kwargs)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/boris/Documents/python programs/laser_slicer/.venv/lib/python3.11/site-packages/matplotlib/contour.py", line 1398, in _check_xyz
+    raise TypeError(f"Length of x ({nx}) must match number of "
+TypeError: Length of x (119652) must match number of columns in z (708)
+ERROR 2025-05-14 11:59:38,807 django.request Internal Server Error: /api/slice/
+ERROR 2025-05-14 11:59:38,807 django.server "POST /api/slice/ HTTP/1.1" 500 72
+INFO 2025-05-14 12:00:17,284 django.utils.autoreload /Users/boris/Documents/python programs/laser_slicer/core/views.py changed, reloading.
+INFO 2025-05-14 12:00:17,571 django.utils.autoreload Watching for file changes with StatReloader
+INFO 2025-05-14 12:12:25,266 core.views Slicing bounds (46.80452464790989, 6.525707244873048) to (46.85150428371816, 6.722431182861329) with 10.0m per layer, 5 layers, simplify=0.5
+ERROR 2025-05-14 12:12:25,557 django.request Internal Server Error: /api/slice/
+ERROR 2025-05-14 12:12:25,558 django.server "POST /api/slice/ HTTP/1.1" 500 72
+INFO 2025-05-14 12:12:42,618 django.utils.autoreload /Users/boris/Documents/python programs/laser_slicer/core/views.py changed, reloading.
+INFO 2025-05-14 12:12:42,887 django.utils.autoreload Watching for file changes with StatReloader
+INFO 2025-05-14 12:12:45,619 core.views Slicing bounds (46.80452464790989, 6.525707244873048) to (46.85150428371816, 6.722431182861329) with 10.0m per layer, 5 layers, simplify=0.5
+ERROR 2025-05-14 12:12:45,911 core.views Contour generation failed
+Traceback (most recent call last):
+  File "/Users/boris/Documents/python programs/laser_slicer/core/views.py", line 74, in slice_contours
+    contours = generate_contours(
+               ^^^^^^^^^^^^^^^^^^
+  File "/Users/boris/Documents/python programs/laser_slicer/core/utils/slicer.py", line 107, in generate_contours
+    cs = ax.contour(
+         ^^^^^^^^^^^
+  File "/Users/boris/Documents/python programs/laser_slicer/.venv/lib/python3.11/site-packages/matplotlib/__init__.py", line 1521, in inner
+    return func(
+           ^^^^^
+  File "/Users/boris/Documents/python programs/laser_slicer/.venv/lib/python3.11/site-packages/matplotlib/axes/_axes.py", line 6776, in contour
+    contours = mcontour.QuadContourSet(self, *args, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/boris/Documents/python programs/laser_slicer/.venv/lib/python3.11/site-packages/matplotlib/contour.py", line 701, in __init__
+    kwargs = self._process_args(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/boris/Documents/python programs/laser_slicer/.venv/lib/python3.11/site-packages/matplotlib/contour.py", line 1319, in _process_args
+    x, y, z = self._contour_args(args, kwargs)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/boris/Documents/python programs/laser_slicer/.venv/lib/python3.11/site-packages/matplotlib/contour.py", line 1359, in _contour_args
+    x, y, z = self._check_xyz(x, y, z_orig, kwargs)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/boris/Documents/python programs/laser_slicer/.venv/lib/python3.11/site-packages/matplotlib/contour.py", line 1398, in _check_xyz
+    raise TypeError(f"Length of x ({nx}) must match number of "
+TypeError: Length of x (119652) must match number of columns in z (708)
+ERROR 2025-05-14 12:12:45,915 django.request Internal Server Error: /api/slice/
+ERROR 2025-05-14 12:12:45,915 django.server "POST /api/slice/ HTTP/1.1" 500 72
+INFO 2025-05-14 12:14:18,328 django.utils.autoreload /Users/boris/Documents/python programs/laser_slicer/core/utils/slicer.py changed, reloading.
+INFO 2025-05-14 12:14:18,591 django.utils.autoreload Watching for file changes with StatReloader
+INFO 2025-05-14 12:14:24,792 core.views Slicing bounds (46.80452464790989, 6.525707244873048) to (46.85150428371816, 6.722431182861329) with 10.0m per layer, 5 layers, simplify=0.5
+ERROR 2025-05-14 12:14:25,084 core.views Contour generation failed
+Traceback (most recent call last):
+  File "/Users/boris/Documents/python programs/laser_slicer/core/views.py", line 74, in slice_contours
+    contours = generate_contours(
+               ^^^^^^^^^^^^^^^^^^
+  File "/Users/boris/Documents/python programs/laser_slicer/core/utils/slicer.py", line 107, in generate_contours
+    cs = ax.contour(
+         ^^^^^^^^^^^
+  File "/Users/boris/Documents/python programs/laser_slicer/.venv/lib/python3.11/site-packages/matplotlib/__init__.py", line 1521, in inner
+    return func(
+           ^^^^^
+  File "/Users/boris/Documents/python programs/laser_slicer/.venv/lib/python3.11/site-packages/matplotlib/axes/_axes.py", line 6776, in contour
+    contours = mcontour.QuadContourSet(self, *args, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/boris/Documents/python programs/laser_slicer/.venv/lib/python3.11/site-packages/matplotlib/contour.py", line 701, in __init__
+    kwargs = self._process_args(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/boris/Documents/python programs/laser_slicer/.venv/lib/python3.11/site-packages/matplotlib/contour.py", line 1319, in _process_args
+    x, y, z = self._contour_args(args, kwargs)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/boris/Documents/python programs/laser_slicer/.venv/lib/python3.11/site-packages/matplotlib/contour.py", line 1359, in _contour_args
+    x, y, z = self._check_xyz(x, y, z_orig, kwargs)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/boris/Documents/python programs/laser_slicer/.venv/lib/python3.11/site-packages/matplotlib/contour.py", line 1398, in _check_xyz
+    raise TypeError(f"Length of x ({nx}) must match number of "
+TypeError: Length of x (119652) must match number of columns in z (708)
+ERROR 2025-05-14 12:14:25,090 django.request Internal Server Error: /api/slice/
+ERROR 2025-05-14 12:14:25,090 django.server "POST /api/slice/ HTTP/1.1" 500 72
+INFO 2025-05-14 12:15:22,165 core.views Slicing bounds (46.80452464790989, 6.525707244873048) to (46.85150428371816, 6.722431182861329) with 10.0m per layer, 5 layers, simplify=0.5
+ERROR 2025-05-14 12:15:22,451 core.views Contour generation failed
+Traceback (most recent call last):
+  File "/Users/boris/Documents/python programs/laser_slicer/core/views.py", line 74, in slice_contours
+    contours = generate_contours(
+               ^^^^^^^^^^^^^^^^^^
+  File "/Users/boris/Documents/python programs/laser_slicer/core/utils/slicer.py", line 107, in generate_contours
+    cs = ax.contour(
+         ^^^^^^^^^^^
+  File "/Users/boris/Documents/python programs/laser_slicer/.venv/lib/python3.11/site-packages/matplotlib/__init__.py", line 1521, in inner
+    return func(
+           ^^^^^
+  File "/Users/boris/Documents/python programs/laser_slicer/.venv/lib/python3.11/site-packages/matplotlib/axes/_axes.py", line 6776, in contour
+    contours = mcontour.QuadContourSet(self, *args, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/boris/Documents/python programs/laser_slicer/.venv/lib/python3.11/site-packages/matplotlib/contour.py", line 701, in __init__
+    kwargs = self._process_args(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/boris/Documents/python programs/laser_slicer/.venv/lib/python3.11/site-packages/matplotlib/contour.py", line 1319, in _process_args
+    x, y, z = self._contour_args(args, kwargs)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/boris/Documents/python programs/laser_slicer/.venv/lib/python3.11/site-packages/matplotlib/contour.py", line 1359, in _contour_args
+    x, y, z = self._check_xyz(x, y, z_orig, kwargs)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/boris/Documents/python programs/laser_slicer/.venv/lib/python3.11/site-packages/matplotlib/contour.py", line 1398, in _check_xyz
+    raise TypeError(f"Length of x ({nx}) must match number of "
+TypeError: Length of x (119652) must match number of columns in z (708)
+ERROR 2025-05-14 12:15:22,453 django.request Internal Server Error: /api/slice/
+ERROR 2025-05-14 12:15:22,453 django.server "POST /api/slice/ HTTP/1.1" 500 72
+INFO 2025-05-14 12:17:36,550 django.utils.autoreload /Users/boris/Documents/python programs/laser_slicer/core/utils/slicer.py changed, reloading.
+INFO 2025-05-14 12:17:36,906 django.utils.autoreload Watching for file changes with StatReloader
+INFO 2025-05-14 12:17:40,862 core.views Slicing bounds (46.80452464790989, 6.525707244873048) to (46.85150428371816, 6.722431182861329) with 10.0m per layer, 5 layers, simplify=0.5
+ERROR 2025-05-14 12:17:41,477 core.views Contour generation failed
+Traceback (most recent call last):
+  File "/Users/boris/Documents/python programs/laser_slicer/core/views.py", line 74, in slice_contours
+    contours = generate_contours(
+               ^^^^^^^^^^^^^^^^^^
+  File "/Users/boris/Documents/python programs/laser_slicer/core/utils/slicer.py", line 124, in generate_contours
+    for collection in cs.collections:
+                      ^^^^^^^^^^^^^^
+AttributeError: 'QuadContourSet' object has no attribute 'collections'
+ERROR 2025-05-14 12:17:41,479 django.request Internal Server Error: /api/slice/
+ERROR 2025-05-14 12:17:41,479 django.server "POST /api/slice/ HTTP/1.1" 500 66
+INFO 2025-05-14 12:18:44,599 django.utils.autoreload /Users/boris/Documents/python programs/laser_slicer/core/utils/slicer.py changed, reloading.
+INFO 2025-05-14 12:18:44,862 django.utils.autoreload Watching for file changes with StatReloader
+INFO 2025-05-14 12:18:50,527 core.views Slicing bounds (46.80452464790989, 6.525707244873048) to (46.85150428371816, 6.722431182861329) with 10.0m per layer, 5 layers, simplify=0.5
+INFO 2025-05-14 12:18:51,037 core.views Generated 353 contour polygons.
+INFO 2025-05-14 12:18:51,038 django.server "POST /api/slice/ HTTP/1.1" 200 57
+INFO 2025-05-14 12:21:37,147 core.views Slicing bounds (46.80452464790989, 6.525707244873048) to (46.85150428371816, 6.722431182861329) with 100.0m per layer, 5 layers, simplify=0.5
+INFO 2025-05-14 12:21:37,469 core.views Generated 32 contour polygons.
+INFO 2025-05-14 12:21:37,470 django.server "POST /api/slice/ HTTP/1.1" 200 57
+INFO 2025-05-14 12:22:16,413 core.views Slicing bounds (46.80452464790989, 6.525707244873048) to (46.85150428371816, 6.722431182861329) with 200.0m per layer, 5 layers, simplify=0.5
+INFO 2025-05-14 12:22:16,719 core.views Generated 18 contour polygons.
+INFO 2025-05-14 12:22:16,720 django.server "POST /api/slice/ HTTP/1.1" 200 57
+INFO 2025-05-14 12:24:35,758 core.views Slicing bounds (46.80452464790989, 6.525707244873048) to (46.85150428371816, 6.722431182861329) with 200.0m per layer, 5 layers, simplify=0.8
+INFO 2025-05-14 12:24:36,102 core.views Generated 18 contour polygons.
+INFO 2025-05-14 12:24:36,103 django.server "POST /api/slice/ HTTP/1.1" 200 57
+INFO 2025-05-14 12:31:04,587 django.utils.autoreload /Users/boris/Documents/python programs/laser_slicer/core/utils/slicer.py changed, reloading.
+INFO 2025-05-14 12:31:04,858 django.utils.autoreload Watching for file changes with StatReloader
+INFO 2025-05-14 12:33:22,594 django.utils.autoreload /Users/boris/Documents/python programs/laser_slicer/core/views.py changed, reloading.
+INFO 2025-05-14 12:33:22,873 django.utils.autoreload Watching for file changes with StatReloader
+INFO 2025-05-14 12:35:08,350 core.utils.geocoding Geocoded Fiez, Switzerland to (46.8280744, 6.6240029)
+INFO 2025-05-14 12:35:08,354 django.server "POST /api/geocode/ HTTP/1.1" 200 34
+INFO 2025-05-14 12:35:14,572 core.views Slicing bounds (46.80452464790989, 6.525707244873048) to (46.85150428371816, 6.722431182861329) with 100.0m per layer, 5 layers, simplify=0.5
+INFO 2025-05-14 12:35:15,013 core.views Generated 11 contour polygons.
+INFO 2025-05-14 12:35:15,014 django.server "POST /api/slice/ HTTP/1.1" 200 5550
+INFO 2025-05-14 13:47:50,900 core.views Slicing bounds (46.80452464790989, 6.525707244873048) to (46.85150428371816, 6.722431182861329) with 100.0m per layer, 5 layers, simplify=0.5
+INFO 2025-05-14 13:47:51,353 core.views Generated 11 contour polygons.
+INFO 2025-05-14 13:47:51,355 django.server "POST /api/slice/ HTTP/1.1" 200 5550
+INFO 2025-05-14 13:48:49,382 core.views Slicing bounds (46.80452464790989, 6.525707244873048) to (46.85150428371816, 6.722431182861329) with 100.0m per layer, 5 layers, simplify=0.5
+INFO 2025-05-14 13:48:49,736 core.views Generated 11 contour polygons.
+INFO 2025-05-14 13:48:49,815 django.server "POST /api/slice/ HTTP/1.1" 200 25310
+INFO 2025-05-14 13:48:49,859 django.server "GET /static/rest_framework/js/ajax-form.js HTTP/1.1" 200 3796
+INFO 2025-05-14 13:48:49,859 django.server "GET /static/rest_framework/css/prettify.css HTTP/1.1" 200 817
+INFO 2025-05-14 13:48:49,860 django.server "GET /static/rest_framework/css/default.css HTTP/1.1" 200 1152
+INFO 2025-05-14 13:48:49,861 django.server "GET /static/rest_framework/css/bootstrap-tweaks.css HTTP/1.1" 200 3426
+INFO 2025-05-14 13:48:49,861 django.server "GET /static/rest_framework/js/csrf.js HTTP/1.1" 200 1793
+INFO 2025-05-14 13:48:49,863 django.server "GET /static/rest_framework/js/bootstrap.min.js HTTP/1.1" 200 39680
+INFO 2025-05-14 13:48:49,863 django.server "GET /static/rest_framework/js/load-ajax-form.js HTTP/1.1" 200 59
+INFO 2025-05-14 13:48:49,863 django.server "GET /static/rest_framework/js/default.js HTTP/1.1" 200 1268
+INFO 2025-05-14 13:48:49,864 django.server "GET /static/rest_framework/js/prettify-min.js HTTP/1.1" 200 13632
+INFO 2025-05-14 13:48:49,864 django.server "GET /static/rest_framework/js/jquery-3.7.1.min.js HTTP/1.1" 200 87533
+INFO 2025-05-14 13:48:49,864 django.server "GET /static/rest_framework/css/bootstrap.min.css HTTP/1.1" 200 121457
+INFO 2025-05-14 13:48:49,873 django.server "GET /static/rest_framework/img/grid.png HTTP/1.1" 200 1458
+WARNING 2025-05-14 13:48:49,897 django.request Not Found: /favicon.ico
+WARNING 2025-05-14 13:48:49,898 django.server "GET /favicon.ico HTTP/1.1" 404 3191
+INFO 2025-05-14 13:49:21,433 core.views Slicing bounds (46.80452464790989, 6.525707244873048) to (46.85150428371816, 6.722431182861329) with 100.0m per layer, 5 layers, simplify=0.5
+INFO 2025-05-14 13:49:21,807 core.views Generated 11 contour polygons.
+INFO 2025-05-14 13:49:21,814 django.server "POST /api/slice/ HTTP/1.1" 200 25310
+INFO 2025-05-14 13:49:21,870 django.server "GET /static/rest_framework/img/grid.png HTTP/1.1" 200 1458
+INFO 2025-05-14 13:49:21,870 django.server - Broken pipe from ('127.0.0.1', 53762)
+INFO 2025-05-14 13:51:12,445 django.utils.autoreload /Users/boris/Documents/python programs/laser_slicer/core/views.py changed, reloading.
+INFO 2025-05-14 13:51:12,810 django.utils.autoreload Watching for file changes with StatReloader
+INFO 2025-05-14 13:54:30,450 core.utils.geocoding Geocoded Fiez, Switzerland to (46.8280744, 6.6240029)
+INFO 2025-05-14 13:54:30,455 django.server "POST /api/geocode/ HTTP/1.1" 200 34
+INFO 2025-05-14 13:54:34,943 core.views Slicing bounds (46.7876019270267, 6.422195434570313) to (46.88154970277442, 6.815643310546876) with 10.0m per layer, 5 layers, simplify=0.5
+INFO 2025-05-14 13:54:36,014 core.views Generated 116 contour polygons.
+INFO 2025-05-14 13:54:36,019 django.server "POST /api/slice/ HTTP/1.1" 200 194042
+INFO 2025-05-14 13:55:07,833 core.views Slicing bounds (46.7876019270267, 6.422195434570313) to (46.88154970277442, 6.815643310546876) with 10.0m per layer, 5 layers, simplify=0.5
+INFO 2025-05-14 13:55:08,878 core.views Generated 116 contour polygons.
+INFO 2025-05-14 13:55:08,981 django.server "POST /api/slice/ HTTP/1.1" 200 702179
+INFO 2025-05-14 13:56:49,613 core.utils.geocoding Geocoded Fiez, Switzerland to (46.8280744, 6.6240029)
+INFO 2025-05-14 13:56:49,617 django.server "POST /api/geocode/ HTTP/1.1" 200 34
+INFO 2025-05-14 13:56:51,029 core.views Slicing bounds (46.781019431658954, 6.427345275878907) to (46.874978704351086, 6.820793151855469) with 10.0m per layer, 5 layers, simplify=0.5
+INFO 2025-05-14 13:56:52,057 core.views Generated 116 contour polygons.
+INFO 2025-05-14 13:56:52,062 django.server "POST /api/slice/ HTTP/1.1" 200 200340
+INFO 2025-05-14 14:00:02,593 core.utils.geocoding Geocoded Fiez, switzerland to (46.8280744, 6.6240029)
+INFO 2025-05-14 14:00:02,596 django.server "POST /api/geocode/ HTTP/1.1" 200 34
+INFO 2025-05-14 14:00:06,050 core.views Slicing bounds (46.80452464790989, 6.525707244873048) to (46.85150428371816, 6.722431182861329) with 100.0m per layer, 5 layers, simplify=0.5
+INFO 2025-05-14 14:00:06,406 core.views Generated 11 contour polygons.
+INFO 2025-05-14 14:00:06,407 django.server "POST /api/slice/ HTTP/1.1" 200 5550
+INFO 2025-05-14 14:01:22,032 core.views Slicing bounds (46.80452464790989, 6.525707244873048) to (46.85150428371816, 6.722431182861329) with 100.0m per layer, 5 layers, simplify=0.5
+INFO 2025-05-14 14:01:22,367 core.views Generated 11 contour polygons.
+INFO 2025-05-14 14:01:22,373 django.server "POST /api/slice/ HTTP/1.1" 200 25310
+INFO 2025-05-14 14:04:30,924 core.views Slicing bounds (46.80452464790989, 6.525707244873048) to (46.85150428371816, 6.722431182861329) with 100.0m per layer, 5 layers, simplify=0.5
+INFO 2025-05-14 14:04:31,238 core.views Generated 11 contour polygons.
+INFO 2025-05-14 14:04:31,240 django.server "POST /api/slice/ HTTP/1.1" 200 5550
+INFO 2025-05-14 14:04:44,943 core.utils.geocoding Geocoded Fiez, suisse to (46.8280744, 6.6240029)
+INFO 2025-05-14 14:04:44,946 django.server "POST /api/geocode/ HTTP/1.1" 200 34
+INFO 2025-05-14 14:04:46,680 core.views Slicing bounds (46.80452464790989, 6.525707244873048) to (46.85150428371816, 6.722431182861329) with 10.0m per layer, 5 layers, simplify=0.5
+INFO 2025-05-14 14:04:47,180 core.views Generated 116 contour polygons.
+INFO 2025-05-14 14:04:47,182 django.server "POST /api/slice/ HTTP/1.1" 200 61018
+INFO 2025-05-14 14:04:51,769 core.views Slicing bounds (46.80452464790989, 6.525707244873048) to (46.85150428371816, 6.722431182861329) with 100.0m per layer, 5 layers, simplify=0.5
+INFO 2025-05-14 14:04:52,073 core.views Generated 11 contour polygons.
+INFO 2025-05-14 14:04:52,074 django.server "POST /api/slice/ HTTP/1.1" 200 5550
+INFO 2025-05-14 14:08:17,043 django.utils.autoreload /Users/boris/Documents/python programs/laser_slicer/core/views.py changed, reloading.
+INFO 2025-05-14 14:08:17,494 django.utils.autoreload Watching for file changes with StatReloader
+INFO 2025-05-14 14:08:33,504 django.utils.autoreload /Users/boris/Documents/python programs/laser_slicer/core/utils/slicer.py changed, reloading.
+INFO 2025-05-14 14:08:33,776 django.utils.autoreload Watching for file changes with StatReloader
+INFO 2025-05-14 14:08:53,778 django.utils.autoreload /Users/boris/Documents/python programs/laser_slicer/core/utils/slicer.py changed, reloading.
+INFO 2025-05-14 14:08:54,112 django.utils.autoreload Watching for file changes with StatReloader
+INFO 2025-05-14 14:09:18,287 django.utils.autoreload /Users/boris/Documents/python programs/laser_slicer/core/utils/slicer.py changed, reloading.
+INFO 2025-05-14 14:09:18,544 django.utils.autoreload Watching for file changes with StatReloader
+INFO 2025-05-14 14:09:31,627 core.views Slicing bounds (46.80452464790989, 6.525707244873048) to (46.85150428371816, 6.722431182861329) with 100.0m per layer, 5 layers, simplify=0.5
+INFO 2025-05-14 14:09:31,976 core.views Generated 11 contour polygons.
+INFO 2025-05-14 14:09:31,977 django.server "POST /api/slice/ HTTP/1.1" 200 5812
+INFO 2025-05-14 14:12:46,621 core.views Slicing bounds (46.80452464790989, 6.525707244873048) to (46.85150428371816, 6.722431182861329) with 100.0m per layer, 5 layers, simplify=0.5
+INFO 2025-05-14 14:12:46,958 core.views Generated 11 contour polygons.
+INFO 2025-05-14 14:12:46,959 django.server "POST /api/slice/ HTTP/1.1" 200 5812
+INFO 2025-05-14 14:13:10,617 core.utils.geocoding Geocoded Fiez, suisse to (46.8280744, 6.6240029)
+INFO 2025-05-14 14:13:10,621 django.server "POST /api/geocode/ HTTP/1.1" 200 34
+INFO 2025-05-14 14:13:16,176 core.views Slicing bounds (46.8222055541036, 6.599392890930176) to (46.83395045018213, 6.648573875427246) with 200.0m per layer, 5 layers, simplify=0.5
+INFO 2025-05-14 14:13:16,475 core.views Generated 1 contour polygons.
+INFO 2025-05-14 14:13:16,476 django.server "POST /api/slice/ HTTP/1.1" 200 264
+INFO 2025-05-14 14:13:24,545 core.views Slicing bounds (46.8222055541036, 6.599392890930176) to (46.83395045018213, 6.648573875427246) with 100.0m per layer, 5 layers, simplify=0.5
+INFO 2025-05-14 14:13:24,831 core.views Generated 2 contour polygons.
+INFO 2025-05-14 14:13:24,832 django.server "POST /api/slice/ HTTP/1.1" 200 632
+INFO 2025-05-14 14:13:35,137 core.views Slicing bounds (46.8222055541036, 6.599392890930176) to (46.83395045018213, 6.648573875427246) with 50.0m per layer, 5 layers, simplify=0.5
+INFO 2025-05-14 14:13:35,439 core.views Generated 3 contour polygons.
+INFO 2025-05-14 14:13:35,440 django.server "POST /api/slice/ HTTP/1.1" 200 1042
+INFO 2025-05-14 14:13:57,985 core.views Slicing bounds (46.8222055541036, 6.599392890930176) to (46.83395045018213, 6.648573875427246) with 10.0m per layer, 5 layers, simplify=0.5
+INFO 2025-05-14 14:13:58,306 core.views Generated 15 contour polygons.
+INFO 2025-05-14 14:13:58,307 django.server "POST /api/slice/ HTTP/1.1" 200 6660
+INFO 2025-05-14 14:16:03,000 core.utils.geocoding Geocoded Fiez, Suisse to (46.8280744, 6.6240029)
+INFO 2025-05-14 14:16:03,004 django.server "POST /api/geocode/ HTTP/1.1" 200 34
+INFO 2025-05-14 14:16:06,686 core.views Slicing bounds (46.73280164284628, 6.186676025390626) to (46.92072430291719, 6.973571777343751) with 100.0m per layer, 5 layers, simplify=0.5
+INFO 2025-05-14 14:16:07,323 core.views Generated 11 contour polygons.
+INFO 2025-05-14 14:16:07,326 django.server "POST /api/slice/ HTTP/1.1" 200 67595
+INFO 2025-05-14 14:19:25,240 core.views Slicing bounds (46.73280164284628, 6.186676025390626) to (46.92072430291719, 6.973571777343751) with 100.0m per layer, 5 layers, simplify=0.5
+INFO 2025-05-14 14:19:25,891 core.views Generated 11 contour polygons.
+INFO 2025-05-14 14:19:25,893 django.server "POST /api/slice/ HTTP/1.1" 200 67595
+INFO 2025-05-14 14:19:40,574 core.utils.geocoding Geocoded Fiez, suisse to (46.8280744, 6.6240029)
+INFO 2025-05-14 14:19:40,577 django.server "POST /api/geocode/ HTTP/1.1" 200 34
+INFO 2025-05-14 14:19:47,662 core.views Slicing bounds (46.75656311629084, 6.464424463178907) to (46.850565093391374, 6.8578723391554695) with 100.0m per layer, 5 layers, simplify=0.5
+INFO 2025-05-14 14:19:48,060 core.views Generated 11 contour polygons.
+INFO 2025-05-14 14:19:48,061 django.server "POST /api/slice/ HTTP/1.1" 200 17492
+ERROR 2025-05-14 14:25:30,665 django.request Internal Server Error: /api/geocode/
+ERROR 2025-05-14 14:25:30,666 django.server "POST /api/geocode/ HTTP/1.1" 500 42
+INFO 2025-05-14 14:25:35,548 core.utils.geocoding Geocoded fiez, suisse to (46.8280744, 6.6240029)
+INFO 2025-05-14 14:25:35,549 django.server "POST /api/geocode/ HTTP/1.1" 200 34
+INFO 2025-05-14 14:25:42,441 core.views Slicing bounds (46.734684121690606, 6.190109252929688) to (46.92260021203586, 6.977005004882813) with 100.0m per layer, 5 layers, simplify=0.5
+INFO 2025-05-14 14:25:43,099 core.views Generated 11 contour polygons.
+INFO 2025-05-14 14:25:43,101 django.server "POST /api/slice/ HTTP/1.1" 200 67791
+INFO 2025-05-14 14:29:08,913 django.utils.autoreload /Users/boris/Documents/python programs/laser_slicer/core/utils/slicer.py changed, reloading.
+INFO 2025-05-14 14:29:09,265 django.utils.autoreload Watching for file changes with StatReloader
+INFO 2025-05-14 14:29:23,176 django.utils.autoreload /Users/boris/Documents/python programs/laser_slicer/core/utils/slicer.py changed, reloading.
+INFO 2025-05-14 14:29:23,489 django.utils.autoreload Watching for file changes with StatReloader
+INFO 2025-05-14 14:30:46,314 django.utils.autoreload /Users/boris/Documents/python programs/laser_slicer/core/views.py changed, reloading.
+INFO 2025-05-14 14:30:46,590 django.utils.autoreload Watching for file changes with StatReloader
+INFO 2025-05-14 14:31:02,583 core.views Slicing bounds (46.734684121690606, 6.190109252929688) to (46.92260021203586, 6.977005004882813) with 100.0m per layer, 5 layers, simplify=0.5
+ERROR 2025-05-14 14:31:03,146 core.views Contour generation failed
+Traceback (most recent call last):
+  File "/Users/boris/Documents/python programs/laser_slicer/core/views.py", line 77, in slice_contours
+    contours = generate_contours(
+               ^^^^^^^^^^^^^^^^^^
+  File "/Users/boris/Documents/python programs/laser_slicer/core/utils/slicer.py", line 146, in generate_contours
+    for x, y in poly.exterior.coords
+                ^^^^^^^^^^^^^
+AttributeError: 'LineString' object has no attribute 'exterior'
+ERROR 2025-05-14 14:31:03,150 django.request Internal Server Error: /api/slice/
+ERROR 2025-05-14 14:31:03,150 django.server "POST /api/slice/ HTTP/1.1" 500 59
+INFO 2025-05-14 14:35:37,231 django.utils.autoreload /Users/boris/Documents/python programs/laser_slicer/core/utils/slicer.py changed, reloading.
+INFO 2025-05-14 14:35:37,628 django.utils.autoreload Watching for file changes with StatReloader
+INFO 2025-05-14 14:35:41,105 core.views Slicing bounds (46.734684121690606, 6.190109252929688) to (46.92260021203586, 6.977005004882813) with 100.0m per layer, 5 layers, simplify=0.5
+ERROR 2025-05-14 14:35:41,707 core.views Contour generation failed
+Traceback (most recent call last):
+  File "/Users/boris/Documents/python programs/laser_slicer/core/views.py", line 77, in slice_contours
+    contours = generate_contours(
+               ^^^^^^^^^^^^^^^^^^
+  File "/Users/boris/Documents/python programs/laser_slicer/core/utils/slicer.py", line 141, in generate_contours
+    poly = poly.intersection(bbox)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/boris/Documents/python programs/laser_slicer/.venv/lib/python3.11/site-packages/shapely/decorators.py", line 102, in wrapper
+    ret_value = func(*args, **kwargs)
+                ^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/boris/Documents/python programs/laser_slicer/.venv/lib/python3.11/site-packages/shapely/geometry/base.py", line 674, in intersection
+    return shapely.intersection(self, other, grid_size=grid_size)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/boris/Documents/python programs/laser_slicer/.venv/lib/python3.11/site-packages/shapely/decorators.py", line 102, in wrapper
+    ret_value = func(*args, **kwargs)
+                ^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/boris/Documents/python programs/laser_slicer/.venv/lib/python3.11/site-packages/shapely/decorators.py", line 87, in wrapped
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/boris/Documents/python programs/laser_slicer/.venv/lib/python3.11/site-packages/shapely/set_operations.py", line 168, in intersection
+    return lib.intersection(a, b, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+shapely.errors.GEOSException: TopologyException: side location conflict at 6.3999955446754324 46.921484772352848. This can occur if the input geometry is invalid.
+ERROR 2025-05-14 14:35:41,711 django.request Internal Server Error: /api/slice/
+ERROR 2025-05-14 14:35:41,711 django.server "POST /api/slice/ HTTP/1.1" 500 144
+INFO 2025-05-14 14:40:14,077 django.utils.autoreload /Users/boris/Documents/python programs/laser_slicer/core/utils/slicer.py changed, reloading.
+INFO 2025-05-14 14:40:14,380 django.utils.autoreload Watching for file changes with StatReloader
+INFO 2025-05-14 14:40:25,323 core.views Slicing bounds (46.734684121690606, 6.190109252929688) to (46.92260021203586, 6.977005004882813) with 100.0m per layer, 5 layers, simplify=0.5
+INFO 2025-05-14 14:40:26,002 core.views Generated 11 contour polygons.
+INFO 2025-05-14 14:40:26,004 django.server "POST /api/slice/ HTTP/1.1" 200 67811
+INFO 2025-05-14 14:41:47,178 core.views Slicing bounds (46.734684121690606, 6.190109252929688) to (46.92260021203586, 6.977005004882813) with 200.0m per layer, 5 layers, simplify=0.7
+INFO 2025-05-14 14:41:47,723 core.views Generated 5 contour polygons.
+INFO 2025-05-14 14:41:47,725 django.server "POST /api/slice/ HTTP/1.1" 200 36067
+INFO 2025-05-14 14:42:38,378 core.views Slicing bounds (46.734684121690606, 6.190109252929688) to (46.92260021203586, 6.977005004882813) with 400.0m per layer, 5 layers, simplify=0.7
+INFO 2025-05-14 14:42:38,829 core.views Generated 2 contour polygons.
+INFO 2025-05-14 14:42:38,831 django.server "POST /api/slice/ HTTP/1.1" 200 16571
+INFO 2025-05-14 14:48:01,782 django.utils.autoreload /Users/boris/Documents/python programs/laser_slicer/core/utils/slicer.py changed, reloading.
+INFO 2025-05-14 14:48:02,203 django.utils.autoreload Watching for file changes with StatReloader
+INFO 2025-05-14 14:48:05,230 core.views Slicing bounds (46.734684121690606, 6.190109252929688) to (46.92260021203586, 6.977005004882813) with 400.0m per layer, 5 layers, simplify=0.7
+INFO 2025-05-14 14:48:05,708 core.views Generated 2 contour polygons.
+INFO 2025-05-14 14:48:05,709 django.server "POST /api/slice/ HTTP/1.1" 200 16694

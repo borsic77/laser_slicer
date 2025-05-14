@@ -10,6 +10,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
+import os
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -27,6 +28,49 @@ DEBUG = True
 
 ALLOWED_HOSTS = []
 
+# Directories for storing elevation files and cache
+SRTM_CACHE_DIR = os.getenv("SRTM_CACHE_DIR", "/tmp/srtm_cache")
+DEBUG_IMAGE_PATH = os.getenv("DEBUG_IMAGE_PATH", "/tmp/contours_preview.png")
+
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,  # Keep Django's default loggers
+    "formatters": {
+        "verbose": {
+            "format": "{levelname} {asctime} {name} {message}",
+            "style": "{",
+        },
+        "simple": {
+            "format": "{levelname} {message}",
+            "style": "{",
+        },
+    },
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "simple",
+        },
+        "file": {
+            "level": "INFO",
+            "class": "logging.FileHandler",
+            "filename": os.path.join(BASE_DIR, "logs/django.log"),
+            "formatter": "verbose",
+        },
+    },
+    "loggers": {
+        "django": {
+            "handlers": ["console", "file"],
+            "level": "INFO",
+            "propagate": True,
+        },
+        "core": {  # Optional: your app-specific logger
+            "handlers": ["console", "file"],
+            "level": "DEBUG",
+            "propagate": False,
+        },
+    },
+}
 
 # Application definition
 
@@ -37,6 +81,10 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "rest_framework",  # Django REST framework for API development
+    "corsheaders",  # CORS headers for cross-origin requests
+    "core",  # Custom app for core functionality
+    "django_extensions",
 ]
 
 MIDDLEWARE = [
@@ -47,14 +95,17 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "corsheaders.middleware.CorsMiddleware",  # CORS middleware
 ]
 
-ROOT_URLCONF = "laser_slicer.urls"
+CORS_ALLOW_ALL_ORIGINS = True  # ! ✅ development only
+
+ROOT_URLCONF = "config.urls"
 
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [],
+        "DIRS": [BASE_DIR / "core" / "templates"],
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [
@@ -66,7 +117,7 @@ TEMPLATES = [
     },
 ]
 
-WSGI_APPLICATION = "laser_slicer.wsgi.application"
+WSGI_APPLICATION = "config.wsgi.application"
 
 
 # Database
