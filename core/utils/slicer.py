@@ -96,9 +96,6 @@ def mosaic_and_crop(
     return clipped[0], cropped_transform
 
 
-from shapely.geometry import box
-
-
 def walk_bbox_between(coords, start_idx, end_idx, direction="cw"):
     """
     Walks the bounding box coordinates from end_idx to start_idx in the specified direction.
@@ -146,54 +143,84 @@ def _prepare_meshgrid(
 
 def _create_contourf_levels(elevation_data: np.ndarray, interval: float) -> np.ndarray:
     """
-    Computes the elevation contour levels to use for matplotlib's contourf.
-    Ensures the highest elevation is included in the list.
+    Computes the elevation contour levels aligned with the interval,
+    starting slightly below the minimum and up to above the maximum.
     """
-    min_elev = np.min(elevation_data)
-    max_elev = np.max(elevation_data)
-    levels = np.arange(min_elev, max_elev, interval)
-    if levels[-1] < max_elev:
-        levels = np.append(levels, max_elev)
+    min_elev = np.floor(np.min(elevation_data) / interval) * interval
+    max_elev = np.ceil(np.max(elevation_data) / interval) * interval
+    levels = np.arange(min_elev, max_elev + interval, interval)
     return levels
 
 
 def _extract_level_polygons(cs) -> List[Tuple[float, List[Polygon]]]:
     """
-    Extracts and flattens valid polygons for each elevation level from a QuadContourSet.
-    Returns a list of tuples: (level, list of Polygon geometries).
-    """
-    from shapely.ops import unary_union
+    Robustly extracts filled‑contour polygons for every level in *cs*.
 
-    level_polys = []
-    for i, segs in enumerate(cs.allsegs):
-        level = cs.levels[i]
-        polys = []
-        for seg in segs:
-            try:
+    We switch from ``cs.allsegs`` (boundaries only) to
+    ``cs.collections[i].get_paths()``, which already encodes the
+    *filled* region between ``levels[i]`` and ``levels[i+1]`` and
+    therefore handles open contours along the map border without us
+    guessing how to close them.
+
+    Each Path may contain
+        - the exterior ring  (first array from ``to_polygons()``)
+        - zero or more interior rings (the remaining arrays)
+
+    Returns
+    -------
+    list[tuple[float, list[Polygon]]]
+        A tuple per level: (contour value, list of valid Polygons)
+    """
+    level_polys: list[tuple[float, list[Polygon]]] = []
+
+    # ---------- Preferred method -------------------------------------------------
+    if hasattr(cs, "collections"):
+        for i, collection in enumerate(cs.collections):
+            level = cs.levels[i]
+            polys: list[Polygon] = []
+
+            for path in collection.get_paths():
+                try:
+                    poly_arrays = path.to_polygons(closed_only=False)
+                    if not poly_arrays:
+                        continue
+                    shell = poly_arrays[0]
+                    holes = poly_arrays[1:] if len(poly_arrays) > 1 else None
+                    poly = Polygon(shell, holes)
+
+                    if not poly.is_valid:
+                        poly = poly.buffer(0)
+                    if poly.is_valid and poly.area > 0:
+                        polys.append(poly)
+
+                except Exception as exc:
+                    logger.warning(f"Skipping malformed path at level {level}: {exc}")
+
+            level_polys.append((level, polys))
+        return level_polys
+
+    # ---------- Fallback method ---------------------------------------------------
+    else:
+        logger.warning(
+            "ContourSet has no `.collections`; falling back to `.allsegs` extraction."
+        )
+        for i, segs in enumerate(cs.allsegs):
+            level = cs.levels[i]
+            polys: list[Polygon] = []
+
+            for seg in segs:
+                # Ensure the segment is closed
                 if not np.allclose(seg[0], seg[-1]):
-                    seg = np.vstack([seg, seg[0]])  # Close the ring
+                    seg = np.vstack([seg, seg[0]])
                 poly = Polygon(seg)
-                if not poly.is_valid or poly.area == 0:
-                    logger.warning(
-                        f"Dropped segment at level {level}: valid={poly.is_valid}, area={poly.area}"
-                    )
+
+                if not poly.is_valid:
+                    poly = poly.buffer(0)
                 if poly.is_valid and poly.area > 0:
                     polys.append(poly)
-            except Exception as e:
-                logger.warning(f"Skipping bad filled contour at level {level}: {e}")
-        flat_polys = []
-        for geom in polys:
-            try:
-                if geom.geom_type == "Polygon":
-                    flat_polys.append(geom)
-                elif geom.geom_type == "MultiPolygon":
-                    flat_polys.extend(
-                        [g for g in geom.geoms if g.geom_type == "Polygon"]
-                    )
-            except Exception as e:
-                logger.warning(f"Could not flatten geometry at level {level}: {e}")
-        level_polys.append((level, flat_polys))
-    return level_polys
+
+            level_polys.append((level, polys))
+        return level_polys
 
 
 def _flatten_polygons(geoms: List[Polygon]) -> List[Polygon]:
@@ -218,47 +245,50 @@ def _force_multipolygon(geom):
     return MultiPolygon()
 
 
-def _compute_layer_bands(level_polys: List[Tuple[float, List[Polygon]]]) -> List[dict]:
+def _compute_layer_bands(
+    level_polys: List[Tuple[float, List[Polygon]]],
+    transform: rasterio.Affine,
+) -> List[dict]:
     """
-    Computes stacked terrain bands where each layer includes all geometry above it.
-    Ensures watertight stacking for laser cutting or 3D printing.
+    Builds a stack of cumulative contour *bands*, where each band supports
+    all the layers above it (for physical stacking).
+
+    Strategy
+    --------
+    1. Iterate from high → low.
+    2. At each step:
+       - merge current level polygons
+       - union with the union of higher levels so far
+       - store the result as the full base of this slice
+    3. Reverse before returning to restore low → high order.
     """
     from shapely.geometry.polygon import orient
 
-    contour_layers = []
-    cumulative = None
+    contour_layers: list[dict] = []
+    cumulative = None  # union of this and all higher-level layers
 
     for level, polys in reversed(level_polys):
-        current = unary_union(_flatten_polygons(polys)) if polys else None
+        if not polys:
+            continue
 
-        if current and not current.is_empty:
-            if not current.is_valid:
-                current = current.buffer(0)
-            filled = (
-                current if cumulative is None else unary_union([current, cumulative])
-            )
-        else:
-            filled = cumulative
+        current = unary_union(_flatten_polygons(polys))
+        if not current.is_valid:
+            current = current.buffer(0)
 
-        if filled and not filled.is_empty:
-            if not filled.is_valid:
-                filled = filled.buffer(0)
-            filled = orient(_force_multipolygon(filled))
-            geometry = mapping(filled)
-        else:
-            geometry = mapping(None)
+        # Expand with higher levels
+        cumulative = (
+            current if cumulative is None else unary_union([cumulative, current])
+        )
+        if cumulative.is_empty:
+            continue
 
+        band = orient(_force_multipolygon(cumulative))
         contour_layers.append(
-            {
-                "elevation": float(level),
-                "geometry": geometry,
-                "closed": True,
-            }
+            {"elevation": float(level), "geometry": mapping(band), "closed": True}
         )
 
-        cumulative = filled
-
-    return list(reversed(contour_layers))
+    contour_layers.reverse()
+    return contour_layers
 
 
 def _plot_contour_layers(
@@ -308,11 +338,8 @@ def generate_contours(
         raw_ylim = ax.get_ylim()
         plt.savefig(os.path.join(debug_image_path, "contours.png"))
 
-    fig.delaxes(ax)
-    ax = fig.add_subplot(111)
-
     level_polys = _extract_level_polygons(cs)
-    contour_layers = _compute_layer_bands(level_polys)
+    contour_layers = _compute_layer_bands(level_polys, transform)
 
     for layer in contour_layers:
         band_geom = shape(layer["geometry"])
