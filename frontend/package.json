@@ -13,6 +13,7 @@
     "@react-three/drei": "^10.0.7",
     "@react-three/fiber": "^9.1.2",
     "leaflet": "^1.9.4",
+    "proj4": "^2.16.2",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-leaflet": "^5.0.0",
@@ -20,6 +21,9 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.25.0",
+    "@types/geojson": "^7946.0.16",
+    "@types/leaflet": "^1.9.17",
+    "@types/proj4": "^2.5.6",
     "@types/react": "^19.1.2",
     "@types/react-dom": "^19.1.2",
     "@vitejs/plugin-react": "^4.4.1",

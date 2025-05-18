@@ -40,3 +40,43 @@
 .read-the-docs {
   color: #888;
 }
+
+.content-wrapper {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 20px;
+}
+
+/* Sidebar layout */
+.sidebar {
+  width: 200px;
+  padding: 20px;
+  background-color: #1f1f1f;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  text-align: left;
+}
+
+/* Main panel layout */
+.main-panel {
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* Input appearance */
+.sidebar input,
+.sidebar button,
+.sidebar label {
+  width: 100%;
+  font-size: 1rem;
+}
+
+/* Map height */
+.map-container {
+  height: 400px;
+}

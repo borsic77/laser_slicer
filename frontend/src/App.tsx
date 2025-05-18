@@ -10,6 +10,10 @@ function App() {
   const [contourLayers, setContourLayers] = useState<any[]>([])
   const boundsRef = useRef<[[number, number], [number, number]] | null>(null)
 
+  const [substrateSize, setSubstrateSize] = useState(400)
+  const [layerThickness, setLayerThickness] = useState(5)
+  const [squareOutput, setSquareOutput] = useState(false)
+
   async function fetchCoordinates(address: string): Promise<[number, number]> {
     const res = await fetch('http://localhost:8000/api/geocode/', {
       method: 'POST',
@@ -31,6 +35,10 @@ function App() {
     }
   }
 
+  function getSelectedBounds(): [[number, number], [number, number]] | null {
+    return boundsRef.current;
+  }
+
   const handleSlice = async () => {
     if (!coordinates) {
       alert("Please select a location first.")
@@ -41,10 +49,10 @@ function App() {
     const numLayers = Number((document.getElementById('num-layers') as HTMLInputElement).value)
     const simplify = Number((document.getElementById('simplify') as HTMLInputElement).value)
 
-    const bounds = boundsRef.current
+    const bounds = getSelectedBounds();
     if (!bounds) {
-      alert("Could not read map bounds.")
-      return
+      alert("Could not read selected bounds.")
+      return;
     }
 
     const body = {
@@ -58,7 +66,9 @@ function App() {
         lon_min: bounds[0][1],
         lat_max: bounds[1][0],
         lon_max: bounds[1][1],
-      }
+      },
+      substrate_size: substrateSize,
+      layer_thickness: layerThickness,
     }
 
     try {
@@ -72,7 +82,11 @@ function App() {
 
       const data = await res.json()
       console.log("Received contour layers:", data.layers)
-      setContourLayers(data.layers || [])
+      const layersWithPoints = (data.layers || []).map((layer: any) => ({
+        ...layer,
+        points: layer.geometry?.coordinates?.[0] ?? [],
+      }))
+      setContourLayers(layersWithPoints)
       setSliced(true)
       alert('Slicing complete! Ready to export.')
     } catch (error) {
@@ -104,46 +118,73 @@ function App() {
       <header>
         <h1>Laser-Cuttable Contour Map Generator</h1>
       </header>
+      <div className="content-wrapper">
+        <div className="sidebar">
+          <div className="controls">
+            <input
+              type="text"
+              placeholder="Enter address or location..."
+              value={address}
+              onChange={(e) => setAddress(e.target.value)}
+            />
+            <button onClick={handleGeocode}>Locate on Map</button>
+          </div>
 
-      <div className="controls">
-        <input
-          type="text"
-          placeholder="Enter address or location..."
-          value={address}
-          onChange={(e) => setAddress(e.target.value)}
-        />
-        <button onClick={handleGeocode}>Locate on Map</button>
-      </div>
-
-      <div className="main-content">
-        <div className="map-container">
-          <MapView coordinates={coordinates} boundsRef={boundsRef} />
+          <div className="parameters">
+            <label>
+              Height per layer (m):
+              <input type="number" id="layer-height" defaultValue={250} />
+            </label>
+            <label>
+              Number of layers:
+              <input type="number" id="num-layers" defaultValue={5} />
+            </label>
+            <label>
+              Simplify shape:
+              <input type="range" id="simplify" min="0" max="1" step="0.05" />
+            </label>
+            <label>
+              Substrate size (mm):
+              <input
+                type="number"
+                id="substrate-size"
+                value={substrateSize}
+                onChange={(e) => setSubstrateSize(Number(e.target.value))}
+              />
+            </label>
+            <label>
+              Layer thickness (mm):
+              <input
+                type="number"
+                id="layer-thickness"
+                value={layerThickness}
+                onChange={(e) => setLayerThickness(Number(e.target.value))}
+              />
+            </label>
+            <label>
+              <input
+                type="checkbox"
+                checked={squareOutput}
+                onChange={(e) => setSquareOutput(e.target.checked)}
+              />
+              Square output
+            </label>
+            <button id="slice-button" onClick={handleSlice}>Slice!</button>
+            <button id="export-button" onClick={handleExport} disabled={!sliced}>Export SVGs</button>
+            <a id="download-link" href="#" download style={{ display: 'none' }}>
+              ⬇️ Download ZIP
+            </a>
+          </div>
         </div>
-
-        <div className="parameters">
-          <label>
-            Height per layer (m):
-            <input type="number" id="layer-height" defaultValue={10} />
-          </label>
-          <label>
-            Number of layers:
-            <input type="number" id="num-layers" defaultValue={5} />
-          </label>
-          <label>
-            Simplify shape:
-            <input type="range" id="simplify" min="0" max="1" step="0.05" />
-          </label>
-          <button id="slice-button" onClick={handleSlice}>Slice!</button>
-          <button id="export-button" onClick={handleExport} disabled={!sliced}>Export SVGs</button>
-          <a id="download-link" href="#" download style={{ display: 'none' }}>
-            ⬇️ Download ZIP
-          </a>
+        <div className="main-panel">
+          <div className="map-container">
+            <MapView coordinates={coordinates} boundsRef={boundsRef} squareOutput={squareOutput} />
+          </div>
+          <div id="preview-3d">
+            <h2>3D Preview</h2>
+            <ContourPreview layers={contourLayers} />
+          </div>
         </div>
-      </div>
-
-      <div id="preview-3d">
-        <h2>3D Preview</h2>
-        <ContourPreview layers={contourLayers} />
       </div>
     </div>
   )

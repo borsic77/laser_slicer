@@ -30,7 +30,7 @@ ALLOWED_HOSTS = []
 
 # Directories for storing elevation files and cache
 SRTM_CACHE_DIR = os.getenv("SRTM_CACHE_DIR", "/tmp/srtm_cache")
-DEBUG_IMAGE_PATH = os.getenv("DEBUG_IMAGE_PATH", "/tmp/contours_preview.png")
+DEBUG_IMAGE_PATH = os.getenv("DEBUG_IMAGE_PATH", "/tmp")
 
 
 LOGGING = {

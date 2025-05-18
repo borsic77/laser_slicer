@@ -1,19 +1,42 @@
 import io
 import logging
+import traceback
 import zipfile
 
 from django.conf import settings
 from django.http import FileResponse
 from django.shortcuts import render
+from pyproj import Transformer
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
+from shapely.geometry import mapping, shape
 
 from core.utils.geocoding import geocode_address
 from core.utils.slicer import (
     download_srtm_tiles_for_bounds,
     generate_contours,
     mosaic_and_crop,
+    project_geometry,
+    scale_and_center_contours_to_substrate,
 )
+
+
+def compute_utm_bounds_from_wgs84(
+    lon_min: float,
+    lat_min: float,
+    lon_max: float,
+    lat_max: float,
+    center_x: float,
+    center_y: float,
+) -> tuple[float, float, float, float]:
+    zone_number = int((center_x + 180) / 6) + 1
+    is_northern = center_y >= 0
+    epsg_code = f"326{zone_number:02d}" if is_northern else f"327{zone_number:02d}"
+    transformer = Transformer.from_crs("EPSG:4326", f"EPSG:{epsg_code}", always_xy=True)
+    utm_minx, utm_miny = transformer.transform(lon_min, lat_min)
+    utm_maxx, utm_maxy = transformer.transform(lon_max, lat_max)
+    return (utm_minx, utm_miny, utm_maxx, utm_maxy)
+
 
 DEBUG_IMAGE_PATH = settings.DEBUG_IMAGE_PATH
 
@@ -49,6 +72,9 @@ def slice_contours(request):
         lat_max = float(bounds["lat_max"])
         lon_max = float(bounds["lon_max"])
 
+        substrate_size = float(request.data["substrate_size"])
+        layer_thickness = float(request.data["layer_thickness"])
+
         center_x = (lon_min + lon_max) / 2
         center_y = (lat_min + lat_max) / 2
 
@@ -72,8 +98,8 @@ def slice_contours(request):
 
         # Generate contours and save a preview
 
+        logger.debug("Calling generate_contours...")
         try:
-            logger.debug("Calling generate_contours...")
             contours = generate_contours(
                 elevation,
                 transform,
@@ -85,14 +111,32 @@ def slice_contours(request):
                 bounds=(lon_min, lat_min, lon_max, lat_max),
             )
             logger.info(f"Generated {len(contours)} contour polygons.")
-        except Exception as contour_error:
-            logger.exception("Contour generation failed")
-            raise
+        except Exception as e:
+            logger.exception("Error generating contours")
+            traceback.print_exc()
+            return Response({"error": str(e)}, status=500)
+        # Project each contour geometry to UTM coordinates
+        contours = project_geometry(contours, center_x, center_y)
+
+        utm_bounds = compute_utm_bounds_from_wgs84(
+            lon_min, lat_min, lon_max, lat_max, center_x, center_y
+        )
+        logger.debug(
+            f"UTM bounds: ({utm_bounds[0]:.2f}, {utm_bounds[1]:.2f}) → ({utm_bounds[2]:.2f}, {utm_bounds[3]:.2f}) "
+            f"→ extent: {utm_bounds[2] - utm_bounds[0]:.2f} m × {utm_bounds[3] - utm_bounds[1]:.2f} m"
+        )
+        contours = scale_and_center_contours_to_substrate(
+            contours, substrate_size, utm_bounds
+        )
+        for contour in contours:
+            contour["thickness"] = layer_thickness / 1000.0  # in meters
 
         return Response(
             {"status": "sliced", "preview": DEBUG_IMAGE_PATH, "layers": contours}
         )
     except Exception as e:
+        logger.exception("Error generating contours")
+        traceback.print_exc()
         return Response({"error": str(e)}, status=500)
 
 
