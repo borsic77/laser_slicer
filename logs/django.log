@@ -2469,3 +2469,172 @@ INFO 2025-05-18 15:32:22,089 core.utils.geocoding Geocoded Yverdon-les-Bains, Sw
 INFO 2025-05-18 15:32:25,203 core.utils.geocoding Geocoded Café de Flore, Paris, France to (48.8541444, 2.3326307)
 INFO 2025-05-18 15:32:26,466 core.utils.geocoding Geocoded 1600 Amphitheatre Parkway, Mountain View, CA 94043, United States to (37.4224857, -122.0855846)
 INFO 2025-05-18 15:32:27,177 core.utils.geocoding Geocoded 10001, New York, NY, USA to (40.7484661, -73.9941126)
+INFO 2025-05-18 16:23:06,194 django.utils.autoreload Watching for file changes with StatReloader
+INFO 2025-05-18 16:23:07,761 django.utils.autoreload /Users/boris/Documents/python programs/laser_slicer/core/utils/slicer.py changed, reloading.
+INFO 2025-05-18 16:23:07,984 django.utils.autoreload Watching for file changes with StatReloader
+INFO 2025-05-18 16:23:11,477 core.views Slicing bounds (46.80922754190457, 6.578604237749443) to (46.84681125728675, 6.669516102015807) with 150.0m per layer, 5 layers, simplify=0.5
+WARNING 2025-05-18 16:23:11,803 core.utils.slicer Dropped segment at level 422.0: valid=False, area=0.0019870580909174176
+WARNING 2025-05-18 16:23:11,803 core.utils.slicer Dropped segment at level 422.0: valid=False, area=0.0
+WARNING 2025-05-18 16:23:11,803 core.utils.slicer Dropped segment at level 572.0: valid=False, area=0.0
+INFO 2025-05-18 16:23:11,988 core.views Generated 6 contour polygons.
+INFO 2025-05-18 16:23:12,213 django.server "POST /api/slice/ HTTP/1.1" 200 247658
+INFO 2025-05-18 16:23:32,268 core.utils.geocoding Geocoded chasseron, suisse to (46.851796, 6.5382542)
+INFO 2025-05-18 16:23:32,270 django.server "POST /api/geocode/ HTTP/1.1" 200 33
+INFO 2025-05-18 16:23:34,146 core.views Slicing bounds (46.83295531078207, 6.49277354083803) to (46.870522438030235, 6.583685405095556) with 150.0m per layer, 5 layers, simplify=0.5
+WARNING 2025-05-18 16:23:34,445 core.utils.slicer Dropped segment at level 781.0: valid=False, area=0.0
+WARNING 2025-05-18 16:23:34,445 core.utils.slicer Dropped segment at level 931.0: valid=False, area=0.0
+WARNING 2025-05-18 16:23:34,446 core.utils.slicer Dropped segment at level 931.0: valid=False, area=5.568415637888953e-07
+WARNING 2025-05-18 16:23:34,446 core.utils.slicer Dropped segment at level 931.0: valid=False, area=0.0
+WARNING 2025-05-18 16:23:34,446 core.utils.slicer Dropped segment at level 1081.0: valid=False, area=5.568415637869833e-07
+WARNING 2025-05-18 16:23:34,446 core.utils.slicer Dropped segment at level 1081.0: valid=False, area=0.0
+INFO 2025-05-18 16:23:34,683 core.views Generated 6 contour polygons.
+INFO 2025-05-18 16:23:34,970 django.server "POST /api/slice/ HTTP/1.1" 200 530016
+INFO 2025-05-18 16:23:42,033 core.views Slicing bounds (46.83295531078207, 6.49277354083803) to (46.870522438030235, 6.583685405095556) with 100.0m per layer, 5 layers, simplify=0.5
+WARNING 2025-05-18 16:23:42,318 core.utils.slicer Dropped segment at level 881.0: valid=False, area=0.0
+WARNING 2025-05-18 16:23:42,318 core.utils.slicer Dropped segment at level 981.0: valid=False, area=0.0
+WARNING 2025-05-18 16:23:42,319 core.utils.slicer Dropped segment at level 981.0: valid=False, area=5.568415637888953e-07
+WARNING 2025-05-18 16:23:42,319 core.utils.slicer Dropped segment at level 981.0: valid=False, area=0.0
+WARNING 2025-05-18 16:23:42,319 core.utils.slicer Dropped segment at level 1081.0: valid=False, area=5.568415637869833e-07
+WARNING 2025-05-18 16:23:42,319 core.utils.slicer Dropped segment at level 1081.0: valid=False, area=0.0
+INFO 2025-05-18 16:23:42,747 core.views Generated 9 contour polygons.
+INFO 2025-05-18 16:23:43,267 django.server "POST /api/slice/ HTTP/1.1" 200 900635
+INFO 2025-05-18 16:23:53,056 core.views Slicing bounds (46.83295531078207, 6.49277354083803) to (46.870522438030235, 6.583685405095556) with 50.0m per layer, 5 layers, simplify=0.5
+WARNING 2025-05-18 16:23:53,346 core.utils.slicer Dropped segment at level 881.0: valid=False, area=0.0
+WARNING 2025-05-18 16:23:53,346 core.utils.slicer Dropped segment at level 931.0: valid=False, area=0.0
+WARNING 2025-05-18 16:23:53,346 core.utils.slicer Dropped segment at level 931.0: valid=False, area=0.0
+WARNING 2025-05-18 16:23:53,346 core.utils.slicer Dropped segment at level 981.0: valid=False, area=0.0
+WARNING 2025-05-18 16:23:53,347 core.utils.slicer Dropped segment at level 981.0: valid=False, area=0.0
+WARNING 2025-05-18 16:23:53,347 core.utils.slicer Dropped segment at level 1031.0: valid=False, area=0.0
+WARNING 2025-05-18 16:23:53,347 core.utils.slicer Dropped segment at level 1031.0: valid=False, area=5.568415637888953e-07
+WARNING 2025-05-18 16:23:53,348 core.utils.slicer Dropped segment at level 1031.0: valid=False, area=0.0
+WARNING 2025-05-18 16:23:53,348 core.utils.slicer Dropped segment at level 1081.0: valid=False, area=5.568415637869833e-07
+WARNING 2025-05-18 16:23:53,348 core.utils.slicer Dropped segment at level 1081.0: valid=False, area=0.0
+INFO 2025-05-18 16:23:54,524 core.views Generated 17 contour polygons.
+INFO 2025-05-18 16:23:56,158 django.server "POST /api/slice/ HTTP/1.1" 200 2769946
+INFO 2025-05-18 16:24:10,904 core.views Slicing bounds (46.81323127378412, 6.460336722632284) to (46.888366883443965, 6.64216044529679) with 50.0m per layer, 5 layers, simplify=0.5
+WARNING 2025-05-18 16:24:11,233 core.utils.slicer Dropped segment at level 505.0: valid=False, area=0.0005509682798089698
+WARNING 2025-05-18 16:24:11,233 core.utils.slicer Dropped segment at level 555.0: valid=False, area=0.0007660878134746018
+WARNING 2025-05-18 16:24:11,235 core.utils.slicer Dropped segment at level 855.0: valid=False, area=0.00011315775622960486
+WARNING 2025-05-18 16:24:11,235 core.utils.slicer Dropped segment at level 855.0: valid=False, area=0.0
+WARNING 2025-05-18 16:24:11,236 core.utils.slicer Dropped segment at level 905.0: valid=False, area=0.0001402684006408286
+WARNING 2025-05-18 16:24:11,236 core.utils.slicer Dropped segment at level 905.0: valid=False, area=0.0
+WARNING 2025-05-18 16:24:11,236 core.utils.slicer Dropped segment at level 955.0: valid=False, area=0.0
+WARNING 2025-05-18 16:24:11,236 core.utils.slicer Dropped segment at level 955.0: valid=False, area=0.0
+WARNING 2025-05-18 16:24:11,236 core.utils.slicer Dropped segment at level 955.0: valid=False, area=1.7961391317810548e-06
+WARNING 2025-05-18 16:24:11,236 core.utils.slicer Dropped segment at level 955.0: valid=False, area=0.0
+WARNING 2025-05-18 16:24:11,237 core.utils.slicer Dropped segment at level 1005.0: valid=False, area=0.0
+WARNING 2025-05-18 16:24:11,237 core.utils.slicer Dropped segment at level 1005.0: valid=False, area=0.0
+WARNING 2025-05-18 16:24:11,237 core.utils.slicer Dropped segment at level 1005.0: valid=False, area=1.7961391317817945e-06
+WARNING 2025-05-18 16:24:11,238 core.utils.slicer Dropped segment at level 1005.0: valid=False, area=0.0
+WARNING 2025-05-18 16:24:11,238 core.utils.slicer Dropped segment at level 1005.0: valid=False, area=2.59283754657709e-07
+WARNING 2025-05-18 16:24:11,239 core.utils.slicer Dropped segment at level 1005.0: valid=False, area=0.0
+WARNING 2025-05-18 16:24:11,239 core.utils.slicer Dropped segment at level 1005.0: valid=False, area=1.6251929012401644e-06
+WARNING 2025-05-18 16:24:11,239 core.utils.slicer Dropped segment at level 1005.0: valid=False, area=0.0
+WARNING 2025-05-18 16:24:11,239 core.utils.slicer Dropped segment at level 1005.0: valid=False, area=0.0
+WARNING 2025-05-18 16:24:11,240 core.utils.slicer Dropped segment at level 1005.0: valid=False, area=0.0
+WARNING 2025-05-18 16:24:11,240 core.utils.slicer Dropped segment at level 1005.0: valid=False, area=0.0
+WARNING 2025-05-18 16:24:11,240 core.utils.slicer Dropped segment at level 1005.0: valid=False, area=0.0
+WARNING 2025-05-18 16:24:11,241 core.utils.slicer Dropped segment at level 1055.0: valid=False, area=0.0014302367886270385
+WARNING 2025-05-18 16:24:11,241 core.utils.slicer Dropped segment at level 1055.0: valid=False, area=2.592837546579029e-07
+WARNING 2025-05-18 16:24:11,241 core.utils.slicer Dropped segment at level 1055.0: valid=False, area=0.0
+WARNING 2025-05-18 16:24:11,241 core.utils.slicer Dropped segment at level 1055.0: valid=False, area=1.6251929012449343e-06
+WARNING 2025-05-18 16:24:11,241 core.utils.slicer Dropped segment at level 1055.0: valid=False, area=0.0
+WARNING 2025-05-18 16:24:11,242 core.utils.slicer Dropped segment at level 1055.0: valid=False, area=0.0
+WARNING 2025-05-18 16:24:11,242 core.utils.slicer Dropped segment at level 1055.0: valid=False, area=0.0
+WARNING 2025-05-18 16:24:11,242 core.utils.slicer Dropped segment at level 1055.0: valid=False, area=0.0
+WARNING 2025-05-18 16:24:11,242 core.utils.slicer Dropped segment at level 1055.0: valid=False, area=0.0
+WARNING 2025-05-18 16:24:11,242 core.utils.slicer Dropped segment at level 1055.0: valid=False, area=0.0
+WARNING 2025-05-18 16:24:11,243 core.utils.slicer Dropped segment at level 1105.0: valid=False, area=0.0003711755221694163
+WARNING 2025-05-18 16:24:11,244 core.utils.slicer Dropped segment at level 1105.0: valid=False, area=0.0
+WARNING 2025-05-18 16:24:11,244 core.utils.slicer Dropped segment at level 1105.0: valid=False, area=0.0
+WARNING 2025-05-18 16:24:11,245 core.utils.slicer Dropped segment at level 1105.0: valid=False, area=0.0
+WARNING 2025-05-18 16:24:11,245 core.utils.slicer Dropped segment at level 1105.0: valid=False, area=0.0
+WARNING 2025-05-18 16:24:11,246 core.utils.slicer Dropped segment at level 1155.0: valid=False, area=0.0
+WARNING 2025-05-18 16:24:11,246 core.utils.slicer Dropped segment at level 1155.0: valid=False, area=0.0011606686496209025
+WARNING 2025-05-18 16:24:11,247 core.utils.slicer Dropped segment at level 1155.0: valid=False, area=0.0
+WARNING 2025-05-18 16:24:11,248 core.utils.slicer Dropped segment at level 1155.0: valid=False, area=0.0
+WARNING 2025-05-18 16:24:11,248 core.utils.slicer Dropped segment at level 1155.0: valid=False, area=1.6879814875911164e-06
+WARNING 2025-05-18 16:24:11,249 core.utils.slicer Dropped segment at level 1205.0: valid=False, area=0.0008411994783568511
+WARNING 2025-05-18 16:24:11,249 core.utils.slicer Dropped segment at level 1205.0: valid=False, area=1.6879814876038128e-06
+WARNING 2025-05-18 16:24:11,250 core.utils.slicer Dropped segment at level 1205.0: valid=False, area=0.0
+WARNING 2025-05-18 16:24:11,250 core.utils.slicer Dropped segment at level 1205.0: valid=False, area=0.0
+WARNING 2025-05-18 16:24:11,251 core.utils.slicer Dropped segment at level 1255.0: valid=False, area=0.002201053695185011
+WARNING 2025-05-18 16:24:11,252 core.utils.slicer Dropped segment at level 1255.0: valid=False, area=0.0
+WARNING 2025-05-18 16:24:11,252 core.utils.slicer Dropped segment at level 1255.0: valid=False, area=0.0
+WARNING 2025-05-18 16:24:11,252 core.utils.slicer Dropped segment at level 1255.0: valid=False, area=0.0
+WARNING 2025-05-18 16:24:11,253 core.utils.slicer Dropped segment at level 1305.0: valid=False, area=0.00220105369518499
+WARNING 2025-05-18 16:24:11,253 core.utils.slicer Dropped segment at level 1305.0: valid=False, area=0.0
+WARNING 2025-05-18 16:24:11,253 core.utils.slicer Dropped segment at level 1305.0: valid=False, area=0.0
+WARNING 2025-05-18 16:24:11,254 core.utils.slicer Dropped segment at level 1355.0: valid=False, area=0.0
+WARNING 2025-05-18 16:24:11,254 core.utils.slicer Dropped segment at level 1355.0: valid=False, area=0.0
+WARNING 2025-05-18 16:24:11,255 core.utils.slicer Dropped segment at level 1405.0: valid=False, area=0.0
+INFO 2025-05-18 16:24:13,576 core.views Generated 23 contour polygons.
+INFO 2025-05-18 16:24:16,296 django.server "POST /api/slice/ HTTP/1.1" 200 9608649
+INFO 2025-05-18 16:24:57,830 core.views Slicing bounds (46.81323127378412, 6.460336722632284) to (46.888366883443965, 6.64216044529679) with 100.0m per layer, 5 layers, simplify=0.5
+WARNING 2025-05-18 16:24:58,165 core.utils.slicer Dropped segment at level 455.0: valid=False, area=0.0008268492087638961
+WARNING 2025-05-18 16:24:58,166 core.utils.slicer Dropped segment at level 555.0: valid=False, area=0.0009304391295150616
+WARNING 2025-05-18 16:24:58,167 core.utils.slicer Dropped segment at level 955.0: valid=False, area=2.59283754657709e-07
+WARNING 2025-05-18 16:24:58,167 core.utils.slicer Dropped segment at level 955.0: valid=False, area=0.0
+WARNING 2025-05-18 16:24:58,168 core.utils.slicer Dropped segment at level 955.0: valid=False, area=1.6251929012401644e-06
+WARNING 2025-05-18 16:24:58,168 core.utils.slicer Dropped segment at level 955.0: valid=False, area=0.0
+WARNING 2025-05-18 16:24:58,168 core.utils.slicer Dropped segment at level 955.0: valid=False, area=0.0
+WARNING 2025-05-18 16:24:58,168 core.utils.slicer Dropped segment at level 955.0: valid=False, area=0.0
+WARNING 2025-05-18 16:24:58,168 core.utils.slicer Dropped segment at level 955.0: valid=False, area=0.0
+WARNING 2025-05-18 16:24:58,168 core.utils.slicer Dropped segment at level 955.0: valid=False, area=0.0
+WARNING 2025-05-18 16:24:58,169 core.utils.slicer Dropped segment at level 1055.0: valid=False, area=2.592837546579029e-07
+WARNING 2025-05-18 16:24:58,169 core.utils.slicer Dropped segment at level 1055.0: valid=False, area=0.0
+WARNING 2025-05-18 16:24:58,169 core.utils.slicer Dropped segment at level 1055.0: valid=False, area=1.6251929012449343e-06
+WARNING 2025-05-18 16:24:58,169 core.utils.slicer Dropped segment at level 1055.0: valid=False, area=0.0
+WARNING 2025-05-18 16:24:58,170 core.utils.slicer Dropped segment at level 1055.0: valid=False, area=0.0
+WARNING 2025-05-18 16:24:58,170 core.utils.slicer Dropped segment at level 1055.0: valid=False, area=0.0
+WARNING 2025-05-18 16:24:58,170 core.utils.slicer Dropped segment at level 1055.0: valid=False, area=0.0
+WARNING 2025-05-18 16:24:58,170 core.utils.slicer Dropped segment at level 1055.0: valid=False, area=0.0
+WARNING 2025-05-18 16:24:58,170 core.utils.slicer Dropped segment at level 1055.0: valid=False, area=0.0
+WARNING 2025-05-18 16:24:58,172 core.utils.slicer Dropped segment at level 1055.0: valid=False, area=0.0
+WARNING 2025-05-18 16:24:58,172 core.utils.slicer Dropped segment at level 1055.0: valid=False, area=0.0
+WARNING 2025-05-18 16:24:58,172 core.utils.slicer Dropped segment at level 1155.0: valid=False, area=0.0
+WARNING 2025-05-18 16:24:58,173 core.utils.slicer Dropped segment at level 1155.0: valid=False, area=0.0
+WARNING 2025-05-18 16:24:58,173 core.utils.slicer Dropped segment at level 1155.0: valid=False, area=0.0
+WARNING 2025-05-18 16:24:58,174 core.utils.slicer Dropped segment at level 1155.0: valid=False, area=0.0
+WARNING 2025-05-18 16:24:58,174 core.utils.slicer Dropped segment at level 1155.0: valid=False, area=0.0
+WARNING 2025-05-18 16:24:58,175 core.utils.slicer Dropped segment at level 1255.0: valid=False, area=0.0
+WARNING 2025-05-18 16:24:58,175 core.utils.slicer Dropped segment at level 1255.0: valid=False, area=0.0
+WARNING 2025-05-18 16:24:58,175 core.utils.slicer Dropped segment at level 1255.0: valid=False, area=0.0
+WARNING 2025-05-18 16:24:58,175 core.utils.slicer Dropped segment at level 1355.0: valid=False, area=0.0
+INFO 2025-05-18 16:24:59,368 core.views Generated 12 contour polygons.
+INFO 2025-05-18 16:25:01,015 django.server "POST /api/slice/ HTTP/1.1" 200 3074226
+INFO 2025-05-18 16:27:21,995 django.utils.autoreload /Users/boris/Documents/python programs/laser_slicer/core/utils/slicer.py changed, reloading.
+INFO 2025-05-18 16:27:22,306 django.utils.autoreload Watching for file changes with StatReloader
+INFO 2025-05-18 16:27:25,041 core.views Slicing bounds (46.81323127378412, 6.460336722632284) to (46.888366883443965, 6.64216044529679) with 100.0m per layer, 5 layers, simplify=0.5
+WARNING 2025-05-18 16:27:25,386 core.utils.slicer Dropped segment at level 455.0: valid=False, area=0.0008268492087638961
+WARNING 2025-05-18 16:27:25,386 core.utils.slicer Dropped segment at level 555.0: valid=False, area=0.0009304391295150616
+WARNING 2025-05-18 16:27:25,388 core.utils.slicer Dropped segment at level 955.0: valid=False, area=2.59283754657709e-07
+WARNING 2025-05-18 16:27:25,388 core.utils.slicer Dropped segment at level 955.0: valid=False, area=0.0
+WARNING 2025-05-18 16:27:25,388 core.utils.slicer Dropped segment at level 955.0: valid=False, area=1.6251929012401644e-06
+WARNING 2025-05-18 16:27:25,388 core.utils.slicer Dropped segment at level 955.0: valid=False, area=0.0
+WARNING 2025-05-18 16:27:25,389 core.utils.slicer Dropped segment at level 955.0: valid=False, area=0.0
+WARNING 2025-05-18 16:27:25,389 core.utils.slicer Dropped segment at level 955.0: valid=False, area=0.0
+WARNING 2025-05-18 16:27:25,389 core.utils.slicer Dropped segment at level 955.0: valid=False, area=0.0
+WARNING 2025-05-18 16:27:25,389 core.utils.slicer Dropped segment at level 955.0: valid=False, area=0.0
+WARNING 2025-05-18 16:27:25,390 core.utils.slicer Dropped segment at level 1055.0: valid=False, area=2.592837546579029e-07
+WARNING 2025-05-18 16:27:25,390 core.utils.slicer Dropped segment at level 1055.0: valid=False, area=0.0
+WARNING 2025-05-18 16:27:25,390 core.utils.slicer Dropped segment at level 1055.0: valid=False, area=1.6251929012449343e-06
+WARNING 2025-05-18 16:27:25,390 core.utils.slicer Dropped segment at level 1055.0: valid=False, area=0.0
+WARNING 2025-05-18 16:27:25,390 core.utils.slicer Dropped segment at level 1055.0: valid=False, area=0.0
+WARNING 2025-05-18 16:27:25,391 core.utils.slicer Dropped segment at level 1055.0: valid=False, area=0.0
+WARNING 2025-05-18 16:27:25,391 core.utils.slicer Dropped segment at level 1055.0: valid=False, area=0.0
+WARNING 2025-05-18 16:27:25,391 core.utils.slicer Dropped segment at level 1055.0: valid=False, area=0.0
+WARNING 2025-05-18 16:27:25,391 core.utils.slicer Dropped segment at level 1055.0: valid=False, area=0.0
+WARNING 2025-05-18 16:27:25,392 core.utils.slicer Dropped segment at level 1055.0: valid=False, area=0.0
+WARNING 2025-05-18 16:27:25,392 core.utils.slicer Dropped segment at level 1055.0: valid=False, area=0.0
+WARNING 2025-05-18 16:27:25,393 core.utils.slicer Dropped segment at level 1155.0: valid=False, area=0.0
+WARNING 2025-05-18 16:27:25,394 core.utils.slicer Dropped segment at level 1155.0: valid=False, area=0.0
+WARNING 2025-05-18 16:27:25,394 core.utils.slicer Dropped segment at level 1155.0: valid=False, area=0.0
+WARNING 2025-05-18 16:27:25,395 core.utils.slicer Dropped segment at level 1155.0: valid=False, area=0.0
+WARNING 2025-05-18 16:27:25,395 core.utils.slicer Dropped segment at level 1155.0: valid=False, area=0.0
+WARNING 2025-05-18 16:27:25,395 core.utils.slicer Dropped segment at level 1255.0: valid=False, area=0.0
+WARNING 2025-05-18 16:27:25,396 core.utils.slicer Dropped segment at level 1255.0: valid=False, area=0.0
+WARNING 2025-05-18 16:27:25,396 core.utils.slicer Dropped segment at level 1255.0: valid=False, area=0.0
+WARNING 2025-05-18 16:27:25,396 core.utils.slicer Dropped segment at level 1355.0: valid=False, area=0.0
+INFO 2025-05-18 16:27:26,546 core.views Generated 12 contour polygons.
+INFO 2025-05-18 16:27:28,103 django.server "POST /api/slice/ HTTP/1.1" 200 3074226

@@ -221,62 +221,42 @@ def _force_multipolygon(geom):
 def _compute_layer_bands(level_polys: List[Tuple[float, List[Polygon]]]) -> List[dict]:
     """
     Computes stacked terrain bands where each layer includes all geometry above it.
-    This guarantees watertight support from bottom to top — ideal for laser-cutting or 3D printing.
+    Ensures watertight stacking for laser cutting or 3D printing.
     """
     from shapely.geometry.polygon import orient
 
     contour_layers = []
-    cumulative_union = None
+    cumulative = None
 
-    for i in reversed(range(len(level_polys))):
-        level, current_polys = level_polys[i]
-        current_flat = _flatten_polygons(current_polys)
-        if not current_flat:
-            # But we must preserve cumulative_union
-            filled = cumulative_union
-            if filled is not None:
-                if not filled.is_valid:
-                    filled = filled.buffer(0)
-                filled = _force_multipolygon(filled)
-                filled = orient(filled)
-                contour_layers.append(
-                    {
-                        "elevation": float(level),
-                        "geometry": mapping(filled),
-                        "closed": True,
-                    }
-                )
-            else:
-                contour_layers.append(
-                    {
-                        "elevation": float(level),
-                        "geometry": mapping(None),
-                        "closed": True,
-                    }
-                )
-            continue
-        current_union = unary_union(current_flat)
+    for level, polys in reversed(level_polys):
+        current = unary_union(_flatten_polygons(polys)) if polys else None
 
-        filled = (
-            current_union
-            if cumulative_union is None
-            else unary_union([current_union, cumulative_union])
-        )
+        if current and not current.is_empty:
+            if not current.is_valid:
+                current = current.buffer(0)
+            filled = (
+                current if cumulative is None else unary_union([current, cumulative])
+            )
+        else:
+            filled = cumulative
 
-        if not filled.is_empty:
+        if filled and not filled.is_empty:
             if not filled.is_valid:
                 filled = filled.buffer(0)
-            filled = _force_multipolygon(filled)
-            filled = orient(filled)
-            contour_layers.append(
-                {
-                    "elevation": float(level),
-                    "geometry": mapping(filled),
-                    "closed": True,
-                }
-            )
+            filled = orient(_force_multipolygon(filled))
+            geometry = mapping(filled)
+        else:
+            geometry = mapping(None)
 
-        cumulative_union = filled
+        contour_layers.append(
+            {
+                "elevation": float(level),
+                "geometry": geometry,
+                "closed": True,
+            }
+        )
+
+        cumulative = filled
 
     return list(reversed(contour_layers))
 
