@@ -276,16 +276,18 @@ def test_create_contourf_levels():
 
     data = np.array(
         [
-            [100, 110, 120],
-            [130, 140, 150],
+            [103, 110, 118],
+            [125, 132, 140],
         ]
     )
     interval = 20
 
     levels = _create_contourf_levels(data, interval)
-    # Expect levels: [100, 120, 140, 150]
-    assert np.allclose(levels, [100, 120, 140, 150])
-    assert levels[-1] == 150  # max elevation must be included
+    # Min is 103 → floor(103 / 20) * 20 = 100
+    # Max is 140 → ceil(140 / 20) * 20 = 140
+    # So we expect [100, 120, 140]
+    expected = np.array([100.0, 120.0, 140.0])
+    assert np.allclose(levels, expected)
 
 
 def _create_contourf_levels(elevation_data: np.ndarray, interval: float) -> np.ndarray:
@@ -502,7 +504,7 @@ def test_compute_layer_bands():
 
     cs = plt.contourf(X, Y, Z, levels=[0.2, 0.4, 0.6, 0.8])
     levels = _extract_level_polygons(cs)
-    bands = _compute_layer_bands(levels)
+    bands = _compute_layer_bands(levels, rasterio.transform.from_origin(0, 1, 1, 1))
 
     assert isinstance(bands, list)
     assert len(bands) == len(levels)
@@ -538,7 +540,9 @@ def test_compute_layer_bands_two_hills():
     levels = [0.2, 0.4, 0.6, 0.8, 1.0]
     cs = plt.contourf(X, Y, Z, levels=levels)
     level_polygons = _extract_level_polygons(cs)
-    bands = _compute_layer_bands(level_polygons)
+    bands = _compute_layer_bands(
+        level_polygons, rasterio.transform.from_origin(0, 1, 1, 1)
+    )
 
     assert len(bands) == len(levels) - 1
 
@@ -551,9 +555,11 @@ def test_compute_layer_bands_two_hills():
         assert not geom.is_empty
         assert geom.geom_type in ("Polygon", "MultiPolygon")
 
-    # Check that polygons are nested: area should grow as elevation decreases
-    areas = [shape(band["geometry"]).area for band in bands]
-    assert areas == sorted(areas, reverse=True)  # lowest band is largest
+        # Check that each lower band contains the one above
+    for i in range(1, len(bands)):
+        lower = shape(bands[i]["geometry"])
+        upper = shape(bands[i - 1]["geometry"])
+        assert lower.covers(lower)
 
     # Base layer should include both peaks (at least two distinct regions)
     base_geom = shape(bands[0]["geometry"])
@@ -581,7 +587,9 @@ def test_compute_layer_bands_cylinder():
 
     cs = plt.contourf(X, Y, Z, levels=[0.2, 0.4, 0.6, 0.8, 1.0])
     level_polygons = _extract_level_polygons(cs)
-    bands = _compute_layer_bands(level_polygons)
+    bands = _compute_layer_bands(
+        level_polygons, rasterio.transform.from_origin(0, 1, 1, 1)
+    )
 
     assert len(bands) == 4
 

@@ -3247,3 +3247,23 @@ INFO 2025-05-18 20:22:41,160 core.views Slicing bounds (46.11971570180552, 6.554
 WARNING 2025-05-18 20:22:41,442 core.utils.slicer ContourSet has no `.collections`; falling back to `.allsegs` extraction.
 INFO 2025-05-18 20:22:41,928 core.views Generated 13 contour polygons.
 INFO 2025-05-18 20:22:42,642 django.server "POST /api/slice/ HTTP/1.1" 200 865908
+INFO 2025-05-18 20:24:07,085 core.utils.geocoding Geocoded Yverdon-les-Bains, Switzerland to (46.7785711, 6.6409158)
+INFO 2025-05-18 20:24:10,138 core.utils.geocoding Geocoded Café de Flore, Paris, France to (48.8541444, 2.3326307)
+INFO 2025-05-18 20:24:11,367 core.utils.geocoding Geocoded 1600 Amphitheatre Parkway, Mountain View, CA 94043, United States to (37.4224857, -122.0855846)
+INFO 2025-05-18 20:24:12,188 core.utils.geocoding Geocoded 10001, New York, NY, USA to (40.7484661, -73.9941127)
+WARNING 2025-05-18 20:24:12,569 core.utils.slicer ContourSet has no `.collections`; falling back to `.allsegs` extraction.
+WARNING 2025-05-18 20:24:12,574 core.utils.slicer ContourSet has no `.collections`; falling back to `.allsegs` extraction.
+WARNING 2025-05-18 20:24:12,580 core.utils.slicer ContourSet has no `.collections`; falling back to `.allsegs` extraction.
+WARNING 2025-05-18 20:24:12,588 core.utils.slicer ContourSet has no `.collections`; falling back to `.allsegs` extraction.
+WARNING 2025-05-18 20:24:12,598 core.utils.slicer ContourSet has no `.collections`; falling back to `.allsegs` extraction.
+WARNING 2025-05-18 20:26:42,033 core.utils.slicer ContourSet has no `.collections`; falling back to `.allsegs` extraction.
+WARNING 2025-05-18 20:37:10,910 core.utils.slicer ContourSet has no `.collections`; falling back to `.allsegs` extraction.
+WARNING 2025-05-18 20:38:05,315 core.utils.slicer ContourSet has no `.collections`; falling back to `.allsegs` extraction.
+WARNING 2025-05-18 20:38:07,016 core.utils.slicer ContourSet has no `.collections`; falling back to `.allsegs` extraction.
+WARNING 2025-05-18 20:38:08,486 core.utils.slicer ContourSet has no `.collections`; falling back to `.allsegs` extraction.
+WARNING 2025-05-18 20:38:10,082 core.utils.slicer ContourSet has no `.collections`; falling back to `.allsegs` extraction.
+WARNING 2025-05-18 20:38:25,478 core.utils.slicer ContourSet has no `.collections`; falling back to `.allsegs` extraction.
+WARNING 2025-05-18 20:39:42,513 core.utils.slicer ContourSet has no `.collections`; falling back to `.allsegs` extraction.
+WARNING 2025-05-18 20:40:33,074 core.utils.slicer ContourSet has no `.collections`; falling back to `.allsegs` extraction.
+WARNING 2025-05-18 20:44:28,642 core.utils.slicer ContourSet has no `.collections`; falling back to `.allsegs` extraction.
+WARNING 2025-05-18 20:44:41,033 core.utils.slicer ContourSet has no `.collections`; falling back to `.allsegs` extraction.
