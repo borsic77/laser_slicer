@@ -2449,3 +2449,23 @@ WARNING 2025-05-17 12:42:26,624 core.utils.slicer Dropped segment at level 1294.
 WARNING 2025-05-17 12:42:26,624 core.utils.slicer Dropped segment at level 1394.0: valid=False, area=0.0009232077940556166
 INFO 2025-05-17 12:42:27,446 core.views Generated 11 contour polygons.
 INFO 2025-05-17 12:42:28,403 django.server "POST /api/slice/ HTTP/1.1" 200 2713873
+INFO 2025-05-18 14:48:04,693 django.utils.autoreload /Users/boris/Documents/python programs/laser_slicer/core/utils/slicer.py changed, reloading.
+INFO 2025-05-18 14:48:05,166 django.utils.autoreload Watching for file changes with StatReloader
+INFO 2025-05-18 14:49:06,581 django.utils.autoreload /Users/boris/Documents/python programs/laser_slicer/core/utils/slicer.py changed, reloading.
+INFO 2025-05-18 14:49:06,828 django.utils.autoreload Watching for file changes with StatReloader
+INFO 2025-05-18 14:50:05,939 django.utils.autoreload /Users/boris/Documents/python programs/laser_slicer/core/utils/slicer.py changed, reloading.
+INFO 2025-05-18 14:50:06,342 django.utils.autoreload Watching for file changes with StatReloader
+INFO 2025-05-18 14:50:59,373 django.utils.autoreload /Users/boris/Documents/python programs/laser_slicer/core/utils/slicer.py changed, reloading.
+INFO 2025-05-18 14:50:59,786 django.utils.autoreload Watching for file changes with StatReloader
+INFO 2025-05-18 14:51:57,940 django.utils.autoreload /Users/boris/Documents/python programs/laser_slicer/core/utils/slicer.py changed, reloading.
+INFO 2025-05-18 14:51:58,197 django.utils.autoreload Watching for file changes with StatReloader
+INFO 2025-05-18 15:12:08,194 django.utils.autoreload /Users/boris/Documents/python programs/laser_slicer/core/utils/slicer.py changed, reloading.
+INFO 2025-05-18 15:12:08,572 django.utils.autoreload Watching for file changes with StatReloader
+INFO 2025-05-18 15:12:16,323 django.utils.autoreload /Users/boris/Documents/python programs/laser_slicer/core/utils/slicer.py changed, reloading.
+INFO 2025-05-18 15:12:16,591 django.utils.autoreload Watching for file changes with StatReloader
+INFO 2025-05-18 15:13:52,691 django.utils.autoreload /Users/boris/Documents/python programs/laser_slicer/core/utils/slicer.py changed, reloading.
+INFO 2025-05-18 15:13:52,953 django.utils.autoreload Watching for file changes with StatReloader
+INFO 2025-05-18 15:32:22,089 core.utils.geocoding Geocoded Yverdon-les-Bains, Switzerland to (46.7785711, 6.6409158)
+INFO 2025-05-18 15:32:25,203 core.utils.geocoding Geocoded Café de Flore, Paris, France to (48.8541444, 2.3326307)
+INFO 2025-05-18 15:32:26,466 core.utils.geocoding Geocoded 1600 Amphitheatre Parkway, Mountain View, CA 94043, United States to (37.4224857, -122.0855846)
+INFO 2025-05-18 15:32:27,177 core.utils.geocoding Geocoded 10001, New York, NY, USA to (40.7484661, -73.9941126)

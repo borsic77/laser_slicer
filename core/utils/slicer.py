@@ -101,8 +101,9 @@ from shapely.geometry import box
 
 def walk_bbox_between(coords, start_idx, end_idx, direction="cw"):
     """
-    Walks the bounding box coordinates from start_idx to end_idx in the specified direction.
-    direction: 'cw' for clockwise, 'ccw' for counterclockwise
+    Walks the bounding box coordinates from end_idx to start_idx in the specified direction.
+    Includes both start and end points.
+    direction: 'cw' walks forward in the list, 'ccw' walks backward.
     """
     n = len(coords)
     if direction == "cw":
