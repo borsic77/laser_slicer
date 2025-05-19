@@ -21,6 +21,36 @@ from core.utils.slicer import (
 )
 
 
+@api_view(["POST"])
+def elevation_range(request):
+    try:
+        bounds = request.data["bounds"]
+
+        lat_min = float(bounds["lat_min"])
+        lon_min = float(bounds["lon_min"])
+        lat_max = float(bounds["lat_max"])
+        lon_max = float(bounds["lon_max"])
+
+        tile_paths = download_srtm_tiles_for_bounds(
+            (lon_min, lat_min, lon_max, lat_max)
+        )
+        elevation, _ = mosaic_and_crop(tile_paths, (lon_min, lat_min, lon_max, lat_max))
+
+        import numpy as np
+
+        masked = np.ma.masked_where(
+            ~np.isfinite(elevation) | (elevation <= -32768), elevation
+        )
+        min_elev = max(-500, float(masked.min()))
+        max_elev = min(10000, float(masked.max()))
+
+        return Response({"min": min_elev, "max": max_elev})
+    except Exception as e:
+        logger.exception("Error getting elevation range")
+        traceback.print_exc()
+        return Response({"error": str(e)}, status=500)
+
+
 def compute_utm_bounds_from_wgs84(
     lon_min: float,
     lat_min: float,

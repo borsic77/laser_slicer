@@ -6,7 +6,7 @@ import { MapContainer, Marker, Rectangle, TileLayer, useMap, useMapEvents } from
 
 interface MapViewProps {
   coordinates: [number, number] | null
-  boundsRef?: React.MutableRefObject<[[number, number], [number, number]] | null>
+  onBoundsChange?: (bounds: [[number, number], [number, number]]) => void
   squareOutput?: boolean
 }
 
@@ -79,11 +79,9 @@ function getAdjustedBounds(
 function RecenterMap({
   coordinates,
   squareOutput,
-  boundsRef,
 }: {
   coordinates: [number, number],
   squareOutput: boolean,
-  boundsRef?: React.MutableRefObject<[[number, number], [number, number]] | null>
 }) {
   const map = useMap()
   useEffect(() => {
@@ -93,7 +91,11 @@ function RecenterMap({
   return null
 }
 
-function useSelectionBounds(map: L.Map | null, squareOutput: boolean, boundsRef?: React.MutableRefObject<[[number, number], [number, number]] | null>) {
+function useSelectionBounds(
+  map: L.Map | null,
+  squareOutput: boolean,
+  onBoundsChange?: (bounds: [[number, number], [number, number]]) => void
+) {
   const [selectionBounds, setSelectionBounds] = useState<[[number, number], [number, number]] | null>(null);
 
   useEffect(() => {
@@ -110,7 +112,7 @@ function useSelectionBounds(map: L.Map | null, squareOutput: boolean, boundsRef?
 
     const adjustedBounds = getAdjustedBounds(rawBounds, squareOutput, map);
 
-    if (boundsRef) boundsRef.current = adjustedBounds;
+    if (onBoundsChange) onBoundsChange(adjustedBounds);
     setSelectionBounds(adjustedBounds);
   };
 
@@ -124,12 +126,12 @@ function useSelectionBounds(map: L.Map | null, squareOutput: boolean, boundsRef?
       map.off('zoomend', update);
       map.off('load', update);
     };
-  }, [map, squareOutput]);
+  }, [map, squareOutput, onBoundsChange]);
 
   return selectionBounds;
 }
 
-export default function MapView({ coordinates, boundsRef, squareOutput = false }: MapViewProps) {
+export default function MapView({ coordinates, onBoundsChange, squareOutput = false }: MapViewProps) {
   const [position, setPosition] = useState<[number, number]>(
     coordinates ?? [46.78, 6.64]
   ) // Default: Yverdon
@@ -142,7 +144,7 @@ export default function MapView({ coordinates, boundsRef, squareOutput = false }
     }
   }, [coordinates])
 
-  const selectionBounds = useSelectionBounds(mapRef.current, squareOutput, boundsRef);
+  const selectionBounds = useSelectionBounds(mapRef.current, squareOutput, onBoundsChange);
 
   function LocationMarker() {
     useMapEvents({
@@ -167,7 +169,7 @@ export default function MapView({ coordinates, boundsRef, squareOutput = false }
         attribution='&copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a> contributors'
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
-      {coordinates && <RecenterMap coordinates={coordinates} squareOutput={squareOutput} boundsRef={boundsRef} />}
+      {coordinates && <RecenterMap coordinates={coordinates} squareOutput={squareOutput} />}
       <LocationMarker />
       {selectionBounds && (
         <Rectangle

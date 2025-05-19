@@ -1,18 +1,87 @@
-import { useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import './App.css'
 import ContourPreview from './components/ContourPreview'
-import MapView from './components/MapView'
+import MapView from './components/Mapview'
 
 function App() {
   const [address, setAddress] = useState('')
   const [coordinates, setCoordinates] = useState<[number, number] | null>(null)
   const [sliced, setSliced] = useState(false)
   const [contourLayers, setContourLayers] = useState<any[]>([])
-  const boundsRef = useRef<[[number, number], [number, number]] | null>(null)
+
+  const [bounds, setBounds] = useState<[[number, number], [number, number]] | null>(null)
 
   const [substrateSize, setSubstrateSize] = useState(400)
   const [layerThickness, setLayerThickness] = useState(5)
   const [squareOutput, setSquareOutput] = useState(false)
+  const [areaStats, setAreaStats] = useState<{ width: number; height: number } | null>(null)
+  const [elevationStats, setElevationStats] = useState<{ min: number; max: number } | null>(null)
+
+  const [heightPerLayer, setHeightPerLayer] = useState(250)
+  const [numLayers, setNumLayers] = useState(5)
+  const [lastChanged, setLastChanged] = useState<'height' | 'layers'>('height')
+
+  const [slicing, setSlicing] = useState(false)
+
+  function getWidthHeightMeters(bounds: [[number, number], [number, number]]): { width: number; height: number } {
+    const [latMin, lonMin] = bounds[0]
+    const [latMax, lonMax] = bounds[1]
+
+    const R = 6371000
+    const φ1 = (latMin * Math.PI) / 180
+    const φ2 = (latMax * Math.PI) / 180
+    const Δφ = φ2 - φ1
+    const Δλ = ((lonMax - lonMin) * Math.PI) / 180
+    const φm = (φ1 + φ2) / 2
+
+    const height = R * Δφ
+    const width = R * Δλ * Math.cos(φm)
+
+    return {
+      width: Math.abs(width),
+      height: Math.abs(height),
+    }
+  }
+
+  async function fetchElevationRange(bounds: [[number, number], [number, number]]) {
+    const body = {
+      lat_min: bounds[0][0],
+      lon_min: bounds[0][1],
+      lat_max: bounds[1][0],
+      lon_max: bounds[1][1],
+    }
+
+    const res = await fetch("http://localhost:8000/api/elevation-range/", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ bounds: body }),
+    })
+
+    if (!res.ok) throw new Error("Failed to get elevation range")
+    const data = await res.json()
+    setElevationStats({ min: data.min, max: data.max })
+  }
+
+  useEffect(() => {
+    if (!bounds) return
+    const dims = getWidthHeightMeters(bounds)
+    setAreaStats(dims)
+    fetchElevationRange(bounds).catch((err) =>
+      console.error("Elevation range error:", err)
+    )
+  }, [bounds])
+
+  useEffect(() => {
+    if (!elevationStats) return
+    const range = elevationStats.max - elevationStats.min
+    if (lastChanged === 'height') {
+      const newNum = Math.max(1, Math.round(range / heightPerLayer))
+      setNumLayers(newNum)
+    } else {
+      const newHeight = Math.max(10, Math.min(5000, range / numLayers))
+      setHeightPerLayer(newHeight)
+    }
+  }, [elevationStats, heightPerLayer, numLayers])
 
   async function fetchCoordinates(address: string): Promise<[number, number]> {
     const res = await fetch('http://localhost:8000/api/geocode/', {
@@ -35,21 +104,15 @@ function App() {
     }
   }
 
-  function getSelectedBounds(): [[number, number], [number, number]] | null {
-    return boundsRef.current;
-  }
-
   const handleSlice = async () => {
     if (!coordinates) {
       alert("Please select a location first.")
       return
     }
 
-    const height = Number((document.getElementById('layer-height') as HTMLInputElement).value)
-    const numLayers = Number((document.getElementById('num-layers') as HTMLInputElement).value)
-    const simplify = Number((document.getElementById('simplify') as HTMLInputElement).value)
+    const height = heightPerLayer
+    const layers = numLayers
 
-    const bounds = getSelectedBounds();
     if (!bounds) {
       alert("Could not read selected bounds.")
       return;
@@ -59,8 +122,8 @@ function App() {
       lat: coordinates[0],
       lon: coordinates[1],
       height_per_layer: height,
-      num_layers: numLayers,
-      simplify: simplify,
+      num_layers: layers,
+      simplify: Number((document.getElementById('simplify') as HTMLInputElement).value),
       bounds: {
         lat_min: bounds[0][0],
         lon_min: bounds[0][1],
@@ -72,6 +135,7 @@ function App() {
     }
 
     try {
+      setSlicing(true)
       const res = await fetch('http://localhost:8000/api/slice/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -88,8 +152,9 @@ function App() {
       }))
       setContourLayers(layersWithPoints)
       setSliced(true)
-      alert('Slicing complete! Ready to export.')
+      setSlicing(false)
     } catch (error) {
+      setSlicing(false)
       alert("Slicing failed: " + error)
     }
   }
@@ -97,7 +162,9 @@ function App() {
   const handleExport = async () => {
     try {
       const res = await fetch('http://localhost:8000/api/export/', {
-        method: 'GET',
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ layers: contourLayers }),
       })
 
       if (!res.ok) throw new Error('Failed to export contours')
@@ -116,7 +183,7 @@ function App() {
   return (
     <div className="container">
       <header>
-        <h1>Laser-Cuttable Contour Map Generator</h1>
+        <h1>Lasercut Contour Map Generator</h1>
       </header>
       <div className="content-wrapper">
         <div className="sidebar">
@@ -133,11 +200,31 @@ function App() {
           <div className="parameters">
             <label>
               Height per layer (m):
-              <input type="number" id="layer-height" defaultValue={250} />
+              <input
+                type="number"
+                id="layer-height"
+                value={heightPerLayer}
+                min={10}
+                max={5000}
+                onChange={(e) => {
+                  const val = Math.max(10, Math.min(5000, Number(e.target.value)))
+                  setLastChanged('height')
+                  setHeightPerLayer(val)
+                }}
+              />
             </label>
             <label>
               Number of layers:
-              <input type="number" id="num-layers" defaultValue={5} />
+              <input
+                type="number"
+                id="num-layers"
+                value={numLayers}
+                onChange={(e) => {
+                  const val = Math.max(1, Math.floor(Number(e.target.value)))
+                  setLastChanged('layers')
+                  setNumLayers(val)
+                }}
+              />
             </label>
             <label>
               Simplify shape:
@@ -178,12 +265,20 @@ function App() {
         </div>
         <div className="main-panel">
           <div className="map-container">
-            <MapView coordinates={coordinates} boundsRef={boundsRef} squareOutput={squareOutput} />
+            <MapView coordinates={coordinates} onBoundsChange={setBounds} squareOutput={squareOutput} />
           </div>
           <div id="preview-3d">
             <h2>3D Preview</h2>
-            <ContourPreview layers={contourLayers} />
+            { slicing ? <p>⏳ Slicing in progress...</p> : <ContourPreview layers={contourLayers} /> }
           </div>
+        </div>
+        <div className="info-sidebar">
+          <h2>Area Info</h2>
+          <p><strong>Center:</strong> {coordinates ? `${coordinates[0].toFixed(5)}, ${coordinates[1].toFixed(5)}` : 'N/A'}</p>
+          <p><strong>Width:</strong> {areaStats ? `${areaStats.width.toFixed(0)} m` : 'N/A'}</p>
+          <p><strong>Height:</strong> {areaStats ? `${areaStats.height.toFixed(0)} m` : 'N/A'}</p>
+          <p><strong>Lowest Elevation:</strong> {elevationStats ? `${elevationStats.min.toFixed(0)} m` : '…'}</p>
+          <p><strong>Highest Elevation:</strong> {elevationStats ? `${elevationStats.max.toFixed(0)} m` : '…'}</p>
         </div>
       </div>
     </div>

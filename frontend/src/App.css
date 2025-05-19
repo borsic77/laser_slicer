@@ -1,6 +1,5 @@
 #root {
-  max-width: 1280px;
-  margin: 0 auto;
+  width: 100%;
   padding: 2rem;
   text-align: center;
 }
@@ -46,6 +45,7 @@
   flex-direction: row;
   align-items: flex-start;
   gap: 20px;
+  justify-content: space-between;
 }
 
 /* Sidebar layout */
@@ -58,6 +58,19 @@
   flex-direction: column;
   gap: 10px;
   text-align: left;
+}
+
+/* Right sidebar layout */
+.info-sidebar {
+  width: 250px;
+  padding: 20px;
+  background-color: #2a2a2a;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  text-align: left;
+  color: white;
 }
 
 /* Main panel layout */
