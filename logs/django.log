@@ -4113,3 +4113,17 @@ INFO 2025-05-20 14:51:36,608 django.utils.autoreload /Users/boris/Documents/pyth
 INFO 2025-05-20 14:51:36,930 django.utils.autoreload Watching for file changes with StatReloader
 INFO 2025-05-20 14:52:13,354 django.utils.autoreload /Users/boris/Documents/python programs/laser_slicer/core/views.py changed, reloading.
 INFO 2025-05-20 14:52:13,623 django.utils.autoreload Watching for file changes with StatReloader
+INFO 2025-05-20 15:01:05,132 django.utils.autoreload /Users/boris/Documents/python programs/laser_slicer/core/views.py changed, reloading.
+INFO 2025-05-20 15:01:05,435 django.utils.autoreload Watching for file changes with StatReloader
+INFO 2025-05-20 15:03:32,376 django.utils.autoreload /Users/boris/Documents/python programs/laser_slicer/core/utils/slicer.py changed, reloading.
+INFO 2025-05-20 15:03:32,735 django.utils.autoreload Watching for file changes with StatReloader
+INFO 2025-05-20 15:06:09,312 django.utils.autoreload /Users/boris/Documents/python programs/laser_slicer/core/utils/svg_export.py changed, reloading.
+INFO 2025-05-20 15:06:09,674 django.utils.autoreload Watching for file changes with StatReloader
+INFO 2025-05-20 15:06:43,222 django.utils.autoreload /Users/boris/Documents/python programs/laser_slicer/core/utils/svg_export.py changed, reloading.
+INFO 2025-05-20 15:06:43,546 django.utils.autoreload Watching for file changes with StatReloader
+INFO 2025-05-20 15:08:45,995 django.utils.autoreload /Users/boris/Documents/python programs/laser_slicer/core/utils/svg_export.py changed, reloading.
+INFO 2025-05-20 15:08:46,301 django.utils.autoreload Watching for file changes with StatReloader
+INFO 2025-05-20 15:10:38,557 django.utils.autoreload /Users/boris/Documents/python programs/laser_slicer/core/utils/export_filename.py changed, reloading.
+INFO 2025-05-20 15:10:38,959 django.utils.autoreload Watching for file changes with StatReloader
+INFO 2025-05-20 15:13:30,185 django.utils.autoreload /Users/boris/Documents/python programs/laser_slicer/core/utils/geocoding.py changed, reloading.
+INFO 2025-05-20 15:13:30,491 django.utils.autoreload Watching for file changes with StatReloader

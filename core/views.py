@@ -25,7 +25,15 @@ from core.utils.svg_export import contours_to_svg_zip
 
 @csrf_exempt
 @api_view(["POST"])
-def elevation_range(request):
+def elevation_range(request) -> Response:
+    """Return the min and max elevation in the given bounding box.
+
+    Args:
+        request (Request): Django REST Framework request containing bounds (lat/lon).
+
+    Returns:
+        Response: JSON response with 'min' and 'max' elevation values.
+    """
     try:
         bounds = request.data["bounds"]
 
@@ -54,7 +62,15 @@ def elevation_range(request):
 
 @csrf_exempt
 @api_view(["POST"])
-def export_svgs(request):
+def export_svgs(request) -> FileResponse | Response:
+    """Generate a ZIP archive of SVG files from provided contour layers.
+
+    Args:
+        request (Request): Django REST Framework request containing layers and metadata.
+
+    Returns:
+        FileResponse | Response: A ZIP file response or error message.
+    """
     contours = request.data.get("layers")  # front-end sends the list it already has
     if not contours:
         return Response({"error": "No layers supplied"}, status=400)
@@ -96,6 +112,19 @@ def compute_utm_bounds_from_wgs84(
     center_x: float,
     center_y: float,
 ) -> tuple[float, float, float, float]:
+    """Convert WGS84 bounding box to projected UTM bounds.
+
+    Args:
+        lon_min (float): Minimum longitude of bounding box.
+        lat_min (float): Minimum latitude of bounding box.
+        lon_max (float): Maximum longitude of bounding box.
+        lat_max (float): Maximum latitude of bounding box.
+        center_x (float): Center longitude used to determine UTM zone.
+        center_y (float): Center latitude used to determine UTM zone.
+
+    Returns:
+        tuple[float, float, float, float]: Bounding box in UTM coordinates as (min_x, min_y, max_x, max_y).
+    """
     zone_number = int((center_x + 180) / 6) + 1
     is_northern = center_y >= 0
     epsg_code = f"326{zone_number:02d}" if is_northern else f"327{zone_number:02d}"
@@ -112,7 +141,15 @@ logger = logging.getLogger(__name__)
 
 @csrf_exempt
 @api_view(["POST"])
-def geocode(request):
+def geocode(request) -> Response:
+    """Resolve an address to latitude and longitude using Nominatim.
+
+    Args:
+        request (Request): POST request with an 'address' field.
+
+    Returns:
+        Response: JSON with 'lat' and 'lon' or error.
+    """
     address = request.data.get("address")
     if not address:
         return Response({"error": "Address is required"}, status=400)
@@ -125,13 +162,29 @@ def geocode(request):
         return Response({"error": str(e)}, status=500)
 
 
-def index(request):
+def index(request) -> Response:
+    """Render the main frontend index page.
+
+    Args:
+        request (Request): Django request.
+
+    Returns:
+        Response: Rendered HTML response.
+    """
     return render(request, "core/index.html")
 
 
 @csrf_exempt
 @api_view(["POST"])
-def slice_contours(request):
+def slice_contours(request) -> Response:
+    """Slice elevation data into contour layers for laser cutting.
+
+    Args:
+        request (Request): JSON POST request with slicing parameters and bounding box.
+
+    Returns:
+        Response: JSON with contour data or error message.
+    """
     try:
         height = float(request.data["height_per_layer"])
         layers = int(request.data["num_layers"])

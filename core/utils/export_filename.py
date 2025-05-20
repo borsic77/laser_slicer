@@ -9,6 +9,14 @@ logger = logging.getLogger(__name__)
 
 
 def slugify(value: str) -> str:
+    """Converts a string to a safe slug with only ASCII alphanumerics and underscores.
+
+    Args:
+        value (str): The input string.
+
+    Returns:
+        str: Slugified version of the string.
+    """
     value = (
         unicodedata.normalize("NFKD", value).encode("ascii", "ignore").decode("ascii")
     )
@@ -19,6 +27,17 @@ def slugify(value: str) -> str:
 def build_export_basename(
     address: str, coords: list[float], height_mm: str, num_layers: int
 ) -> str:
+    """Build a consistent export filename from location, height, and layer count.
+
+    Args:
+        address (str): User-specified address or location name.
+        coords (list[float]): Coordinates [longitude, latitude] if no address.
+        height_mm (str): Height of each layer in millimeters as a string.
+        num_layers (int): Total number of layers.
+
+    Returns:
+        str: A slug-safe export filename.
+    """
     if address:
         location_slug = slugify(address)
     elif coords and isinstance(coords, list) and len(coords) == 2:

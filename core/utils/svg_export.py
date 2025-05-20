@@ -36,9 +36,17 @@ def contours_to_svg_zip(
        outline (or the cut outline for the top layer).
 
     Geometry is assumed to be projected in **metres** (UTM).  SVG coordinates
-    are expressed in millimetres (1 m = 1000 mm) with the *Y axis flipped*
+    are expressed in millimetres with the *Y axis flipped*
     so that the visual orientation in the browser matches the physical model
     (SVG Y grows down, UTM north is positive up).
+    Args:
+        contours (List[dict]): List of contour geometries with elevation, assumed to be in UTM metres.
+        stroke_cut (str): Stroke color for the cut geometry (default: black).
+        stroke_align (str): Stroke color for the alignment geometry (default: red).
+        stroke_width_mm (float): Width of strokes in millimeters (default: 0.1 mm).
+        basename (str): Base filename used for SVG layers in the ZIP.
+    Returns:
+        bytes: The ZIP file content as bytes.
     """
 
     if not contours:
@@ -62,13 +70,29 @@ def contours_to_svg_zip(
     height_mm = glob_maxy - glob_miny
 
     def _to_svg_coords(x_m: float, y_m: float) -> Tuple[float, float]:
-        """Project UTM metres → SVG coordinates, flipping Y (internal units in meters)."""
+        """Convert UTM coordinates (in meters) to SVG coordinates (in mm), flipping Y.
+
+        Args:
+            x_m (float): X coordinate in UTM meters.
+            y_m (float): Y coordinate in UTM meters.
+
+        Returns:
+            Tuple[float, float]: Corresponding X, Y in SVG mm coordinates.
+        """
         x_mm = (x_m - glob_minx) * 1000.0
         y_mm = (glob_maxy - y_m) * 1000.0
         return round(x_mm, 3), round(y_mm, 3)
 
     def _polygon_to_path(p: Polygon, include_holes: bool = True) -> str:
-        """Convert a (possibly with holes) Shapely Polygon → SVG path string."""
+        """Convert a Shapely Polygon to an SVG path string.
+
+        Args:
+            p (Polygon): Polygon to convert.
+            include_holes (bool): Whether to include interior rings.
+
+        Returns:
+            str: SVG path 'd' attribute string.
+        """
 
         def _ring_to_cmds(coords):
             if not coords:
@@ -86,6 +110,15 @@ def contours_to_svg_zip(
         return f"{outer} {inners}".strip()
 
     def _geom_to_paths(g, include_holes: bool = True) -> List[str]:
+        """Convert a Shapely geometry into a list of SVG path strings.
+
+        Args:
+            g (BaseGeometry): Shapely geometry (Polygon or MultiPolygon).
+            include_holes (bool): Whether to include holes in the path.
+
+        Returns:
+            List[str]: List of SVG path strings.
+        """
         if g.geom_type == "Polygon":
             return [_polygon_to_path(g, include_holes=include_holes)]
         elif g.geom_type == "MultiPolygon":
@@ -142,7 +175,7 @@ def contours_to_svg_zip(
                 )
 
             # ----------------------------------------------
-            # Alignment outline – dashed or secondary colour
+            # Alignment outline – secondary colour
             # ----------------------------------------------
             if align_geom is not None and not align_geom.is_empty:
                 for path_d in _geom_to_paths(align_geom, include_holes=False):

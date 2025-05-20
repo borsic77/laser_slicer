@@ -16,8 +16,19 @@ class Coordinates:
 
 
 def geocode_address(address: str) -> Coordinates:
-    """
-    Geocode an address to (latitude, longitude) using Nominatim.
+    """Resolve a textual address to geographic coordinates using Nominatim.
+
+    This function throttles requests to respect a minimum interval between queries.
+
+    Args:
+        address (str): The address to geocode.
+
+    Returns:
+        Coordinates: A dataclass containing latitude and longitude.
+
+    Raises:
+        ValueError: If no matching result is found.
+        requests.RequestException: For network or HTTP errors.
     """
     key = "last_geocode_time"
     last = cache.get(key)

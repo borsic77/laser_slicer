@@ -33,7 +33,14 @@ if DEBUG:
 logger = logging.getLogger(__name__)
 
 
-def save_debug_contour_polygon(polygon, level, filename):
+def save_debug_contour_polygon(polygon, level: float, filename: str) -> None:
+    """Saves a debug image of a single contour polygon at a given elevation.
+
+    Args:
+        polygon (Polygon or MultiPolygon): The geometry to plot.
+        level (float): The elevation level of the contour.
+        filename (str): The base filename to use for the saved image.
+    """
     fig, ax = plt.subplots()
     if polygon.is_empty or not polygon.is_valid:
         return
@@ -52,9 +59,13 @@ def save_debug_contour_polygon(polygon, level, filename):
 def download_srtm_tiles_for_bounds(
     bounds: Tuple[float, float, float, float],
 ) -> List[str]:
-    """
-    Downloads all SRTM tiles that intersect the given bounding box.
-    Returns a list of file paths to the GeoTIFFs.
+    """Downloads SRTM tiles intersecting the given bounding box.
+
+    Args:
+        bounds (tuple): Geographic bounding box (lon_min, lat_min, lon_max, lat_max).
+
+    Returns:
+        list[str]: File paths to downloaded GeoTIFFs.
     """
     os.makedirs(SRTM_CACHE_DIR, exist_ok=True)
     lon_min, lat_min, lon_max, lat_max = bounds
@@ -80,9 +91,14 @@ def download_srtm_tiles_for_bounds(
 def mosaic_and_crop(
     tif_paths: List[str], bounds: Tuple[float, float, float, float]
 ) -> Tuple[np.ndarray, rasterio.Affine]:
-    """
-    Merges multiple SRTM tiles and clips them to the specified bounds.
-    Returns a single numpy array and the affine transform.
+    """Merges and crops SRTM tiles to the bounding box.
+
+    Args:
+        tif_paths (list): List of GeoTIFF paths.
+        bounds (tuple): Bounding box (lon_min, lat_min, lon_max, lat_max).
+
+    Returns:
+        tuple: Cropped elevation array and its affine transform.
     """
     src_files = [rasterio.open(p) for p in tif_paths]
 
@@ -107,11 +123,19 @@ def mosaic_and_crop(
     return clipped[0], cropped_transform
 
 
-def walk_bbox_between(coords, start_idx, end_idx, direction="cw"):
-    """
-    Walks the bounding box coordinates from end_idx to start_idx in the specified direction.
-    Includes both start and end points.
-    direction: 'cw' walks forward in the list, 'ccw' walks backward.
+def walk_bbox_between(
+    coords, start_idx: int, end_idx: int, direction: str = "cw"
+) -> list:
+    """Walks the bbox coordinates circularly from end to start.
+
+    Args:
+        coords (list): List of coordinate tuples.
+        start_idx (int): Index to start from.
+        end_idx (int): Index to end at.
+        direction (str): 'cw' for clockwise, 'ccw' for counterclockwise.
+
+    Returns:
+        list: Subset of coords between indices.
     """
     n = len(coords)
     if direction == "cw":
@@ -127,6 +151,15 @@ def walk_bbox_between(coords, start_idx, end_idx, direction="cw"):
 
 
 def is_almost_closed(line: LineString, tolerance: float = 1e-8) -> bool:
+    """Checks if a LineString is nearly closed within a tolerance.
+
+    Args:
+        line (LineString): The line geometry to check.
+        tolerance (float): Maximum allowable gap length.
+
+    Returns:
+        bool: True if nearly closed, else False.
+    """
     return (
         line.coords[0] != line.coords[-1]
         and LineString([line.coords[0], line.coords[-1]]).length < tolerance
@@ -365,6 +398,21 @@ def generate_contours(
     scale: float = 1.0,
     bounds: tuple[float, float, float, float] = None,
 ) -> List[dict]:
+    """Generates stacked contour bands from elevation data.
+
+    Args:
+        elevation_data (ndarray): 2D elevation array.
+        transform (Affine): Affine transform for spatial coordinates.
+        interval (float): Height difference between layers.
+        simplify (float): Optional simplification factor (not used here).
+        debug_image_path (str): Path for saving debug images.
+        center (tuple): Center coordinate for UTM zone.
+        scale (float): Not currently used.
+        bounds (tuple): Optional bounds for clipping (not used).
+
+    Returns:
+        list[dict]: Contour band geometries with elevation.
+    """
     logger.debug("generate contours called")
 
     lon, lat = _prepare_meshgrid(elevation_data, transform)
