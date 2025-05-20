@@ -14,3 +14,4 @@ wheels/
 
 # data directory
 data/
+logs/django.log

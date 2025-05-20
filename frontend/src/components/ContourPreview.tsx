@@ -1,6 +1,7 @@
 import { OrbitControls } from '@react-three/drei';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import type { MultiPolygon } from 'geojson';
+import { useMemo } from 'react';
 import * as THREE from 'three';
 
 function CameraLookAtCenter({ y = 0 }: { y: number }) {
@@ -170,7 +171,15 @@ export default function ContourPreview({ layers }: ContourPreviewProps) {
   const yExtent = Math.max(...ys) - Math.min(...ys)
   const xyExtent = Math.max(xExtent, yExtent)
 
-  let cumulativeHeight = 0
+  const cumulativeHeights = useMemo(() => {
+    const result: number[] = []
+    let sum = 0
+    for (const layer of layers) {
+      result.push(sum)
+      sum += layer.thickness ?? 0.003
+    }
+    return result
+  }, [layers])
 
   const totalHeight = layers.reduce((sum, l) => sum + (l.thickness ?? 0.003), 0)
 
@@ -195,9 +204,7 @@ export default function ContourPreview({ layers }: ContourPreviewProps) {
           </mesh>
         )}
         {layers.map((layer, idx) => {
-          const positionY = cumulativeHeight
-          cumulativeHeight += layer.thickness ?? 0.003 // default to 3mm if missing
-
+          const positionY = cumulativeHeights[idx]
           return (
             <PolygonLayer
               key={`layer-${idx}`}
