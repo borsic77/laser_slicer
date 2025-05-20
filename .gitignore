@@ -11,3 +11,6 @@ wheels/
 
 # environment file
 .env
+
+# data directory
+data/

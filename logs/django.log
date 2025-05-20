@@ -3971,3 +3971,141 @@ INFO 2025-05-20 13:02:17,399 django.utils.autoreload Watching for file changes w
 INFO 2025-05-20 13:02:54,951 django.utils.autoreload /Users/boris/Documents/python programs/laser_slicer/core/utils/svg_export.py changed, reloading.
 INFO 2025-05-20 13:02:55,249 django.utils.autoreload Watching for file changes with StatReloader
 INFO 2025-05-20 13:03:01,385 django.server "POST /api/export/ HTTP/1.1" 200 24585
+INFO 2025-05-20 13:11:24,290 django.utils.autoreload /Users/boris/Documents/python programs/laser_slicer/core/views.py changed, reloading.
+INFO 2025-05-20 13:11:24,739 django.utils.autoreload Watching for file changes with StatReloader
+INFO 2025-05-20 13:13:00,571 django.server "POST /api/elevation-range/ HTTP/1.1" 200 26
+INFO 2025-05-20 13:13:01,815 core.views Slicing bounds (46.78635649066017, 6.5951597002327595) to (46.86632791332089, 6.704901774728513) with 250.0m per layer, 4 layers, simplify=0.5
+WARNING 2025-05-20 13:13:02,117 core.utils.slicer ContourSet has no `.collections`; falling back to `.allsegs` extraction.
+INFO 2025-05-20 13:13:02,352 core.views Generated 5 contour polygons.
+INFO 2025-05-20 13:13:02,564 django.server "POST /api/slice/ HTTP/1.1" 200 402861
+INFO 2025-05-20 13:26:51,043 django.utils.autoreload /Users/boris/Documents/python programs/laser_slicer/core/views.py changed, reloading.
+INFO 2025-05-20 13:26:51,370 django.utils.autoreload Watching for file changes with StatReloader
+INFO 2025-05-20 13:32:46,040 django.utils.autoreload /Users/boris/Documents/python programs/laser_slicer/core/views.py changed, reloading.
+INFO 2025-05-20 13:32:46,506 django.utils.autoreload Watching for file changes with StatReloader
+INFO 2025-05-20 13:32:58,392 django.utils.autoreload /Users/boris/Documents/python programs/laser_slicer/core/utils/slugify.py changed, reloading.
+INFO 2025-05-20 13:32:58,721 django.utils.autoreload Watching for file changes with StatReloader
+INFO 2025-05-20 13:33:46,636 django.utils.autoreload /Users/boris/Documents/python programs/laser_slicer/core/views.py changed, reloading.
+INFO 2025-05-20 13:33:47,049 django.utils.autoreload Watching for file changes with StatReloader
+INFO 2025-05-20 13:38:28,648 django.utils.autoreload /Users/boris/Documents/python programs/laser_slicer/core/views.py changed, reloading.
+INFO 2025-05-20 13:38:28,972 django.utils.autoreload Watching for file changes with StatReloader
+INFO 2025-05-20 13:39:48,288 django.utils.autoreload /Users/boris/Documents/python programs/laser_slicer/core/views.py changed, reloading.
+INFO 2025-05-20 13:39:48,546 django.utils.autoreload Watching for file changes with StatReloader
+INFO 2025-05-20 13:40:10,670 django.utils.autoreload /Users/boris/Documents/python programs/laser_slicer/core/utils/svg_export.py changed, reloading.
+INFO 2025-05-20 13:40:11,028 django.utils.autoreload Watching for file changes with StatReloader
+INFO 2025-05-20 13:40:15,889 django.server "OPTIONS /api/export/ HTTP/1.1" 200 0
+INFO 2025-05-20 13:40:16,061 django.server "POST /api/export/ HTTP/1.1" 200 65163
+INFO 2025-05-20 13:42:34,030 django.utils.autoreload /Users/boris/Documents/python programs/laser_slicer/core/utils/export_filename.py changed, reloading.
+INFO 2025-05-20 13:42:34,400 django.utils.autoreload Watching for file changes with StatReloader
+INFO 2025-05-20 13:43:30,630 django.utils.autoreload /Users/boris/Documents/python programs/laser_slicer/core/utils/export_filename.py changed, reloading.
+INFO 2025-05-20 13:43:30,904 django.utils.autoreload Watching for file changes with StatReloader
+INFO 2025-05-20 13:43:47,901 django.utils.autoreload /Users/boris/Documents/python programs/laser_slicer/core/utils/export_filename.py changed, reloading.
+INFO 2025-05-20 13:43:48,175 django.utils.autoreload Watching for file changes with StatReloader
+INFO 2025-05-20 13:43:53,640 django.server "POST /api/export/ HTTP/1.1" 200 65163
+INFO 2025-05-20 13:44:09,130 core.utils.geocoding Geocoded fiez to (46.8280744, 6.6240029)
+INFO 2025-05-20 13:44:09,133 django.server "POST /api/geocode/ HTTP/1.1" 200 34
+INFO 2025-05-20 13:44:09,886 django.server "POST /api/elevation-range/ HTTP/1.1" 200 26
+INFO 2025-05-20 13:44:11,413 core.views Slicing bounds (46.788028841768906, 6.56948325943885) to (46.86794427056343, 6.679079640907647) with 250.0m per layer, 4 layers, simplify=0.5
+WARNING 2025-05-20 13:44:11,720 core.utils.slicer ContourSet has no `.collections`; falling back to `.allsegs` extraction.
+INFO 2025-05-20 13:44:11,927 core.views Generated 5 contour polygons.
+INFO 2025-05-20 13:44:12,126 django.server "POST /api/slice/ HTTP/1.1" 200 443537
+INFO 2025-05-20 13:44:13,705 django.server "POST /api/export/ HTTP/1.1" 200 70953
+INFO 2025-05-20 13:45:02,181 django.utils.autoreload /Users/boris/Documents/python programs/laser_slicer/core/utils/export_filename.py changed, reloading.
+INFO 2025-05-20 13:45:02,517 django.utils.autoreload Watching for file changes with StatReloader
+INFO 2025-05-20 13:45:42,259 django.utils.autoreload /Users/boris/Documents/python programs/laser_slicer/core/views.py changed, reloading.
+INFO 2025-05-20 13:45:42,555 django.utils.autoreload Watching for file changes with StatReloader
+INFO 2025-05-20 13:45:57,462 django.utils.autoreload /Users/boris/Documents/python programs/laser_slicer/core/views.py changed, reloading.
+INFO 2025-05-20 13:45:57,748 django.utils.autoreload Watching for file changes with StatReloader
+INFO 2025-05-20 13:46:03,675 django.server "POST /api/export/ HTTP/1.1" 200 70953
+INFO 2025-05-20 14:17:04,871 django.server "POST /api/elevation-range/ HTTP/1.1" 200 25
+INFO 2025-05-20 14:17:06,601 core.utils.geocoding Geocoded fie to (59.5347796, -1.6284978)
+INFO 2025-05-20 14:17:06,603 django.server "POST /api/geocode/ HTTP/1.1" 200 35
+INFO 2025-05-20 14:17:11,895 django.server "POST /api/elevation-range/ HTTP/1.1" 200 27
+INFO 2025-05-20 14:17:18,859 core.utils.geocoding Geocoded fiez to (46.8280744, 6.6240029)
+INFO 2025-05-20 14:17:18,862 django.server "POST /api/geocode/ HTTP/1.1" 200 34
+INFO 2025-05-20 14:17:19,137 django.server "POST /api/elevation-range/ HTTP/1.1" 200 26
+INFO 2025-05-20 14:17:20,426 core.views Slicing bounds (46.80687362970029, 6.539560317993166) to (46.84915530192774, 6.708578109741208) with 250.0m per layer, 4 layers, simplify=0.5
+WARNING 2025-05-20 14:17:20,741 core.utils.slicer ContourSet has no `.collections`; falling back to `.allsegs` extraction.
+INFO 2025-05-20 14:17:20,960 core.views Generated 6 contour polygons.
+INFO 2025-05-20 14:17:21,143 django.server "POST /api/slice/ HTTP/1.1" 200 368359
+INFO 2025-05-20 14:17:24,733 django.server "POST /api/elevation-range/ HTTP/1.1" 200 26
+INFO 2025-05-20 14:17:25,238 core.views Slicing bounds (46.808057335132375, 6.596714445310383) to (46.84796535621402, 6.651444219368391) with 250.0m per layer, 3 layers, simplify=0.5
+WARNING 2025-05-20 14:17:25,506 core.utils.slicer ContourSet has no `.collections`; falling back to `.allsegs` extraction.
+INFO 2025-05-20 14:17:25,624 core.views Generated 4 contour polygons.
+INFO 2025-05-20 14:17:25,715 django.server "POST /api/slice/ HTTP/1.1" 200 130820
+INFO 2025-05-20 14:17:26,992 django.server "POST /api/export/ HTTP/1.1" 200 24875
+INFO 2025-05-20 14:19:51,046 django.server "POST /api/elevation-range/ HTTP/1.1" 200 25
+INFO 2025-05-20 14:19:53,714 core.utils.geocoding Geocoded fiez to (46.8280744, 6.6240029)
+INFO 2025-05-20 14:19:53,717 django.server "POST /api/geocode/ HTTP/1.1" 200 34
+INFO 2025-05-20 14:19:53,981 django.server "POST /api/elevation-range/ HTTP/1.1" 200 26
+INFO 2025-05-20 14:19:56,798 django.server "POST /api/elevation-range/ HTTP/1.1" 200 26
+INFO 2025-05-20 14:19:57,377 core.views Slicing bounds (46.808057335132375, 6.596714445310383) to (46.84796535621402, 6.651444219368391) with 250.0m per layer, 3 layers, simplify=0.5
+WARNING 2025-05-20 14:19:57,658 core.utils.slicer ContourSet has no `.collections`; falling back to `.allsegs` extraction.
+INFO 2025-05-20 14:19:57,775 core.views Generated 4 contour polygons.
+INFO 2025-05-20 14:19:57,846 django.server "POST /api/slice/ HTTP/1.1" 200 130820
+INFO 2025-05-20 14:19:59,628 django.server "POST /api/export/ HTTP/1.1" 200 24875
+INFO 2025-05-20 14:20:35,655 django.server "POST /api/elevation-range/ HTTP/1.1" 200 25
+INFO 2025-05-20 14:20:38,030 core.utils.geocoding Geocoded fiez to (46.8280744, 6.6240029)
+INFO 2025-05-20 14:20:38,033 django.server "POST /api/geocode/ HTTP/1.1" 200 34
+INFO 2025-05-20 14:20:38,301 django.server "POST /api/elevation-range/ HTTP/1.1" 200 26
+INFO 2025-05-20 14:20:40,253 django.server "POST /api/elevation-range/ HTTP/1.1" 200 26
+INFO 2025-05-20 14:20:40,897 core.views Slicing bounds (46.808057335132375, 6.596714445310383) to (46.84796535621402, 6.651444219368391) with 250.0m per layer, 3 layers, simplify=0.5
+WARNING 2025-05-20 14:20:41,167 core.utils.slicer ContourSet has no `.collections`; falling back to `.allsegs` extraction.
+INFO 2025-05-20 14:20:41,297 core.views Generated 4 contour polygons.
+INFO 2025-05-20 14:20:41,407 django.server "POST /api/slice/ HTTP/1.1" 200 130820
+INFO 2025-05-20 14:20:42,622 django.server "POST /api/export/ HTTP/1.1" 200 24875
+INFO 2025-05-20 14:26:22,484 django.server "POST /api/elevation-range/ HTTP/1.1" 200 25
+INFO 2025-05-20 14:26:24,742 core.utils.geocoding Geocoded fiez to (46.8280744, 6.6240029)
+INFO 2025-05-20 14:26:24,744 django.server "POST /api/geocode/ HTTP/1.1" 200 34
+INFO 2025-05-20 14:26:25,020 django.server "POST /api/elevation-range/ HTTP/1.1" 200 26
+INFO 2025-05-20 14:26:26,376 django.server "POST /api/elevation-range/ HTTP/1.1" 200 26
+INFO 2025-05-20 14:26:26,813 core.views Slicing bounds (46.808057335132375, 6.596714445310383) to (46.84796535621402, 6.651444219368391) with 250.0m per layer, 3 layers, simplify=0.5
+WARNING 2025-05-20 14:26:27,090 core.utils.slicer ContourSet has no `.collections`; falling back to `.allsegs` extraction.
+INFO 2025-05-20 14:26:27,221 core.views Generated 4 contour polygons.
+INFO 2025-05-20 14:26:27,301 django.server "POST /api/slice/ HTTP/1.1" 200 130820
+INFO 2025-05-20 14:26:28,399 django.server "POST /api/export/ HTTP/1.1" 200 24875
+INFO 2025-05-20 14:30:10,812 django.server "POST /api/elevation-range/ HTTP/1.1" 200 25
+INFO 2025-05-20 14:30:14,067 core.utils.geocoding Geocoded fiez to (46.8280744, 6.6240029)
+INFO 2025-05-20 14:30:14,070 django.server "POST /api/geocode/ HTTP/1.1" 200 34
+INFO 2025-05-20 14:30:14,340 django.server "POST /api/elevation-range/ HTTP/1.1" 200 26
+INFO 2025-05-20 14:30:16,172 django.server "POST /api/elevation-range/ HTTP/1.1" 200 26
+INFO 2025-05-20 14:30:16,660 core.views Slicing bounds (46.808057335132375, 6.596714445310383) to (46.84796535621402, 6.651444219368391) with 250.0m per layer, 3 layers, simplify=0.5
+WARNING 2025-05-20 14:30:16,930 core.utils.slicer ContourSet has no `.collections`; falling back to `.allsegs` extraction.
+INFO 2025-05-20 14:30:17,081 core.views Generated 4 contour polygons.
+INFO 2025-05-20 14:30:17,156 django.server "POST /api/slice/ HTTP/1.1" 200 130820
+INFO 2025-05-20 14:30:18,288 django.server "POST /api/export/ HTTP/1.1" 200 24875
+INFO 2025-05-20 14:34:42,178 django.server "POST /api/elevation-range/ HTTP/1.1" 200 25
+INFO 2025-05-20 14:34:44,729 core.utils.geocoding Geocoded fiez to (46.8280744, 6.6240029)
+INFO 2025-05-20 14:34:44,730 django.server "POST /api/geocode/ HTTP/1.1" 200 34
+INFO 2025-05-20 14:34:45,001 django.server "POST /api/elevation-range/ HTTP/1.1" 200 26
+INFO 2025-05-20 14:34:46,366 django.server "POST /api/elevation-range/ HTTP/1.1" 200 26
+INFO 2025-05-20 14:34:46,838 core.views Slicing bounds (46.808057335132375, 6.596714445310383) to (46.84796535621402, 6.651444219368391) with 250.0m per layer, 3 layers, simplify=0.5
+WARNING 2025-05-20 14:34:47,120 core.utils.slicer ContourSet has no `.collections`; falling back to `.allsegs` extraction.
+INFO 2025-05-20 14:34:47,255 core.views Generated 4 contour polygons.
+INFO 2025-05-20 14:34:47,335 django.server "POST /api/slice/ HTTP/1.1" 200 130820
+INFO 2025-05-20 14:34:48,684 django.server "POST /api/export/ HTTP/1.1" 200 24875
+INFO 2025-05-20 14:35:28,621 django.server "POST /api/elevation-range/ HTTP/1.1" 200 25
+INFO 2025-05-20 14:35:34,672 core.utils.geocoding Geocoded fiez to (46.8280744, 6.6240029)
+INFO 2025-05-20 14:35:34,672 django.server "POST /api/geocode/ HTTP/1.1" 200 34
+INFO 2025-05-20 14:35:34,928 django.server "POST /api/elevation-range/ HTTP/1.1" 200 26
+INFO 2025-05-20 14:35:36,497 django.server "POST /api/elevation-range/ HTTP/1.1" 200 26
+INFO 2025-05-20 14:35:37,439 core.views Slicing bounds (46.808057335132375, 6.596714445310383) to (46.84796535621402, 6.651444219368391) with 250.0m per layer, 3 layers, simplify=0.5
+WARNING 2025-05-20 14:35:37,726 core.utils.slicer ContourSet has no `.collections`; falling back to `.allsegs` extraction.
+INFO 2025-05-20 14:35:37,895 core.views Generated 4 contour polygons.
+INFO 2025-05-20 14:35:37,980 django.server "POST /api/slice/ HTTP/1.1" 200 130820
+INFO 2025-05-20 14:35:38,949 django.server "POST /api/export/ HTTP/1.1" 200 24875
+INFO 2025-05-20 14:37:35,475 django.utils.autoreload /Users/boris/Documents/python programs/laser_slicer/core/views.py changed, reloading.
+INFO 2025-05-20 14:37:35,814 django.utils.autoreload Watching for file changes with StatReloader
+INFO 2025-05-20 14:37:44,870 django.server "POST /api/elevation-range/ HTTP/1.1" 200 25
+INFO 2025-05-20 14:37:47,658 core.utils.geocoding Geocoded fiez to (46.8280744, 6.6240029)
+INFO 2025-05-20 14:37:47,660 django.server "POST /api/geocode/ HTTP/1.1" 200 34
+INFO 2025-05-20 14:37:47,946 django.server "POST /api/elevation-range/ HTTP/1.1" 200 26
+INFO 2025-05-20 14:37:54,179 django.server "POST /api/elevation-range/ HTTP/1.1" 200 26
+INFO 2025-05-20 14:37:55,707 core.views Slicing bounds (46.808057335132375, 6.596714445310383) to (46.84796535621402, 6.651444219368391) with 250.0m per layer, 3 layers, simplify=0.5
+WARNING 2025-05-20 14:37:56,008 core.utils.slicer ContourSet has no `.collections`; falling back to `.allsegs` extraction.
+INFO 2025-05-20 14:37:56,144 core.views Generated 4 contour polygons.
+INFO 2025-05-20 14:37:56,228 django.server "POST /api/slice/ HTTP/1.1" 200 130820
+INFO 2025-05-20 14:37:57,524 django.server "POST /api/export/ HTTP/1.1" 200 24875
+INFO 2025-05-20 14:40:31,951 django.server "POST /api/elevation-range/ HTTP/1.1" 200 25
+INFO 2025-05-20 14:40:33,537 core.utils.geocoding Geocoded fiez to (46.8280744, 6.6240029)
+INFO 2025-05-20 14:40:33,539 django.server "POST /api/geocode/ HTTP/1.1" 200 34
+INFO 2025-05-20 14:40:33,797 django.server "POST /api/elevation-range/ HTTP/1.1" 200 26

@@ -3,6 +3,7 @@ import logging
 import traceback
 import zipfile
 
+import numpy as np
 from django.conf import settings
 from django.http import FileResponse
 from django.shortcuts import render
@@ -11,6 +12,7 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from shapely.geometry import mapping, shape
 
+from core.utils.export_filename import build_export_basename
 from core.utils.geocoding import geocode_address
 from core.utils.slicer import (
     download_srtm_tiles_for_bounds,
@@ -37,8 +39,6 @@ def elevation_range(request):
         )
         elevation, _ = mosaic_and_crop(tile_paths, (lon_min, lat_min, lon_max, lat_max))
 
-        import numpy as np
-
         masked = np.ma.masked_where(
             ~np.isfinite(elevation) | (elevation <= -32768), elevation
         )
@@ -59,13 +59,29 @@ def export_svgs(request):
         return Response({"error": "No layers supplied"}, status=400)
 
     try:
-        zip_bytes = contours_to_svg_zip(contours)  # ➋ magic happens here
-        return FileResponse(
+        address = request.data.get("address", "").strip()
+        coords = request.data.get("coordinates", None)
+        height_mm = request.data.get("height_per_layer", "unknown")
+        num_layers = len(contours)
+        logger.debug(
+            f"Exporting {num_layers} layers for address: {address}, coords: {coords}, height: {height_mm}"
+        )
+
+        base_filename = build_export_basename(address, coords, height_mm, num_layers)
+        filename = f"{base_filename}.zip"
+
+        zip_bytes = contours_to_svg_zip(
+            contours, basename=base_filename
+        )  # generate SVGs in memory
+
+        response = FileResponse(
             io.BytesIO(zip_bytes),
             content_type="application/zip",
             as_attachment=True,
-            filename="contour_layers.zip",
         )
+        response["Content-Disposition"] = f'attachment; filename="{filename}"'
+        response["Access-Control-Expose-Headers"] = "Content-Disposition"
+        return response
     except Exception as exc:
         logger.exception("SVG export failed")
         return Response({"error": str(exc)}, status=500)

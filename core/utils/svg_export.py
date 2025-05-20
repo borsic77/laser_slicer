@@ -6,6 +6,8 @@ import svgwrite
 from shapely.geometry import MultiPolygon, Polygon, shape
 from shapely.ops import unary_union
 
+from core.utils.export_filename import build_export_basename
+
 __all__ = [
     "contours_to_svg_zip",
 ]
@@ -21,6 +23,7 @@ def contours_to_svg_zip(
     stroke_cut: str = "#000000",
     stroke_align: str = "#ff0000",
     stroke_width_mm: float = 0.1,  # may need to be increased for some lasers
+    basename: str = "contours",
 ) -> bytes:
     """Convert a list of contour *bands* (as returned by
     ``generate_contours`` / ``scale_and_center_contours_to_substrate``)
@@ -174,7 +177,9 @@ def contours_to_svg_zip(
                 )
 
             svg_bytes = dwg.tostring().encode()
-            fname = f"layer_{idx + 1:02d}_{int(round(layer['elevation']))}m.svg"
+            fname = (
+                f"layer_{idx + 1:02d}_{int(round(layer['elevation']))}m_{basename}.svg"
+            )
             zf.writestr(fname, svg_bytes)
 
     mem_zip.seek(0)

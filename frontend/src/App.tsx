@@ -13,7 +13,7 @@ function App() {
 
   const [substrateSize, setSubstrateSize] = useState(400)
   const [layerThickness, setLayerThickness] = useState(5)
-  const [squareOutput, setSquareOutput] = useState(false)
+  const [squareOutput, setSquareOutput] = useState(true)
   const [areaStats, setAreaStats] = useState<{ width: number; height: number } | null>(null)
   const [elevationStats, setElevationStats] = useState<{ min: number; max: number } | null>(null)
 
@@ -164,17 +164,36 @@ function App() {
       const res = await fetch('http://localhost:8000/api/export/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ layers: contourLayers }),
+        body: JSON.stringify({ 
+          layers: contourLayers ,
+          address,
+          coordinates,
+          height_per_layer: heightPerLayer,   
+          num_layers: numLayers,     
+        }),
       })
 
       if (!res.ok) throw new Error('Failed to export contours')
 
-      const blob = await res.blob()
-      const url = window.URL.createObjectURL(blob)
-      const link = document.getElementById('download-link') as HTMLAnchorElement
-      link.href = url
-      link.download = 'contours.zip'
-      link.style.display = 'inline-block'
+      const blob = await res.blob();
+      const disposition = res.headers.get("Content-Disposition");
+      let filename = "contours.zip";
+      const match = disposition?.match(/filename="(.+?)"/);
+      if (match && match[1]) {
+        filename = match[1];
+      }
+      console.log("Exported filename:", filename);
+
+      const file = new File([blob], filename, { type: "application/zip" });
+      const url = URL.createObjectURL(file);
+
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      a.style.display = 'none';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
     } catch (error) {
       alert("Export failed: " + error)
     }
@@ -193,6 +212,11 @@ function App() {
               placeholder="Enter address or location..."
               value={address}
               onChange={(e) => setAddress(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  handleGeocode()
+                }
+              }}
             />
             <button onClick={handleGeocode}>Locate on Map</button>
           </div>
