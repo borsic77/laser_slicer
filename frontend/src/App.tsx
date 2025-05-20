@@ -85,7 +85,7 @@ function App() {
     }
   }
 
-  async function fetchElevationRange(bounds: [[number, number], [number, number]]) {
+  async function fetchElevationRange(bounds: [[number, number], [number, number]], signal?: AbortSignal) {
     const body = {
       lat_min: bounds[0][0],
       lon_min: bounds[0][1],
@@ -97,6 +97,7 @@ function App() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ bounds: body }),
+      signal,
     })
 
     if (!res.ok) throw new Error("Failed to get elevation range")
@@ -108,9 +109,13 @@ function App() {
     if (!bounds) return
     const dims = getWidthHeightMeters(bounds)
     setAreaStats(dims)
-    fetchElevationRange(bounds).catch((err) =>
-      console.error("Elevation range error:", err)
-    )
+    const controller = new AbortController();
+    fetchElevationRange(bounds, controller.signal).catch((err) => {
+      if (err.name !== "AbortError") {
+        console.error("Elevation range error:", err);
+      }
+    });
+    return () => controller.abort();
   }, [bounds])
 
   useEffect(() => {
@@ -129,11 +134,12 @@ function App() {
     }
   }, [elevationStats, params.heightPerLayer, params.numLayers, params.lastChanged]);
 
-  async function fetchCoordinates(address: string): Promise<[number, number]> {
+  async function fetchCoordinates(address: string, signal?: AbortSignal): Promise<[number, number]> {
     const res = await fetch('http://localhost:8000/api/geocode/', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ address })
+      body: JSON.stringify({ address }),
+      signal,
     })
 
     const data = await res.json()
@@ -141,13 +147,15 @@ function App() {
     return [data.lat, data.lon]
   }
 
-  const handleGeocode = async () => {
-    try {
-      const coords = await fetchCoordinates(address)
-      setCoordinates(coords)
-    } catch (error) {
-      alert('Geocoding failed: ' + error)
-    }
+  const handleGeocode = () => {
+    const controller = new AbortController();
+    fetchCoordinates(address, controller.signal)
+      .then(setCoordinates)
+      .catch((error) => {
+        if (error.name !== 'AbortError') {
+          alert('Geocoding failed: ' + error);
+        }
+      });
   }
 
   const handleSlice = async () => {
@@ -162,6 +170,8 @@ function App() {
       alert("Could not read selected bounds.")
       return;
     }
+
+    const controller = new AbortController();
 
     const body = {
       lat: coordinates[0],
@@ -184,7 +194,8 @@ function App() {
       const res = await fetch('http://localhost:8000/api/slice/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body)
+        body: JSON.stringify(body),
+        signal: controller.signal,
       })
 
       if (!res.ok) throw new Error('Failed to slice contour data')
@@ -198,13 +209,17 @@ function App() {
       setContourLayers(layersWithPoints)
       setSliced(true)
       setSlicing(false)
+      controller.abort();
     } catch (error) {
       setSlicing(false)
       alert("Slicing failed: " + error)
+      controller.abort();
     }
   }
 
   const handleExport = async () => {
+    const controller = new AbortController();
+
     try {
       const res = await fetch('http://localhost:8000/api/export/', {
         method: 'POST',
@@ -216,6 +231,7 @@ function App() {
           height_per_layer: params.heightPerLayer,   
           num_layers: params.numLayers,     
         }),
+        signal: controller.signal,
       })
 
       if (!res.ok) throw new Error('Failed to export contours')
@@ -239,8 +255,10 @@ function App() {
       document.body.appendChild(a);
       a.click();
       a.remove();
+      controller.abort();
     } catch (error) {
       alert("Export failed: " + error)
+      controller.abort();
     }
   }
 

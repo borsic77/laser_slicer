@@ -4263,3 +4263,11 @@ INFO 2025-05-20 19:11:43,583 core.views Generated 4 contour polygons.
 INFO 2025-05-20 19:11:43,660 django.server "POST /api/slice/ HTTP/1.1" 200 133085
 INFO 2025-05-20 19:12:23,660 django.utils.autoreload /Users/boris/Documents/python programs/laser_slicer/core/utils/slicer.py changed, reloading.
 INFO 2025-05-20 19:12:24,049 django.utils.autoreload Watching for file changes with StatReloader
+INFO 2025-05-20 19:16:16,066 django.server "POST /api/elevation-range/ HTTP/1.1" 200 26
+INFO 2025-05-20 19:16:17,121 core.utils.geocoding Geocoded fiez to (46.8280744, 6.6240029)
+INFO 2025-05-20 19:16:17,122 django.server "POST /api/geocode/ HTTP/1.1" 200 34
+INFO 2025-05-20 19:16:17,677 django.server "POST /api/elevation-range/ HTTP/1.1" 200 26
+INFO 2025-05-20 19:16:18,826 core.views Slicing bounds (46.808057335132375, 6.596714445310383) to (46.84796535621402, 6.651444219368391) with 250.0m per layer, 3 layers, simplify=0.5
+WARNING 2025-05-20 19:16:19,127 core.utils.slicer ContourSet has no `.collections`; falling back to `.allsegs` extraction.
+INFO 2025-05-20 19:16:19,239 core.views Generated 4 contour polygons.
+INFO 2025-05-20 19:16:19,317 django.server "POST /api/slice/ HTTP/1.1" 200 133085
