@@ -3783,3 +3783,9 @@ INFO 2025-05-20 12:02:15,609 django.server "POST /api/elevation-range/ HTTP/1.1"
 INFO 2025-05-20 12:02:17,040 core.utils.geocoding Geocoded fiez to (46.8280744, 6.6240029)
 INFO 2025-05-20 12:02:17,042 django.server "POST /api/geocode/ HTTP/1.1" 200 34
 INFO 2025-05-20 12:02:17,757 django.server "POST /api/elevation-range/ HTTP/1.1" 200 26
+INFO 2025-05-20 12:04:13,882 django.utils.autoreload /Users/boris/Documents/python programs/laser_slicer/core/utils/geocoding.py changed, reloading.
+INFO 2025-05-20 12:04:14,200 django.utils.autoreload Watching for file changes with StatReloader
+INFO 2025-05-20 12:05:05,259 django.utils.autoreload /Users/boris/Documents/python programs/laser_slicer/core/views.py changed, reloading.
+INFO 2025-05-20 12:05:05,570 django.utils.autoreload Watching for file changes with StatReloader
+INFO 2025-05-20 12:05:47,369 django.utils.autoreload /Users/boris/Documents/python programs/laser_slicer/core/views.py changed, reloading.
+INFO 2025-05-20 12:05:47,654 django.utils.autoreload Watching for file changes with StatReloader

@@ -99,9 +99,11 @@ def geocode(request):
     if not address:
         return Response({"error": "Address is required"}, status=400)
     try:
-        lat, lon = geocode_address(address)
-        return Response({"lat": lat, "lon": lon})
+        coords = geocode_address(address)
+        return Response({"lat": coords.lat, "lon": coords.lon})
     except Exception as e:
+        logger.exception("Error geocoding address")
+        traceback.print_exc()
         return Response({"error": str(e)}, status=500)
 
 

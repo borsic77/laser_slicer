@@ -1,5 +1,6 @@
 import logging
 import time
+from dataclasses import dataclass
 from typing import Tuple
 
 import requests
@@ -9,7 +10,13 @@ from django.core.cache import cache
 logger = logging.getLogger(__name__)
 
 
-def geocode_address(address: str) -> Tuple[float, float]:
+@dataclass
+class Coordinates:
+    lat: float
+    lon: float
+
+
+def geocode_address(address: str) -> Coordinates:
     """
     Geocode an address to (latitude, longitude) using Nominatim.
     """
@@ -34,4 +41,4 @@ def geocode_address(address: str) -> Tuple[float, float]:
     lat = float(results[0]["lat"])
     lon = float(results[0]["lon"])
     logger.info(f"Geocoded {address} to ({lat}, {lon})")
-    return lat, lon
+    return Coordinates(lat=lat, lon=lon)
