@@ -4127,3 +4127,24 @@ INFO 2025-05-20 15:10:38,557 django.utils.autoreload /Users/boris/Documents/pyth
 INFO 2025-05-20 15:10:38,959 django.utils.autoreload Watching for file changes with StatReloader
 INFO 2025-05-20 15:13:30,185 django.utils.autoreload /Users/boris/Documents/python programs/laser_slicer/core/utils/geocoding.py changed, reloading.
 INFO 2025-05-20 15:13:30,491 django.utils.autoreload Watching for file changes with StatReloader
+INFO 2025-05-20 15:17:13,475 django.utils.autoreload /Users/boris/Documents/python programs/laser_slicer/core/utils/slicer.py changed, reloading.
+INFO 2025-05-20 15:17:13,930 django.utils.autoreload Watching for file changes with StatReloader
+INFO 2025-05-20 15:18:17,144 django.utils.autoreload /Users/boris/Documents/python programs/laser_slicer/core/utils/slicer.py changed, reloading.
+INFO 2025-05-20 15:18:17,371 django.utils.autoreload Watching for file changes with StatReloader
+INFO 2025-05-20 15:18:25,189 django.server "OPTIONS /api/geocode/ HTTP/1.1" 200 0
+INFO 2025-05-20 15:18:25,363 core.utils.geocoding Geocoded fiez to (46.8280744, 6.6240029)
+INFO 2025-05-20 15:18:25,365 django.server "POST /api/geocode/ HTTP/1.1" 200 34
+INFO 2025-05-20 15:18:25,400 django.server "OPTIONS /api/elevation-range/ HTTP/1.1" 200 0
+INFO 2025-05-20 15:18:25,713 django.server "POST /api/elevation-range/ HTTP/1.1" 200 26
+INFO 2025-05-20 15:18:27,352 core.views Slicing bounds (46.808057335132375, 6.596714445310383) to (46.84796535621402, 6.651444219368391) with 250.0m per layer, 3 layers, simplify=0.5
+WARNING 2025-05-20 15:18:27,653 core.utils.slicer ContourSet has no `.collections`; falling back to `.allsegs` extraction.
+INFO 2025-05-20 15:18:27,771 core.views Generated 4 contour polygons.
+INFO 2025-05-20 15:18:27,852 django.server "POST /api/slice/ HTTP/1.1" 200 132791
+INFO 2025-05-20 15:19:50,836 django.utils.autoreload /Users/boris/Documents/python programs/laser_slicer/core/utils/slicer.py changed, reloading.
+INFO 2025-05-20 15:19:51,259 django.utils.autoreload Watching for file changes with StatReloader
+INFO 2025-05-20 15:21:11,689 core.views Slicing bounds (46.808057335132375, 6.596714445310383) to (46.84796535621402, 6.651444219368391) with 250.0m per layer, 3 layers, simplify=0.5
+WARNING 2025-05-20 15:21:12,047 core.utils.slicer ContourSet has no `.collections`; falling back to `.allsegs` extraction.
+INFO 2025-05-20 15:21:12,160 core.views Generated 4 contour polygons.
+INFO 2025-05-20 15:21:12,236 django.server "POST /api/slice/ HTTP/1.1" 200 132791
+INFO 2025-05-20 17:21:23,196 django.utils.autoreload /Users/boris/Documents/python programs/laser_slicer/core/utils/slicer.py changed, reloading.
+INFO 2025-05-20 17:21:23,675 django.utils.autoreload Watching for file changes with StatReloader

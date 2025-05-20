@@ -20,6 +20,7 @@ from shapely.geometry import (
     mapping,
     shape,
 )
+from shapely.geometry.base import BaseGeometry
 from shapely.ops import transform, unary_union
 
 # Use headless matplotlib
@@ -31,6 +32,55 @@ DEBUG = settings.DEBUG
 if DEBUG:
     os.makedirs(DEBUG_IMAGE_PATH, exist_ok=True)
 logger = logging.getLogger(__name__)
+
+
+def round_affine(
+    transform: rasterio.Affine, precision: float = 1e-4
+) -> rasterio.Affine:
+    """Rounds the components of an affine transform to a given precision.
+
+    Args:
+        transform (rasterio.Affine): The affine transform to round.
+        precision (float): The precision to round to.
+    returns:
+        rasterio.Affine: The rounded affine transform.
+    """
+    return rasterio.Affine(
+        *(round(val, int(-math.log10(precision))) for val in transform)
+    )
+
+
+# Utility function to check for antimeridian crossing
+def is_antimeridian_crossing(bounds: Tuple[float, float, float, float]) -> bool:
+    """Checks if a bounding box crosses the antimeridian.
+
+    Args:
+        bounds (Tuple[float, float, float, float]): Bounding box as (lon_min, lat_min, lon_max, lat_max).
+
+    Returns:
+        bool: True if the bounding box crosses the antimeridian, False otherwise.
+    """
+    lon_min, _, lon_max, _ = bounds
+    return lon_min > lon_max
+
+
+def clean_geometry(geom: BaseGeometry) -> BaseGeometry | None:
+    """Cleans a geometry by attempting to fix invalid shapes.
+
+    Applies a zero-width buffer to fix minor topology issues and
+    removes empty or zero-area geometries.
+
+    Args:
+        geom (BaseGeometry): A Shapely geometry object.
+
+    Returns:
+        BaseGeometry | None: A cleaned geometry if valid, otherwise None.
+    """
+    if not geom.is_valid:
+        geom = geom.buffer(0)
+    if geom.is_empty or geom.area == 0:
+        return None
+    return geom
 
 
 def save_debug_contour_polygon(polygon, level: float, filename: str) -> None:
@@ -67,6 +117,15 @@ def download_srtm_tiles_for_bounds(
     Returns:
         list[str]: File paths to downloaded GeoTIFFs.
     """
+    if is_antimeridian_crossing(bounds):
+        logger.warning("Antimeridian crossing detected; splitting bounds.")
+        lon_min, lat_min, lon_max, lat_max = bounds
+        # First half: (lon_min to 180)
+        paths1 = download_srtm_tiles_for_bounds((lon_min, lat_min, 180.0, lat_max))
+        # Second half: (-180 to lon_max)
+        paths2 = download_srtm_tiles_for_bounds((-180.0, lat_min, lon_max, lat_max))
+        return paths1 + paths2
+
     os.makedirs(SRTM_CACHE_DIR, exist_ok=True)
     lon_min, lat_min, lon_max, lat_max = bounds
 
@@ -114,7 +173,7 @@ def mosaic_and_crop(
 
     clipped = mosaic[:, row_off:row_end, col_off:col_end]
 
-    cropped_transform = rasterio.windows.transform(window, transform)
+    cropped_transform = round_affine(rasterio.windows.transform(window, transform))
 
     # Close opened files
     for src in src_files:
@@ -232,9 +291,8 @@ def _extract_level_polygons(cs) -> List[Tuple[float, List[Polygon]]]:
                     holes = poly_arrays[1:] if len(poly_arrays) > 1 else None
                     poly = Polygon(shell, holes)
 
-                    if not poly.is_valid:
-                        poly = poly.buffer(0)
-                    if poly.is_valid and poly.area > 0:
+                    poly = clean_geometry(poly)
+                    if poly:
                         polys.append(poly)
 
                 except Exception as exc:
@@ -258,9 +316,8 @@ def _extract_level_polygons(cs) -> List[Tuple[float, List[Polygon]]]:
                     seg = np.vstack([seg, seg[0]])
                 poly = Polygon(seg)
 
-                if not poly.is_valid:
-                    poly = poly.buffer(0)
-                if poly.is_valid and poly.area > 0:
+                poly = clean_geometry(poly)
+                if poly:
                     polys.append(poly)
 
             level_polys.append((level, polys))
@@ -315,9 +372,9 @@ def _compute_layer_bands(
         if not polys:
             continue
 
-        current = unary_union(_flatten_polygons(polys))
-        if not current.is_valid:
-            current = current.buffer(0)
+        current = clean_geometry(unary_union(_flatten_polygons(polys)))
+        if current is None:
+            continue
 
         # Expand only by area: if current is fully inside, union won't change shape
         cumulative = current if cumulative is None else cumulative.union(current)
