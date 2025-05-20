@@ -1,16 +1,15 @@
 import io
 import logging
 import traceback
-import zipfile
 
 import numpy as np
 from django.conf import settings
 from django.http import FileResponse
 from django.shortcuts import render
+from django.views.decorators.csrf import csrf_exempt
 from pyproj import Transformer
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
-from shapely.geometry import mapping, shape
 
 from core.utils.export_filename import build_export_basename
 from core.utils.geocoding import geocode_address
@@ -24,6 +23,7 @@ from core.utils.slicer import (
 from core.utils.svg_export import contours_to_svg_zip
 
 
+@csrf_exempt
 @api_view(["POST"])
 def elevation_range(request):
     try:
@@ -52,6 +52,7 @@ def elevation_range(request):
         return Response({"error": str(e)}, status=500)
 
 
+@csrf_exempt
 @api_view(["POST"])
 def export_svgs(request):
     contours = request.data.get("layers")  # front-end sends the list it already has
@@ -109,6 +110,7 @@ DEBUG_IMAGE_PATH = settings.DEBUG_IMAGE_PATH
 logger = logging.getLogger(__name__)
 
 
+@csrf_exempt
 @api_view(["POST"])
 def geocode(request):
     address = request.data.get("address")
@@ -127,6 +129,7 @@ def index(request):
     return render(request, "core/index.html")
 
 
+@csrf_exempt
 @api_view(["POST"])
 def slice_contours(request):
     try:
