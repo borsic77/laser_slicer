@@ -4271,3 +4271,22 @@ INFO 2025-05-20 19:16:18,826 core.views Slicing bounds (46.808057335132375, 6.59
 WARNING 2025-05-20 19:16:19,127 core.utils.slicer ContourSet has no `.collections`; falling back to `.allsegs` extraction.
 INFO 2025-05-20 19:16:19,239 core.views Generated 4 contour polygons.
 INFO 2025-05-20 19:16:19,317 django.server "POST /api/slice/ HTTP/1.1" 200 133085
+INFO 2025-05-20 19:24:24,359 django.server "POST /api/elevation-range/ HTTP/1.1" 200 25
+INFO 2025-05-20 19:24:25,042 core.utils.geocoding Geocoded fiez to (46.8280744, 6.6240029)
+INFO 2025-05-20 19:24:25,043 django.server "POST /api/geocode/ HTTP/1.1" 200 34
+INFO 2025-05-20 19:24:25,292 django.server "POST /api/elevation-range/ HTTP/1.1" 200 26
+INFO 2025-05-20 19:24:28,999 core.views Slicing bounds (46.808057335132375, 6.596714445310383) to (46.84796535621402, 6.651444219368391) with 250.0m per layer, 5 layers, simplify=0.5
+WARNING 2025-05-20 19:24:29,313 core.utils.slicer ContourSet has no `.collections`; falling back to `.allsegs` extraction.
+INFO 2025-05-20 19:24:29,430 core.views Generated 4 contour polygons.
+INFO 2025-05-20 19:24:29,504 django.server "POST /api/slice/ HTTP/1.1" 200 133085
+INFO 2025-05-20 19:29:28,303 django.server "POST /api/elevation-range/ HTTP/1.1" 200 25
+INFO 2025-05-20 19:29:28,911 core.utils.geocoding Geocoded fie to (59.5347796, -1.6284978)
+INFO 2025-05-20 19:29:28,912 django.server "POST /api/geocode/ HTTP/1.1" 200 35
+INFO 2025-05-20 19:29:29,150 django.server "POST /api/elevation-range/ HTTP/1.1" 200 27
+INFO 2025-05-20 19:29:30,639 core.utils.geocoding Geocoded fiez to (46.8280744, 6.6240029)
+INFO 2025-05-20 19:29:30,641 django.server "POST /api/geocode/ HTTP/1.1" 200 34
+INFO 2025-05-20 19:29:30,892 django.server "POST /api/elevation-range/ HTTP/1.1" 200 26
+INFO 2025-05-20 19:29:34,252 core.views Slicing bounds (46.808057335132375, 6.596714445310383) to (46.84796535621402, 6.651444219368391) with 250.0m per layer, 5 layers, simplify=0.5
+WARNING 2025-05-20 19:29:34,534 core.utils.slicer ContourSet has no `.collections`; falling back to `.allsegs` extraction.
+INFO 2025-05-20 19:29:34,652 core.views Generated 4 contour polygons.
+INFO 2025-05-20 19:29:34,729 django.server "POST /api/slice/ HTTP/1.1" 200 133085

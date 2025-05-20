@@ -2,7 +2,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import proj4 from 'proj4';
 import { useEffect, useRef, useState } from 'react';
-import { MapContainer, Marker, Rectangle, TileLayer, useMap, useMapEvents } from 'react-leaflet';
+import { MapContainer, Marker, Rectangle, TileLayer, useMap } from 'react-leaflet';
 
 const MAX_AREA_KM2 = 120;
 
@@ -161,13 +161,20 @@ export default function MapView({ coordinates, onBoundsChange, squareOutput = fa
   const selectionBounds = useSelectionBounds(mapRef.current, squareOutput, onBoundsChange);
 
   function LocationMarker() {
-    useMapEvents({
-      click(e) {
-        setPosition([e.latlng.lat, e.latlng.lng])
-      },
-    })
+    const map = useMap();
 
-    return <Marker position={position} />
+    useEffect(() => {
+      const handleClick = (e: L.LeafletMouseEvent) => {
+        setPosition([e.latlng.lat, e.latlng.lng]);
+      };
+
+      map.on('click', handleClick);
+      return () => {
+        map.off('click', handleClick);
+      };
+    }, [map]);
+
+    return <Marker position={position} />;
   }
 
   return (

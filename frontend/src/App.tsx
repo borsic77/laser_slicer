@@ -1,4 +1,4 @@
-import { useEffect, useReducer, useState } from 'react';
+import { useEffect, useReducer, useRef, useState } from 'react';
 import './App.css';
 import ContourPreview from './components/ContourPreview';
 import MapView from './components/Mapview';
@@ -11,7 +11,6 @@ type SlicerParams = {
   squareOutput: boolean;
   heightPerLayer: number;
   numLayers: number;
-  lastChanged: 'height' | 'layers';
 };
 
 type Action =
@@ -19,8 +18,7 @@ type Action =
   | { type: 'SET_LAYER_THICKNESS'; value: number }
   | { type: 'SET_SQUARE_OUTPUT'; value: boolean }
   | { type: 'SET_HEIGHT_PER_LAYER'; value: number }
-  | { type: 'SET_NUM_LAYERS'; value: number }
-  | { type: 'SET_LAST_CHANGED'; value: 'height' | 'layers' };
+  | { type: 'SET_NUM_LAYERS'; value: number };
 
 const initialSlicerParams: SlicerParams = {
   substrateSize: 400,
@@ -28,7 +26,6 @@ const initialSlicerParams: SlicerParams = {
   squareOutput: true,
   heightPerLayer: 250,
   numLayers: 5,
-  lastChanged: 'height',
 };
 
 function slicerReducer(state: SlicerParams, action: Action): SlicerParams {
@@ -43,8 +40,6 @@ function slicerReducer(state: SlicerParams, action: Action): SlicerParams {
       return { ...state, heightPerLayer: action.value };
     case 'SET_NUM_LAYERS':
       return { ...state, numLayers: action.value };
-    case 'SET_LAST_CHANGED':
-      return { ...state, lastChanged: action.value };
     default:
       return state;
   }
@@ -64,6 +59,7 @@ function App() {
   const [slicing, setSlicing] = useState(false)
 
   const [params, dispatch] = useReducer(slicerReducer, initialSlicerParams);
+  const lastChanged = useRef<'height' | 'layers' | null>(null);
 
   function getWidthHeightMeters(bounds: [[number, number], [number, number]]): { width: number; height: number } {
     const [latMin, lonMin] = bounds[0]
@@ -121,18 +117,21 @@ function App() {
   useEffect(() => {
     if (!elevationStats) return;
     const range = elevationStats.max - elevationStats.min;
-    if (params.lastChanged === 'height') {
+    const which = lastChanged.current;
+    lastChanged.current = null;
+
+    if (which === 'height') {
       const newNum = Math.max(1, Math.round(range / params.heightPerLayer));
       if (newNum !== params.numLayers) {
         dispatch({ type: 'SET_NUM_LAYERS', value: newNum });
       }
-    } else {
+    } else if (which === 'layers') {
       const newHeight = Math.max(10, Math.min(5000, range / params.numLayers));
       if (newHeight !== params.heightPerLayer) {
         dispatch({ type: 'SET_HEIGHT_PER_LAYER', value: newHeight });
       }
     }
-  }, [elevationStats, params.heightPerLayer, params.numLayers, params.lastChanged]);
+  }, [elevationStats, params.heightPerLayer, params.numLayers]);
 
   async function fetchCoordinates(address: string, signal?: AbortSignal): Promise<[number, number]> {
     const res = await fetch('http://localhost:8000/api/geocode/', {
@@ -295,7 +294,7 @@ function App() {
                 max={5000}
                 onChange={(e) => {
                   const val = Math.max(10, Math.min(5000, Number(e.target.value)));
-                  dispatch({ type: 'SET_LAST_CHANGED', value: 'height' });
+                  lastChanged.current = 'height';
                   dispatch({ type: 'SET_HEIGHT_PER_LAYER', value: val });
                 }}
               />
@@ -308,7 +307,7 @@ function App() {
                 value={params.numLayers}
                 onChange={(e) => {
                   const val = Math.max(1, Math.floor(Number(e.target.value)));
-                  dispatch({ type: 'SET_LAST_CHANGED', value: 'layers' });
+                  lastChanged.current = 'layers';
                   dispatch({ type: 'SET_NUM_LAYERS', value: val });
                 }}
               />
