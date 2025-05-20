@@ -3937,3 +3937,37 @@ INFO 2025-05-20 12:39:51,776 django.utils.autoreload /Users/boris/Documents/pyth
 INFO 2025-05-20 12:39:51,993 django.utils.autoreload Watching for file changes with StatReloader
 INFO 2025-05-20 12:40:44,503 django.utils.autoreload /Users/boris/Documents/python programs/laser_slicer/core/utils/slicer.py changed, reloading.
 INFO 2025-05-20 12:40:44,838 django.utils.autoreload Watching for file changes with StatReloader
+INFO 2025-05-20 12:47:30,463 django.utils.autoreload Watching for file changes with StatReloader
+INFO 2025-05-20 12:47:35,139 django.utils.autoreload /Users/boris/Documents/python programs/laser_slicer/core/utils/slicer.py changed, reloading.
+INFO 2025-05-20 12:47:35,371 django.utils.autoreload Watching for file changes with StatReloader
+INFO 2025-05-20 12:50:32,400 django.utils.autoreload /Users/boris/Documents/python programs/laser_slicer/core/utils/svg_export.py changed, reloading.
+INFO 2025-05-20 12:50:32,742 django.utils.autoreload Watching for file changes with StatReloader
+INFO 2025-05-20 12:51:16,726 django.utils.autoreload /Users/boris/Documents/python programs/laser_slicer/core/utils/svg_export.py changed, reloading.
+INFO 2025-05-20 12:51:16,995 django.utils.autoreload Watching for file changes with StatReloader
+INFO 2025-05-20 12:52:25,560 django.utils.autoreload /Users/boris/Documents/python programs/laser_slicer/core/utils/svg_export.py changed, reloading.
+INFO 2025-05-20 12:52:25,825 django.utils.autoreload Watching for file changes with StatReloader
+INFO 2025-05-20 12:56:26,746 django.utils.autoreload /Users/boris/Documents/python programs/laser_slicer/core/utils/svg_export.py changed, reloading.
+INFO 2025-05-20 12:56:27,034 django.utils.autoreload Watching for file changes with StatReloader
+INFO 2025-05-20 12:58:35,715 django.utils.autoreload /Users/boris/Documents/python programs/laser_slicer/core/utils/svg_export.py changed, reloading.
+INFO 2025-05-20 12:58:35,993 django.utils.autoreload Watching for file changes with StatReloader
+INFO 2025-05-20 12:59:56,140 django.utils.autoreload /Users/boris/Documents/python programs/laser_slicer/core/utils/svg_export.py changed, reloading.
+INFO 2025-05-20 12:59:56,406 django.utils.autoreload Watching for file changes with StatReloader
+INFO 2025-05-20 13:00:03,221 django.server "POST /api/elevation-range/ HTTP/1.1" 200 25
+INFO 2025-05-20 13:00:05,987 core.utils.geocoding Geocoded fiez to (46.8280744, 6.6240029)
+INFO 2025-05-20 13:00:05,989 django.server "POST /api/geocode/ HTTP/1.1" 200 34
+INFO 2025-05-20 13:00:06,277 django.server "POST /api/elevation-range/ HTTP/1.1" 200 26
+INFO 2025-05-20 13:00:07,754 django.server "POST /api/elevation-range/ HTTP/1.1" 200 26
+INFO 2025-05-20 13:00:09,054 core.views Slicing bounds (46.80803260107068, 6.596594790043891) to (46.847990074842045, 6.651392263397283) with 250.0m per layer, 3 layers, simplify=0.5
+WARNING 2025-05-20 13:00:09,354 core.utils.slicer ContourSet has no `.collections`; falling back to `.allsegs` extraction.
+INFO 2025-05-20 13:00:09,502 core.views Generated 4 contour polygons.
+INFO 2025-05-20 13:00:09,612 django.server "POST /api/slice/ HTTP/1.1" 200 132822
+INFO 2025-05-20 13:00:11,209 django.server "POST /api/export/ HTTP/1.1" 200 12885
+INFO 2025-05-20 13:00:53,876 django.utils.autoreload /Users/boris/Documents/python programs/laser_slicer/core/utils/svg_export.py changed, reloading.
+INFO 2025-05-20 13:00:54,289 django.utils.autoreload Watching for file changes with StatReloader
+INFO 2025-05-20 13:02:01,659 django.utils.autoreload /Users/boris/Documents/python programs/laser_slicer/core/utils/svg_export.py changed, reloading.
+INFO 2025-05-20 13:02:02,162 django.utils.autoreload Watching for file changes with StatReloader
+INFO 2025-05-20 13:02:17,121 django.utils.autoreload /Users/boris/Documents/python programs/laser_slicer/core/utils/svg_export.py changed, reloading.
+INFO 2025-05-20 13:02:17,399 django.utils.autoreload Watching for file changes with StatReloader
+INFO 2025-05-20 13:02:54,951 django.utils.autoreload /Users/boris/Documents/python programs/laser_slicer/core/utils/svg_export.py changed, reloading.
+INFO 2025-05-20 13:02:55,249 django.utils.autoreload Watching for file changes with StatReloader
+INFO 2025-05-20 13:03:01,385 django.server "POST /api/export/ HTTP/1.1" 200 24585

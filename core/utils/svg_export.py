@@ -20,7 +20,7 @@ def contours_to_svg_zip(
     contours: List[dict],
     stroke_cut: str = "#000000",
     stroke_align: str = "#ff0000",
-    stroke_width_mm: float = 0.1,
+    stroke_width_mm: float = 0.1,  # may need to be increased for some lasers
 ) -> bytes:
     """Convert a list of contour *bands* (as returned by
     ``generate_contours`` / ``scale_and_center_contours_to_substrate``)
@@ -55,13 +55,13 @@ def contours_to_svg_zip(
     glob_minx, glob_maxx = min(xs), max(xs)
     glob_miny, glob_maxy = min(ys), max(ys)
 
-    width_mm = (glob_maxx - glob_minx) * 1000.0
-    height_mm = (glob_maxy - glob_miny) * 1000.0
+    width_mm = glob_maxx - glob_minx
+    height_mm = glob_maxy - glob_miny
 
     def _to_svg_coords(x_m: float, y_m: float) -> Tuple[float, float]:
-        """Project UTM metres → SVG millimetres, flipping Y."""
+        """Project UTM metres → SVG coordinates, flipping Y (internal units in meters)."""
         x_mm = (x_m - glob_minx) * 1000.0
-        y_mm = (glob_maxy - y_m) * 1000.0  # flip Y
+        y_mm = (glob_maxy - y_m) * 1000.0
         return round(x_mm, 3), round(y_mm, 3)
 
     def _polygon_to_path(p: Polygon, include_holes: bool = True) -> str:
@@ -110,13 +110,13 @@ def contours_to_svg_zip(
 
             # *Cut* geometry: the material for *this* slice only
             cut_geom = (
-                band_i.difference(band_above)
+                band_i.difference(band_above).buffer(0)
                 if band_above is not None and not band_above.is_empty
                 else band_i
             )
             # Alignment geometry: only use the single layer above
             if band_above and band_above_above:
-                align_geom = band_above.difference(band_above_above)
+                align_geom = band_above.difference(band_above_above).buffer(0)
             else:
                 align_geom = band_above
 
