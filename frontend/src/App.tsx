@@ -1,7 +1,55 @@
-import { useEffect, useState } from 'react'
-import './App.css'
-import ContourPreview from './components/ContourPreview'
-import MapView from './components/Mapview'
+import { useEffect, useReducer, useState } from 'react';
+import './App.css';
+import ContourPreview from './components/ContourPreview';
+import MapView from './components/Mapview';
+
+// ──────────────────────────────────────────────────────────
+// Global reducer for all slicer parameters
+type SlicerParams = {
+  substrateSize: number;
+  layerThickness: number;
+  squareOutput: boolean;
+  heightPerLayer: number;
+  numLayers: number;
+  lastChanged: 'height' | 'layers';
+};
+
+type Action =
+  | { type: 'SET_SUBSTRATE_SIZE'; value: number }
+  | { type: 'SET_LAYER_THICKNESS'; value: number }
+  | { type: 'SET_SQUARE_OUTPUT'; value: boolean }
+  | { type: 'SET_HEIGHT_PER_LAYER'; value: number }
+  | { type: 'SET_NUM_LAYERS'; value: number }
+  | { type: 'SET_LAST_CHANGED'; value: 'height' | 'layers' };
+
+const initialSlicerParams: SlicerParams = {
+  substrateSize: 400,
+  layerThickness: 5,
+  squareOutput: true,
+  heightPerLayer: 250,
+  numLayers: 5,
+  lastChanged: 'height',
+};
+
+function slicerReducer(state: SlicerParams, action: Action): SlicerParams {
+  switch (action.type) {
+    case 'SET_SUBSTRATE_SIZE':
+      return { ...state, substrateSize: action.value };
+    case 'SET_LAYER_THICKNESS':
+      return { ...state, layerThickness: action.value };
+    case 'SET_SQUARE_OUTPUT':
+      return { ...state, squareOutput: action.value };
+    case 'SET_HEIGHT_PER_LAYER':
+      return { ...state, heightPerLayer: action.value };
+    case 'SET_NUM_LAYERS':
+      return { ...state, numLayers: action.value };
+    case 'SET_LAST_CHANGED':
+      return { ...state, lastChanged: action.value };
+    default:
+      return state;
+  }
+}
+// ──────────────────────────────────────────────────────────
 
 function App() {
   const [address, setAddress] = useState('')
@@ -10,18 +58,12 @@ function App() {
   const [contourLayers, setContourLayers] = useState<any[]>([])
 
   const [bounds, setBounds] = useState<[[number, number], [number, number]] | null>(null)
-
-  const [substrateSize, setSubstrateSize] = useState(400)
-  const [layerThickness, setLayerThickness] = useState(5)
-  const [squareOutput, setSquareOutput] = useState(true)
   const [areaStats, setAreaStats] = useState<{ width: number; height: number } | null>(null)
   const [elevationStats, setElevationStats] = useState<{ min: number; max: number } | null>(null)
 
-  const [heightPerLayer, setHeightPerLayer] = useState(250)
-  const [numLayers, setNumLayers] = useState(5)
-  const [lastChanged, setLastChanged] = useState<'height' | 'layers'>('height')
-
   const [slicing, setSlicing] = useState(false)
+
+  const [params, dispatch] = useReducer(slicerReducer, initialSlicerParams);
 
   function getWidthHeightMeters(bounds: [[number, number], [number, number]]): { width: number; height: number } {
     const [latMin, lonMin] = bounds[0]
@@ -72,16 +114,20 @@ function App() {
   }, [bounds])
 
   useEffect(() => {
-    if (!elevationStats) return
-    const range = elevationStats.max - elevationStats.min
-    if (lastChanged === 'height') {
-      const newNum = Math.max(1, Math.round(range / heightPerLayer))
-      setNumLayers(newNum)
+    if (!elevationStats) return;
+    const range = elevationStats.max - elevationStats.min;
+    if (params.lastChanged === 'height') {
+      const newNum = Math.max(1, Math.round(range / params.heightPerLayer));
+      if (newNum !== params.numLayers) {
+        dispatch({ type: 'SET_NUM_LAYERS', value: newNum });
+      }
     } else {
-      const newHeight = Math.max(10, Math.min(5000, range / numLayers))
-      setHeightPerLayer(newHeight)
+      const newHeight = Math.max(10, Math.min(5000, range / params.numLayers));
+      if (newHeight !== params.heightPerLayer) {
+        dispatch({ type: 'SET_HEIGHT_PER_LAYER', value: newHeight });
+      }
     }
-  }, [elevationStats, heightPerLayer, numLayers])
+  }, [elevationStats, params.heightPerLayer, params.numLayers, params.lastChanged]);
 
   async function fetchCoordinates(address: string): Promise<[number, number]> {
     const res = await fetch('http://localhost:8000/api/geocode/', {
@@ -109,9 +155,8 @@ function App() {
       alert("Please select a location first.")
       return
     }
-
-    const height = heightPerLayer
-    const layers = numLayers
+    const height = params.heightPerLayer;
+    const layers = params.numLayers;
 
     if (!bounds) {
       alert("Could not read selected bounds.")
@@ -130,8 +175,8 @@ function App() {
         lat_max: bounds[1][0],
         lon_max: bounds[1][1],
       },
-      substrate_size: substrateSize,
-      layer_thickness: layerThickness,
+      substrate_size: params.substrateSize,
+      layer_thickness: params.layerThickness,
     }
 
     try {
@@ -168,8 +213,8 @@ function App() {
           layers: contourLayers ,
           address,
           coordinates,
-          height_per_layer: heightPerLayer,   
-          num_layers: numLayers,     
+          height_per_layer: params.heightPerLayer,   
+          num_layers: params.numLayers,     
         }),
       })
 
@@ -227,13 +272,13 @@ function App() {
               <input
                 type="number"
                 id="layer-height"
-                value={heightPerLayer}
+                value={params.heightPerLayer}
                 min={10}
                 max={5000}
                 onChange={(e) => {
-                  const val = Math.max(10, Math.min(5000, Number(e.target.value)))
-                  setLastChanged('height')
-                  setHeightPerLayer(val)
+                  const val = Math.max(10, Math.min(5000, Number(e.target.value)));
+                  dispatch({ type: 'SET_LAST_CHANGED', value: 'height' });
+                  dispatch({ type: 'SET_HEIGHT_PER_LAYER', value: val });
                 }}
               />
             </label>
@@ -242,11 +287,11 @@ function App() {
               <input
                 type="number"
                 id="num-layers"
-                value={numLayers}
+                value={params.numLayers}
                 onChange={(e) => {
-                  const val = Math.max(1, Math.floor(Number(e.target.value)))
-                  setLastChanged('layers')
-                  setNumLayers(val)
+                  const val = Math.max(1, Math.floor(Number(e.target.value)));
+                  dispatch({ type: 'SET_LAST_CHANGED', value: 'layers' });
+                  dispatch({ type: 'SET_NUM_LAYERS', value: val });
                 }}
               />
             </label>
@@ -259,8 +304,8 @@ function App() {
               <input
                 type="number"
                 id="substrate-size"
-                value={substrateSize}
-                onChange={(e) => setSubstrateSize(Number(e.target.value))}
+                value={params.substrateSize}
+                onChange={(e) => dispatch({ type: 'SET_SUBSTRATE_SIZE', value: Number(e.target.value) })}
               />
             </label>
             <label>
@@ -268,15 +313,15 @@ function App() {
               <input
                 type="number"
                 id="layer-thickness"
-                value={layerThickness}
-                onChange={(e) => setLayerThickness(Number(e.target.value))}
+                value={params.layerThickness}
+                onChange={(e) => dispatch({ type: 'SET_LAYER_THICKNESS', value: Number(e.target.value) })}
               />
             </label>
             <label>
               <input
                 type="checkbox"
-                checked={squareOutput}
-                onChange={(e) => setSquareOutput(e.target.checked)}
+                checked={params.squareOutput}
+                onChange={(e) => dispatch({ type: 'SET_SQUARE_OUTPUT', value: e.target.checked })}
               />
               Square output
             </label>
@@ -289,7 +334,7 @@ function App() {
         </div>
         <div className="main-panel">
           <div className="map-container">
-            <MapView coordinates={coordinates} onBoundsChange={setBounds} squareOutput={squareOutput} />
+            <MapView coordinates={coordinates} onBoundsChange={setBounds} squareOutput={params.squareOutput} />
           </div>
           <div id="preview-3d">
             <h2>3D Preview</h2>

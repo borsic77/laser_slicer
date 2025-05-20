@@ -228,16 +228,26 @@ def is_almost_closed(line: LineString, tolerance: float = 1e-8) -> bool:
 def _prepare_meshgrid(
     elevation_data: np.ndarray, transform: rasterio.Affine
 ) -> Tuple[np.ndarray, np.ndarray]:
-    """
-    Creates a meshgrid of longitude and latitude coordinates based on the elevation raster and its transform.
-    Returns two 2D arrays: longitude and latitude, each matching the shape of the elevation data.
+    """Generate longitude and latitude meshgrids from raster shape and affine transform.
+
+    Converts pixel-based indices to geospatial coordinates using Rasterio's transform,
+    with correct handling of row-major indexing.
+
+    Args:
+        elevation_data (np.ndarray): 2D elevation raster array (shape: [rows, cols]).
+        transform (rasterio.Affine): Affine transformation matrix for the raster.
+
+    Returns:
+        Tuple[np.ndarray, np.ndarray]: Two 2D arrays (lon, lat), each matching
+        the shape of `elevation_data`, containing geographic coordinates.
     """
     ny, nx = elevation_data.shape
-    x = np.arange(nx)
     y = np.arange(ny)
-    x_coords, y_coords = np.meshgrid(x, y)
+    x = np.arange(nx)
+    row_coords, col_coords = np.meshgrid(y, x, indexing="ij")  # row-major
+
     lon, lat = rasterio.transform.xy(
-        transform, y_coords, x_coords, offset="center", grid=True
+        transform, row_coords, col_coords, offset="center", grid=True
     )
     lon = np.array(lon).reshape(elevation_data.shape)
     lat = np.array(lat).reshape(elevation_data.shape)
@@ -541,7 +551,9 @@ def project_geometry(
     fig, ax = plt.subplots()
 
     for contour, geom in projected_geoms:
-        rotated_geom = shapely.affinity.rotate(geom, -rot_angle, origin=center)
+        rotated_geom = shapely.affinity.rotate(
+            geom, -rot_angle + 90, origin=center
+        )  # adding 90 because everything got rotated by 90 deg cw, and i can't find the bug
         contour["geometry"] = mapping(rotated_geom)
         projected_contours.append(contour)
 
