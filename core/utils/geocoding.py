@@ -1,7 +1,6 @@
 import logging
 import time
 from dataclasses import dataclass
-from typing import Tuple
 
 import requests
 from django.conf import settings

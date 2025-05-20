@@ -3789,3 +3789,151 @@ INFO 2025-05-20 12:05:05,259 django.utils.autoreload /Users/boris/Documents/pyth
 INFO 2025-05-20 12:05:05,570 django.utils.autoreload Watching for file changes with StatReloader
 INFO 2025-05-20 12:05:47,369 django.utils.autoreload /Users/boris/Documents/python programs/laser_slicer/core/views.py changed, reloading.
 INFO 2025-05-20 12:05:47,654 django.utils.autoreload Watching for file changes with StatReloader
+INFO 2025-05-20 12:08:07,469 django.utils.autoreload /Users/boris/Documents/python programs/laser_slicer/core/utils/geocoding.py changed, reloading.
+INFO 2025-05-20 12:08:07,815 django.utils.autoreload Watching for file changes with StatReloader
+INFO 2025-05-20 12:08:40,230 django.utils.autoreload /Users/boris/Documents/python programs/laser_slicer/core/utils/slicer.py changed, reloading.
+INFO 2025-05-20 12:08:40,608 django.utils.autoreload Watching for file changes with StatReloader
+INFO 2025-05-20 12:09:32,764 django.utils.autoreload /Users/boris/Documents/python programs/laser_slicer/core/utils/slicer.py changed, reloading.
+INFO 2025-05-20 12:09:33,052 django.utils.autoreload Watching for file changes with StatReloader
+INFO 2025-05-20 12:10:13,600 django.utils.autoreload /Users/boris/Documents/python programs/laser_slicer/core/utils/slicer.py changed, reloading.
+INFO 2025-05-20 12:10:13,859 django.utils.autoreload Watching for file changes with StatReloader
+INFO 2025-05-20 12:10:27,642 django.utils.autoreload /Users/boris/Documents/python programs/laser_slicer/core/utils/slicer.py changed, reloading.
+INFO 2025-05-20 12:10:27,901 django.utils.autoreload Watching for file changes with StatReloader
+INFO 2025-05-20 12:11:52,580 django.utils.autoreload Watching for file changes with StatReloader
+INFO 2025-05-20 12:12:03,014 django.server "OPTIONS /api/slice/ HTTP/1.1" 200 0
+INFO 2025-05-20 12:12:03,019 core.views Slicing bounds (46.78281415794932, 6.218073719061231) to (46.87080543889939, 6.337680196777916) with 250.0m per layer, 4 layers, simplify=0.5
+WARNING 2025-05-20 12:12:03,358 core.utils.slicer ContourSet has no `.collections`; falling back to `.allsegs` extraction.
+INFO 2025-05-20 12:12:03,465 core.views Generated 2 contour polygons.
+INFO 2025-05-20 12:12:03,568 django.server "POST /api/slice/ HTTP/1.1" 200 234848
+INFO 2025-05-20 12:18:40,042 django.server "OPTIONS /api/elevation-range/ HTTP/1.1" 200 0
+INFO 2025-05-20 12:18:40,304 django.server "POST /api/elevation-range/ HTTP/1.1" 200 26
+INFO 2025-05-20 12:18:43,046 django.server "POST /api/elevation-range/ HTTP/1.1" 200 26
+INFO 2025-05-20 12:18:44,322 django.server "POST /api/elevation-range/ HTTP/1.1" 200 26
+INFO 2025-05-20 12:18:48,160 django.server "POST /api/elevation-range/ HTTP/1.1" 200 26
+INFO 2025-05-20 12:19:13,731 django.server "POST /api/elevation-range/ HTTP/1.1" 200 26
+INFO 2025-05-20 12:19:15,104 core.views Slicing bounds (46.77828611559059, 6.269753201129108) to (46.8664065826754, 6.3896845832716505) with 250.0m per layer, 2 layers, simplify=0.5
+WARNING 2025-05-20 12:19:15,391 core.utils.slicer ContourSet has no `.collections`; falling back to `.allsegs` extraction.
+INFO 2025-05-20 12:19:15,514 core.views Generated 3 contour polygons.
+INFO 2025-05-20 12:19:15,625 django.server "POST /api/slice/ HTTP/1.1" 200 269016
+INFO 2025-05-20 12:19:51,477 django.server "POST /api/elevation-range/ HTTP/1.1" 200 25
+INFO 2025-05-20 12:19:54,676 core.utils.geocoding Geocoded fiez to (46.8280744, 6.6240029)
+INFO 2025-05-20 12:19:54,678 django.server "POST /api/geocode/ HTTP/1.1" 200 34
+INFO 2025-05-20 12:19:54,946 django.server "POST /api/elevation-range/ HTTP/1.1" 200 26
+INFO 2025-05-20 12:19:56,380 django.server "POST /api/elevation-range/ HTTP/1.1" 200 26
+INFO 2025-05-20 12:20:01,207 django.server "POST /api/elevation-range/ HTTP/1.1" 200 26
+INFO 2025-05-20 12:20:01,639 django.server "POST /api/elevation-range/ HTTP/1.1" 200 26
+INFO 2025-05-20 12:20:03,196 django.server "POST /api/elevation-range/ HTTP/1.1" 200 26
+INFO 2025-05-20 12:20:03,994 django.server "POST /api/elevation-range/ HTTP/1.1" 200 26
+INFO 2025-05-20 12:20:04,493 django.server "POST /api/elevation-range/ HTTP/1.1" 200 26
+INFO 2025-05-20 12:20:20,741 django.server "POST /api/elevation-range/ HTTP/1.1" 200 26
+INFO 2025-05-20 12:20:20,745 django.server "POST /api/elevation-range/ HTTP/1.1" 200 26
+INFO 2025-05-20 12:20:20,999 django.server "POST /api/elevation-range/ HTTP/1.1" 200 26
+INFO 2025-05-20 12:20:21,000 django.server "POST /api/elevation-range/ HTTP/1.1" 200 26
+INFO 2025-05-20 12:20:21,237 django.server "POST /api/elevation-range/ HTTP/1.1" 200 26
+INFO 2025-05-20 12:20:21,293 django.server "POST /api/elevation-range/ HTTP/1.1" 200 26
+INFO 2025-05-20 12:21:56,125 django.server "POST /api/elevation-range/ HTTP/1.1" 200 26
+INFO 2025-05-20 12:21:56,140 django.server "POST /api/elevation-range/ HTTP/1.1" 200 26
+INFO 2025-05-20 12:21:56,170 django.server "POST /api/elevation-range/ HTTP/1.1" 200 26
+INFO 2025-05-20 12:22:38,401 django.server "POST /api/elevation-range/ HTTP/1.1" 200 26
+INFO 2025-05-20 12:23:28,121 django.server "POST /api/elevation-range/ HTTP/1.1" 200 25
+INFO 2025-05-20 12:23:30,347 core.utils.geocoding Geocoded fiez to (46.8280744, 6.6240029)
+INFO 2025-05-20 12:23:30,349 django.server "POST /api/geocode/ HTTP/1.1" 200 34
+INFO 2025-05-20 12:23:30,620 django.server "POST /api/elevation-range/ HTTP/1.1" 200 26
+INFO 2025-05-20 12:23:33,578 django.server "POST /api/elevation-range/ HTTP/1.1" 200 26
+INFO 2025-05-20 12:23:35,174 django.server "POST /api/elevation-range/ HTTP/1.1" 200 26
+INFO 2025-05-20 12:23:36,284 django.server "POST /api/elevation-range/ HTTP/1.1" 200 26
+INFO 2025-05-20 12:23:37,274 django.server "POST /api/elevation-range/ HTTP/1.1" 200 26
+INFO 2025-05-20 12:23:40,061 django.server "POST /api/elevation-range/ HTTP/1.1" 200 25
+INFO 2025-05-20 12:23:41,518 django.server "POST /api/elevation-range/ HTTP/1.1" 200 25
+INFO 2025-05-20 12:23:42,988 django.server "POST /api/elevation-range/ HTTP/1.1" 200 25
+INFO 2025-05-20 12:23:43,874 django.server "POST /api/elevation-range/ HTTP/1.1" 200 25
+INFO 2025-05-20 12:23:44,475 django.server "POST /api/elevation-range/ HTTP/1.1" 200 25
+INFO 2025-05-20 12:23:45,216 django.server "POST /api/elevation-range/ HTTP/1.1" 200 25
+INFO 2025-05-20 12:23:46,320 django.server "POST /api/elevation-range/ HTTP/1.1" 200 25
+INFO 2025-05-20 12:25:33,916 django.server "POST /api/elevation-range/ HTTP/1.1" 200 25
+INFO 2025-05-20 12:25:35,814 core.utils.geocoding Geocoded fiez to (46.8280744, 6.6240029)
+INFO 2025-05-20 12:25:35,816 django.server "POST /api/geocode/ HTTP/1.1" 200 34
+INFO 2025-05-20 12:25:36,086 django.server "POST /api/elevation-range/ HTTP/1.1" 200 26
+INFO 2025-05-20 12:25:37,420 django.server "POST /api/elevation-range/ HTTP/1.1" 200 26
+INFO 2025-05-20 12:25:38,231 django.server "POST /api/elevation-range/ HTTP/1.1" 200 26
+INFO 2025-05-20 12:25:39,060 django.server "POST /api/elevation-range/ HTTP/1.1" 200 26
+INFO 2025-05-20 12:25:39,701 django.server "POST /api/elevation-range/ HTTP/1.1" 200 26
+INFO 2025-05-20 12:25:40,582 django.server "POST /api/elevation-range/ HTTP/1.1" 200 26
+INFO 2025-05-20 12:25:42,898 django.server "POST /api/elevation-range/ HTTP/1.1" 200 26
+INFO 2025-05-20 12:25:44,225 django.server "POST /api/elevation-range/ HTTP/1.1" 200 25
+INFO 2025-05-20 12:25:45,529 django.server "POST /api/elevation-range/ HTTP/1.1" 200 26
+INFO 2025-05-20 12:25:46,544 django.server "POST /api/elevation-range/ HTTP/1.1" 200 26
+INFO 2025-05-20 12:25:47,447 django.server "POST /api/elevation-range/ HTTP/1.1" 200 26
+INFO 2025-05-20 12:25:49,668 django.server "POST /api/elevation-range/ HTTP/1.1" 200 26
+INFO 2025-05-20 12:25:50,733 django.server "POST /api/elevation-range/ HTTP/1.1" 200 26
+INFO 2025-05-20 12:25:54,336 django.server "POST /api/elevation-range/ HTTP/1.1" 200 25
+INFO 2025-05-20 12:25:55,254 django.server "POST /api/elevation-range/ HTTP/1.1" 200 26
+INFO 2025-05-20 12:25:56,269 django.server "POST /api/elevation-range/ HTTP/1.1" 200 26
+INFO 2025-05-20 12:27:34,311 django.server "POST /api/elevation-range/ HTTP/1.1" 200 25
+INFO 2025-05-20 12:27:36,125 core.utils.geocoding Geocoded fiez to (46.8280744, 6.6240029)
+INFO 2025-05-20 12:27:36,128 django.server "POST /api/geocode/ HTTP/1.1" 200 34
+INFO 2025-05-20 12:27:36,391 django.server "POST /api/elevation-range/ HTTP/1.1" 200 26
+INFO 2025-05-20 12:27:38,996 django.server "POST /api/elevation-range/ HTTP/1.1" 200 26
+INFO 2025-05-20 12:27:39,891 django.server "POST /api/elevation-range/ HTTP/1.1" 200 26
+INFO 2025-05-20 12:27:40,558 django.server "POST /api/elevation-range/ HTTP/1.1" 200 26
+INFO 2025-05-20 12:27:41,661 django.server "POST /api/elevation-range/ HTTP/1.1" 200 26
+INFO 2025-05-20 12:28:41,930 django.server "POST /api/elevation-range/ HTTP/1.1" 200 25
+INFO 2025-05-20 12:28:43,892 core.utils.geocoding Geocoded fiez to (46.8280744, 6.6240029)
+INFO 2025-05-20 12:28:43,894 django.server "POST /api/geocode/ HTTP/1.1" 200 34
+INFO 2025-05-20 12:28:44,138 django.server "POST /api/elevation-range/ HTTP/1.1" 200 26
+INFO 2025-05-20 12:28:45,577 django.server "POST /api/elevation-range/ HTTP/1.1" 200 26
+INFO 2025-05-20 12:28:46,648 django.server "POST /api/elevation-range/ HTTP/1.1" 200 26
+INFO 2025-05-20 12:28:47,437 django.server "POST /api/elevation-range/ HTTP/1.1" 200 26
+INFO 2025-05-20 12:28:50,056 django.server "POST /api/elevation-range/ HTTP/1.1" 200 26
+INFO 2025-05-20 12:28:51,583 django.server "POST /api/elevation-range/ HTTP/1.1" 200 25
+INFO 2025-05-20 12:28:53,077 django.server "POST /api/elevation-range/ HTTP/1.1" 200 25
+INFO 2025-05-20 12:28:54,096 django.server "POST /api/elevation-range/ HTTP/1.1" 200 25
+INFO 2025-05-20 12:28:54,871 django.server "POST /api/elevation-range/ HTTP/1.1" 200 26
+INFO 2025-05-20 12:28:55,678 django.server "POST /api/elevation-range/ HTTP/1.1" 200 26
+INFO 2025-05-20 12:28:56,518 django.server "POST /api/elevation-range/ HTTP/1.1" 200 26
+INFO 2025-05-20 12:28:57,385 django.server "POST /api/elevation-range/ HTTP/1.1" 200 26
+INFO 2025-05-20 12:28:58,476 django.server "POST /api/elevation-range/ HTTP/1.1" 200 26
+INFO 2025-05-20 12:28:59,044 django.server "POST /api/elevation-range/ HTTP/1.1" 200 26
+INFO 2025-05-20 12:31:37,708 django.server "POST /api/elevation-range/ HTTP/1.1" 200 25
+INFO 2025-05-20 12:31:39,741 core.utils.geocoding Geocoded fiez to (46.8280744, 6.6240029)
+INFO 2025-05-20 12:31:39,744 django.server "POST /api/geocode/ HTTP/1.1" 200 34
+INFO 2025-05-20 12:31:40,029 django.server "POST /api/elevation-range/ HTTP/1.1" 200 26
+INFO 2025-05-20 12:31:41,416 django.server "POST /api/elevation-range/ HTTP/1.1" 200 26
+INFO 2025-05-20 12:31:42,278 django.server "POST /api/elevation-range/ HTTP/1.1" 200 26
+INFO 2025-05-20 12:31:43,044 django.server "POST /api/elevation-range/ HTTP/1.1" 200 26
+INFO 2025-05-20 12:31:43,964 django.server "POST /api/elevation-range/ HTTP/1.1" 200 26
+INFO 2025-05-20 12:31:44,887 django.server "POST /api/elevation-range/ HTTP/1.1" 200 26
+INFO 2025-05-20 12:31:45,518 django.server "POST /api/elevation-range/ HTTP/1.1" 200 26
+INFO 2025-05-20 12:31:46,194 django.server "POST /api/elevation-range/ HTTP/1.1" 200 26
+INFO 2025-05-20 12:31:47,370 django.server "POST /api/elevation-range/ HTTP/1.1" 200 25
+INFO 2025-05-20 12:31:48,655 django.server "POST /api/elevation-range/ HTTP/1.1" 200 25
+INFO 2025-05-20 12:31:49,599 django.server "POST /api/elevation-range/ HTTP/1.1" 200 25
+INFO 2025-05-20 12:31:49,877 django.server "POST /api/elevation-range/ HTTP/1.1" 200 26
+INFO 2025-05-20 12:31:52,875 django.server "POST /api/elevation-range/ HTTP/1.1" 200 26
+INFO 2025-05-20 12:31:54,456 django.server "POST /api/elevation-range/ HTTP/1.1" 200 25
+INFO 2025-05-20 12:31:55,335 django.server "POST /api/elevation-range/ HTTP/1.1" 200 26
+INFO 2025-05-20 12:31:56,190 django.server "POST /api/elevation-range/ HTTP/1.1" 200 26
+INFO 2025-05-20 12:31:57,375 django.server "POST /api/elevation-range/ HTTP/1.1" 200 26
+INFO 2025-05-20 12:33:50,166 django.server "POST /api/elevation-range/ HTTP/1.1" 200 26
+INFO 2025-05-20 12:33:50,915 django.server "POST /api/elevation-range/ HTTP/1.1" 200 26
+INFO 2025-05-20 12:33:53,019 django.server "POST /api/elevation-range/ HTTP/1.1" 200 26
+INFO 2025-05-20 12:33:54,528 django.server "POST /api/elevation-range/ HTTP/1.1" 200 26
+INFO 2025-05-20 12:33:55,656 django.server "POST /api/elevation-range/ HTTP/1.1" 200 26
+INFO 2025-05-20 12:33:56,273 django.server "POST /api/elevation-range/ HTTP/1.1" 200 26
+INFO 2025-05-20 12:33:57,005 django.server "POST /api/elevation-range/ HTTP/1.1" 200 26
+INFO 2025-05-20 12:34:01,321 django.server "POST /api/elevation-range/ HTTP/1.1" 200 25
+INFO 2025-05-20 12:34:02,538 django.server "POST /api/elevation-range/ HTTP/1.1" 200 26
+INFO 2025-05-20 12:35:53,228 django.utils.autoreload /Users/boris/Documents/python programs/laser_slicer/core/utils/slicer.py changed, reloading.
+INFO 2025-05-20 12:35:53,557 django.utils.autoreload Watching for file changes with StatReloader
+INFO 2025-05-20 12:37:31,188 django.utils.autoreload /Users/boris/Documents/python programs/laser_slicer/core/utils/slicer.py changed, reloading.
+INFO 2025-05-20 12:37:31,487 django.utils.autoreload Watching for file changes with StatReloader
+INFO 2025-05-20 12:37:50,155 django.utils.autoreload /Users/boris/Documents/python programs/laser_slicer/core/utils/slicer.py changed, reloading.
+INFO 2025-05-20 12:37:50,428 django.utils.autoreload Watching for file changes with StatReloader
+INFO 2025-05-20 12:38:43,037 django.utils.autoreload /Users/boris/Documents/python programs/laser_slicer/core/utils/slicer.py changed, reloading.
+INFO 2025-05-20 12:38:43,274 django.utils.autoreload Watching for file changes with StatReloader
+INFO 2025-05-20 12:39:50,213 django.utils.autoreload /Users/boris/Documents/python programs/laser_slicer/core/utils/slicer.py changed, reloading.
+INFO 2025-05-20 12:39:50,552 django.utils.autoreload Watching for file changes with StatReloader
+INFO 2025-05-20 12:39:51,776 django.utils.autoreload /Users/boris/Documents/python programs/laser_slicer/core/utils/slicer.py changed, reloading.
+INFO 2025-05-20 12:39:51,993 django.utils.autoreload Watching for file changes with StatReloader
+INFO 2025-05-20 12:40:44,503 django.utils.autoreload /Users/boris/Documents/python programs/laser_slicer/core/utils/slicer.py changed, reloading.
+INFO 2025-05-20 12:40:44,838 django.utils.autoreload Watching for file changes with StatReloader

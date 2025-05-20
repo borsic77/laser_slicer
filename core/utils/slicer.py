@@ -1,7 +1,6 @@
 import logging
 import math
 import os
-from math import cos, radians
 from typing import List, Tuple
 
 import elevation
@@ -12,15 +11,12 @@ import pyproj
 import rasterio
 import shapely
 from django.conf import settings
+from filelock import FileLock
 from rasterio.merge import merge
 from rasterio.windows import from_bounds
-from shapely import to_geojson
 from shapely.geometry import (
-    LinearRing,
     LineString,
-    MultiPolygon,
     Polygon,
-    box,
     mapping,
     shape,
 )
@@ -31,6 +27,9 @@ matplotlib.use("Agg")
 
 SRTM_CACHE_DIR = settings.SRTM_CACHE_DIR
 DEBUG_IMAGE_PATH = settings.DEBUG_IMAGE_PATH
+DEBUG = settings.DEBUG
+if DEBUG:
+    os.makedirs(DEBUG_IMAGE_PATH, exist_ok=True)
 logger = logging.getLogger(__name__)
 
 
@@ -69,8 +68,10 @@ def download_srtm_tiles_for_bounds(
         for lon in lon_range:
             tile_bounds = (lon, lat, lon + 1, lat + 1)
             tif_path = os.path.join(SRTM_CACHE_DIR, f"srtm_{lat}_{lon}.tif")
-            if not os.path.exists(tif_path):
-                elevation.clip(bounds=tile_bounds, output=tif_path)
+            lock_path = tif_path + ".lock"
+            with FileLock(lock_path, timeout=60):
+                if not os.path.exists(tif_path):
+                    elevation.clip(bounds=tile_bounds, output=tif_path)
             paths.append(tif_path)
 
     return paths
@@ -377,17 +378,21 @@ def generate_contours(
         raw_xlim = ax.get_xlim()
         raw_ylim = ax.get_ylim()
         plt.savefig(os.path.join(debug_image_path, "contours.png"))
+        plt.close(fig)
 
     level_polys = _extract_level_polygons(cs)
     contour_layers = _compute_layer_bands(level_polys, transform)
 
-    for layer in contour_layers:
-        band_geom = shape(layer["geometry"])
-        save_debug_contour_polygon(band_geom, layer["elevation"], "contour_polygon")
+    if DEBUG:
+        os.makedirs(DEBUG_IMAGE_PATH, exist_ok=True)
+        for layer in contour_layers:
+            band_geom = shape(layer["geometry"])
+            save_debug_contour_polygon(band_geom, layer["elevation"], "contour_polygon")
 
     _plot_contour_layers(contour_layers, raw_xlim, raw_ylim, debug_image_path)
 
     logger.debug(f"Generated {len(contour_layers)} contour layers")
+
     return contour_layers
 
 

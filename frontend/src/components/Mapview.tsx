@@ -4,6 +4,8 @@ import proj4 from 'proj4';
 import { useEffect, useRef, useState } from 'react';
 import { MapContainer, Marker, Rectangle, TileLayer, useMap, useMapEvents } from 'react-leaflet';
 
+const MAX_AREA_KM2 = 120;
+
 interface MapViewProps {
   coordinates: [number, number] | null
   onBoundsChange?: (bounds: [[number, number], [number, number]]) => void
@@ -34,10 +36,16 @@ function getAdjustedBounds(
 
   console.debug("UTM SW:", swProj, "UTM NE:", neProj);
 
+  // Enforce max area limit of 25 km²
+  const width = Math.abs(neProj[0] - swProj[0]);
+  const height = Math.abs(neProj[1] - swProj[1]);
+  const areaKm2 = (width * height) / 1_000_000;
+  const maxAreaKm2 = MAX_AREA_KM2;
+  const scale = Math.min(1.0, Math.sqrt(maxAreaKm2 / areaKm2));
+
   if (square) {
-    const width = Math.abs(neProj[0] - swProj[0]);
-    const height = Math.abs(neProj[1] - swProj[1]);
-    const size = Math.min(width, height);
+    const maxSide = Math.sqrt(maxAreaKm2 * 1_000_000); // in meters
+    const size = Math.min(maxSide, Math.min(width, height));
     const centerProj = proj.forward([centerLon, centerLat]);
     const half = size / 2;
     const minX = centerProj[0] - half;
@@ -55,14 +63,16 @@ function getAdjustedBounds(
       [newNE[1], newNE[0]],
     ];
   } else {
-    // Apply a 10% inset
-    const insetX = (neProj[0] - swProj[0]) * 0.1;
-    const insetY = (neProj[1] - swProj[1]) * 0.1;
+    // Scale to enforce area limit, centered on center
+    const centerX = (swProj[0] + neProj[0]) / 2;
+    const centerY = (swProj[1] + neProj[1]) / 2;
+    const halfWidth = (width * scale) / 2;
+    const halfHeight = (height * scale) / 2;
 
-    const minX = swProj[0] + insetX;
-    const maxX = neProj[0] - insetX;
-    const minY = swProj[1] + insetY;
-    const maxY = neProj[1] - insetY;
+    const minX = centerX - halfWidth;
+    const maxX = centerX + halfWidth;
+    const minY = centerY - halfHeight;
+    const maxY = centerY + halfHeight;
 
     const newSW = proj.inverse([minX, minY]);
     const newNE = proj.inverse([maxX, maxY]);
@@ -105,9 +115,13 @@ function useSelectionBounds(
     const sw = map.getBounds().getSouthWest();
     const ne = map.getBounds().getNorthEast();
 
+    const insetFactor = 0.05;
+    const latRange = ne.lat - sw.lat;
+    const lngRange = ne.lng - sw.lng;
+
     const rawBounds: [[number, number], [number, number]] = [
-      [sw.lat, sw.lng],
-      [ne.lat, ne.lng]
+      [sw.lat + latRange * insetFactor, sw.lng + lngRange * insetFactor],
+      [ne.lat - latRange * insetFactor, ne.lng - lngRange * insetFactor]
     ];
 
     const adjustedBounds = getAdjustedBounds(rawBounds, squareOutput, map);
