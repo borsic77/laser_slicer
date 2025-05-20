@@ -19,7 +19,7 @@ __all__ = [
 def contours_to_svg_zip(
     contours: List[dict],
     stroke_cut: str = "#000000",
-    stroke_align: str = "#8888ff",
+    stroke_align: str = "#ff0000",
     stroke_width_mm: float = 0.1,
 ) -> bytes:
     """Convert a list of contour *bands* (as returned by
@@ -64,7 +64,7 @@ def contours_to_svg_zip(
         y_mm = (glob_maxy - y_m) * 1000.0  # flip Y
         return round(x_mm, 3), round(y_mm, 3)
 
-    def _polygon_to_path(p: Polygon) -> str:
+    def _polygon_to_path(p: Polygon, include_holes: bool = True) -> str:
         """Convert a (possibly with holes) Shapely Polygon → SVG path string."""
 
         def _ring_to_cmds(coords):
@@ -77,16 +77,18 @@ def contours_to_svg_zip(
             return " ".join(cmds)
 
         outer = _ring_to_cmds(list(p.exterior.coords))
-        inners = " ".join(_ring_to_cmds(list(r.coords)) for r in p.interiors)
+        inners = ""
+        if include_holes:
+            inners = " ".join(_ring_to_cmds(list(r.coords)) for r in p.interiors)
         return f"{outer} {inners}".strip()
 
-    def _geom_to_paths(g) -> List[str]:
+    def _geom_to_paths(g, include_holes: bool = True) -> List[str]:
         if g.geom_type == "Polygon":
-            return [_polygon_to_path(g)]
+            return [_polygon_to_path(g, include_holes=include_holes)]
         elif g.geom_type == "MultiPolygon":
             paths = []
             for poly in g.geoms:
-                paths.extend(_geom_to_paths(poly))
+                paths.extend(_geom_to_paths(poly, include_holes=include_holes))
             return paths
         else:
             return []
@@ -102,6 +104,9 @@ def contours_to_svg_zip(
             band_above = (
                 shape(contours[idx + 1]["geometry"]) if idx + 1 < n_layers else None
             )
+            band_above_above = (
+                shape(contours[idx + 2]["geometry"]) if idx + 2 < n_layers else None
+            )
 
             # *Cut* geometry: the material for *this* slice only
             cut_geom = (
@@ -109,7 +114,11 @@ def contours_to_svg_zip(
                 if band_above is not None and not band_above.is_empty
                 else band_i
             )
-            align_geom = band_above if band_above is not None else None
+            # Alignment geometry: only use the single layer above
+            if band_above and band_above_above:
+                align_geom = band_above.difference(band_above_above)
+            else:
+                align_geom = band_above
 
             dwg = svgwrite.Drawing(
                 size=(f"{width_mm:.3f}mm", f"{height_mm:.3f}mm"),
@@ -133,34 +142,36 @@ def contours_to_svg_zip(
             # Alignment outline – dashed or secondary colour
             # ----------------------------------------------
             if align_geom is not None and not align_geom.is_empty:
-                for path_d in _geom_to_paths(align_geom):
+                for path_d in _geom_to_paths(align_geom, include_holes=False):
                     dwg.add(
                         dwg.path(
                             d=path_d,
                             stroke=stroke_align,
                             fill="none",
                             stroke_width=f"{stroke_width_mm:.3f}mm",
-                            stroke_dasharray="2,2",
                         )
                     )
-
-                # Use union to find a centroid *inside* the alignment outline for labelling
-                label_point = align_geom.representative_point()
-            else:
-                label_point = band_i.representative_point()
-
-            lx, ly = _to_svg_coords(label_point.x, label_point.y)
             label = f"{layer['elevation']} / #{idx + 1}"
-            dwg.add(
-                dwg.text(
-                    label,
-                    insert=(lx, ly),
-                    text_anchor="middle",
-                    alignment_baseline="central",
-                    font_size="8pt",
-                    fill=stroke_align,
-                )
+            # Place label(s) inside each polygon of the alignment geometry (or cut geometry if top layer)
+            target_geom = align_geom if align_geom is not None else band_i
+            geoms = (
+                [target_geom]
+                if target_geom.geom_type == "Polygon"
+                else list(target_geom.geoms)
             )
+            for poly in geoms:
+                label_point = poly.representative_point()
+                lx, ly = _to_svg_coords(label_point.x, label_point.y)
+                dwg.add(
+                    dwg.text(
+                        label,
+                        insert=(lx, ly),
+                        text_anchor="middle",
+                        alignment_baseline="central",
+                        font_size="8pt",
+                        fill=stroke_align,
+                    )
+                )
 
             svg_bytes = dwg.tostring().encode()
             fname = f"layer_{idx + 1:02d}_{int(round(layer['elevation']))}m.svg"

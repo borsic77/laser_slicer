@@ -1,4 +1,5 @@
 import logging
+import math
 import os
 from math import cos, radians
 from typing import List, Tuple
@@ -284,10 +285,8 @@ def _compute_layer_bands(
         if not current.is_valid:
             current = current.buffer(0)
 
-        # Expand with higher levels
-        cumulative = (
-            current if cumulative is None else unary_union([cumulative, current])
-        )
+        # Expand only by area: if current is fully inside, union won't change shape
+        cumulative = current if cumulative is None else cumulative.union(current)
         if cumulative.is_empty:
             continue
 
@@ -298,6 +297,38 @@ def _compute_layer_bands(
 
     contour_layers.reverse()
     return contour_layers
+
+
+def _grid_convergence_angle_from_geometry(projected_geoms: list) -> float:
+    """
+    Computes the angle (in degrees) to rotate the projected geometries
+    so that the bounding box aligns with the Cartesian axes.
+    Uses the orientation of the minimum rotated rectangle of the union.
+    """
+    if not projected_geoms:
+        return 0.0
+
+    from shapely.geometry import MultiPolygon
+
+    unioned = unary_union(projected_geoms)
+    if unioned.is_empty:
+        return 0.0
+
+    min_rect = unioned.minimum_rotated_rectangle
+    coords = list(min_rect.exterior.coords)
+
+    # Find the longest edge and compute its angle relative to the X-axis
+    max_len = 0.0
+    angle_deg = 0.0
+    for i in range(len(coords) - 1):
+        dx = coords[i + 1][0] - coords[i][0]
+        dy = coords[i + 1][1] - coords[i][1]
+        length = math.hypot(dx, dy)
+        if length > max_len:
+            max_len = length
+            angle_deg = math.degrees(math.atan2(dy, dx))
+
+    return angle_deg
 
 
 def _plot_contour_layers(
@@ -375,38 +406,45 @@ def project_geometry(
 
     # Set up projection from WGS84 to UTM
     proj = pyproj.Transformer.from_crs("EPSG:4326", f"EPSG:{epsg_code}", always_xy=True)
-    projected_contours = []
-
-    # Debug plot of projected geometry
-
-    fig, ax = plt.subplots()
+    # First, project all geometries without rotation, collect them for union
+    projected_geoms = []
     for contour in contours:
         try:
             geom = shape(contour["geometry"])
             projected_geom = transform(proj.transform, geom)
-            # if not projected_geom.is_valid or projected_geom.is_empty:
-            #     logger.warning(
-            #         f"Invalid projected geometry at level {contour.get('elevation')}"
-            #     )
-            #     continue
-            contour["geometry"] = mapping(projected_geom)
-            projected_contours.append(contour)
-
-            # Plot for debug
-            if projected_geom.geom_type == "Polygon":
-                x, y = projected_geom.exterior.xy
-                ax.plot(x, y, linewidth=0.5)
-            elif projected_geom.geom_type == "LineString":
-                x, y = projected_geom.xy
-                ax.plot(x, y, linewidth=0.5)
+            projected_geoms.append((contour, projected_geom))
         except Exception as e:
             logger.warning(
                 f"Skipping unprojectable contour at elevation {contour.get('elevation')}: {e}"
             )
             continue
 
-        ax.set_title("Projected Contours")
-        plt.savefig(os.path.join(DEBUG_IMAGE_PATH, "projected_contours.png"))
+    # Compute common centroid for rotation
+    all_shapes = [g for _, g in projected_geoms]
+    if not all_shapes:
+        return []
+    merged = unary_union(all_shapes)
+    center = merged.centroid
+    rot_angle = _grid_convergence_angle_from_geometry(all_shapes)
+
+    projected_contours = []
+    fig, ax = plt.subplots()
+
+    for contour, geom in projected_geoms:
+        rotated_geom = shapely.affinity.rotate(geom, -rot_angle, origin=center)
+        contour["geometry"] = mapping(rotated_geom)
+        projected_contours.append(contour)
+
+        # Plot for debug
+        if rotated_geom.geom_type == "Polygon":
+            x, y = rotated_geom.exterior.xy
+            ax.plot(x, y, linewidth=0.5)
+        elif rotated_geom.geom_type == "LineString":
+            x, y = rotated_geom.xy
+            ax.plot(x, y, linewidth=0.5)
+
+    ax.set_title("Projected Contours")
+    plt.savefig(os.path.join(DEBUG_IMAGE_PATH, "projected_contours.png"))
 
     return projected_contours
 
