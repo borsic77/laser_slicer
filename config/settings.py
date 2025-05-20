@@ -21,17 +21,27 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = "django-insecure-&m@_@12y98o8615cionhrj@u+y6v1zov=3y1j72@+m901z+n+_"
+SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "dev-secret-key")
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.getenv("DJANGO_DEBUG", "False").lower() == "true"
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = os.getenv("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
 
 # Directories for storing elevation files and cache
-SRTM_CACHE_DIR = os.getenv("SRTM_CACHE_DIR", "/tmp/srtm_cache")
-DEBUG_IMAGE_PATH = os.getenv("DEBUG_IMAGE_PATH", "/tmp")
 
+SRTM_CACHE_DIR = os.getenv("SRTM_CACHE_DIR", BASE_DIR / "data" / "srtm_cache")
+DEBUG_IMAGE_PATH = os.getenv("DEBUG_IMAGE_PATH", BASE_DIR / "data" / "debug_images")
+
+NOMINATIM_USER_AGENT = os.getenv("USER_AGENT", "laser-slicer/1.0 (contact@email.com)")
+
+if not DEBUG:
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_HSTS_SECONDS = 3600
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+    SECURE_SSL_REDIRECT = True
 
 LOGGING = {
     "version": 1,

@@ -3729,3 +3729,57 @@ INFO 2025-05-20 11:10:39,567 django.server "POST /api/export/ HTTP/1.1" 200 1020
 INFO 2025-05-20 11:13:09,172 django.utils.autoreload /Users/boris/Documents/python programs/laser_slicer/core/utils/svg_export.py changed, reloading.
 INFO 2025-05-20 11:13:09,597 django.utils.autoreload Watching for file changes with StatReloader
 INFO 2025-05-20 11:13:19,827 django.server "POST /api/export/ HTTP/1.1" 200 102174
+INFO 2025-05-20 11:32:00,591 django.utils.autoreload /Users/boris/Documents/python programs/laser_slicer/config/settings.py changed, reloading.
+INFO 2025-05-20 11:32:00,901 django.utils.autoreload Watching for file changes with StatReloader
+INFO 2025-05-20 11:32:17,810 django.utils.autoreload /Users/boris/Documents/python programs/laser_slicer/config/settings.py changed, reloading.
+INFO 2025-05-20 11:34:14,279 django.utils.autoreload Watching for file changes with StatReloader
+INFO 2025-05-20 11:34:23,549 django.server "OPTIONS /api/geocode/ HTTP/1.1" 301 0
+INFO 2025-05-20 11:34:31,681 django.server "OPTIONS /api/geocode/ HTTP/1.1" 301 0
+INFO 2025-05-20 11:34:41,817 django.server "OPTIONS /api/geocode/ HTTP/1.1" 301 0
+INFO 2025-05-20 11:39:22,637 django.utils.autoreload Watching for file changes with StatReloader
+INFO 2025-05-20 11:39:32,248 django.server "OPTIONS /api/geocode/ HTTP/1.1" 301 0
+INFO 2025-05-20 11:40:45,555 django.server "GET /api/geocode/?q=lausanne HTTP/1.1" 301 0
+INFO 2025-05-20 11:40:45,565 django.server code 400, message Bad request version ('\x81éïF\xad.Kñ;\x0f\x89wò]')
+ERROR 2025-05-20 11:40:45,565 django.server You're accessing the development server over HTTPS, but it only supports HTTP.
+INFO 2025-05-20 11:40:45,566 django.server code 400, message Bad request version ('Åø$\x91\x89M·Xrm_ì\x00"\x13\x01\x13\x03\x13\x02À+À/Ì©Ì¨À,À0À')
+ERROR 2025-05-20 11:40:45,566 django.server You're accessing the development server over HTTPS, but it only supports HTTP.
+INFO 2025-05-20 11:43:57,016 django.utils.autoreload /Users/boris/Documents/python programs/laser_slicer/manage.py changed, reloading.
+INFO 2025-05-20 11:43:57,315 django.utils.autoreload Watching for file changes with StatReloader
+INFO 2025-05-20 11:44:20,561 django.utils.autoreload /Users/boris/Documents/python programs/laser_slicer/config/wsgi.py changed, reloading.
+INFO 2025-05-20 11:44:20,825 django.utils.autoreload Watching for file changes with StatReloader
+INFO 2025-05-20 11:44:49,616 django.server code 400, message Bad request version ('8\x08\x8adúÒ»\x00"\x13\x01\x13\x03\x13\x02À+À/Ì©Ì¨À,À0À')
+ERROR 2025-05-20 11:44:49,616 django.server You're accessing the development server over HTTPS, but it only supports HTTP.
+INFO 2025-05-20 11:44:49,617 django.server code 400, message Bad request syntax ("\x16\x03\x01\x02\x90\x01\x00\x02\x8c\x03\x03'`Ò")
+ERROR 2025-05-20 11:44:49,617 django.server You're accessing the development server over HTTPS, but it only supports HTTP.
+INFO 2025-05-20 11:44:53,392 django.server code 400, message Bad request version ('vû\x87-[TµÃø\x99w÷\x0e;\x9d\x99{{Z£ß(\x87êÿ\x12\x93¥Ü±Þä\x00"\x13\x01\x13\x03\x13\x02À+À/Ì©Ì¨À,À0À')
+ERROR 2025-05-20 11:44:53,393 django.server You're accessing the development server over HTTPS, but it only supports HTTP.
+INFO 2025-05-20 11:44:53,394 django.server code 400, message Bad request syntax ("\x16\x03\x01\x02\x90\x01\x00\x02\x8c\x03\x03\x1aÿ.\x82ïëSåu\x01\x02',Oh")
+ERROR 2025-05-20 11:44:53,395 django.server You're accessing the development server over HTTPS, but it only supports HTTP.
+INFO 2025-05-20 11:45:14,212 django.utils.autoreload Watching for file changes with StatReloader
+INFO 2025-05-20 11:45:25,883 django.server code 400, message Bad request version ('èqq\x911\x13\x00"\x13\x01\x13\x03\x13\x02À+À/Ì©Ì¨À,À0À')
+ERROR 2025-05-20 11:45:25,883 django.server You're accessing the development server over HTTPS, but it only supports HTTP.
+INFO 2025-05-20 11:45:25,885 django.server code 400, message Bad request version ('¼~S\x19öÎ½ØÿüAC©VÕs"YQ\x88¦\x14ê|Î(úëR×¬æ\x00"\x13\x01\x13\x03\x13\x02À+À/Ì©Ì¨À,À0À')
+ERROR 2025-05-20 11:45:25,885 django.server You're accessing the development server over HTTPS, but it only supports HTTP.
+INFO 2025-05-20 11:45:32,512 django.server "OPTIONS /api/geocode/ HTTP/1.1" 200 0
+INFO 2025-05-20 11:45:32,894 core.utils.geocoding Geocoded fiez to (46.8280744, 6.6240029)
+INFO 2025-05-20 11:45:32,898 django.server "POST /api/geocode/ HTTP/1.1" 200 34
+INFO 2025-05-20 11:45:33,811 django.server "POST /api/elevation-range/ HTTP/1.1" 200 26
+INFO 2025-05-20 11:45:40,721 django.server "OPTIONS /api/slice/ HTTP/1.1" 200 0
+INFO 2025-05-20 11:45:40,723 core.views Slicing bounds (46.78358656675768, 6.563061839675988) to (46.872380677192965, 6.684833447609383) with 250.0m per layer, 4 layers, simplify=0.5
+WARNING 2025-05-20 11:45:41,023 core.utils.slicer ContourSet has no `.collections`; falling back to `.allsegs` extraction.
+INFO 2025-05-20 11:45:41,268 core.views Generated 5 contour polygons.
+INFO 2025-05-20 11:45:41,519 django.server "POST /api/slice/ HTTP/1.1" 200 524402
+INFO 2025-05-20 11:49:33,040 django.utils.autoreload /Users/boris/Documents/python programs/laser_slicer/core/utils/geocoding.py changed, reloading.
+INFO 2025-05-20 11:49:33,544 django.utils.autoreload Watching for file changes with StatReloader
+INFO 2025-05-20 11:50:25,764 django.utils.autoreload /Users/boris/Documents/python programs/laser_slicer/config/settings.py changed, reloading.
+INFO 2025-05-20 11:50:26,061 django.utils.autoreload Watching for file changes with StatReloader
+INFO 2025-05-20 11:52:27,307 django.utils.autoreload /Users/boris/Documents/python programs/laser_slicer/config/settings.py changed, reloading.
+INFO 2025-05-20 11:52:27,629 django.utils.autoreload Watching for file changes with StatReloader
+INFO 2025-05-20 11:52:56,925 django.utils.autoreload /Users/boris/Documents/python programs/laser_slicer/core/utils/geocoding.py changed, reloading.
+INFO 2025-05-20 11:52:57,230 django.utils.autoreload Watching for file changes with StatReloader
+INFO 2025-05-20 12:01:36,902 django.utils.autoreload /Users/boris/Documents/python programs/laser_slicer/core/utils/geocoding.py changed, reloading.
+INFO 2025-05-20 12:01:37,367 django.utils.autoreload Watching for file changes with StatReloader
+INFO 2025-05-20 12:02:15,609 django.server "POST /api/elevation-range/ HTTP/1.1" 200 26
+INFO 2025-05-20 12:02:17,040 core.utils.geocoding Geocoded fiez to (46.8280744, 6.6240029)
+INFO 2025-05-20 12:02:17,042 django.server "POST /api/geocode/ HTTP/1.1" 200 34
+INFO 2025-05-20 12:02:17,757 django.server "POST /api/elevation-range/ HTTP/1.1" 200 26

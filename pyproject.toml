@@ -15,6 +15,7 @@ dependencies = [
     "matplotlib>=3.10.3",
     "numpy>=2.2.5",
     "pyproj>=3.7.1",
+    "python-dotenv>=1.1.0",
     "rasterio>=1.4.3",
     "requests>=2.32.3",
     "shapely>=2.1.0",
