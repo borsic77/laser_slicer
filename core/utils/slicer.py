@@ -33,28 +33,6 @@ DEBUG_IMAGE_PATH = settings.DEBUG_IMAGE_PATH
 logger = logging.getLogger(__name__)
 
 
-def _to_svg_path(geom: Polygon | MultiPolygon) -> str:
-    def move_to(x, y):
-        return f"M{x:.3f},{-y:.3f}"
-
-    def line_to(x, y):
-        return f"L{x:.3f},{-y:.3f}"
-
-    paths = []
-    for poly in geom.geoms if geom.geom_type == "MultiPolygon" else [geom]:
-        if not poly.exterior:
-            continue
-        cmds = [move_to(*poly.exterior.coords[0])]
-        cmds += [line_to(*pt) for pt in poly.exterior.coords[1:]]
-        cmds.append("Z")
-        for interior in poly.interiors:
-            cmds.append(move_to(*interior.coords[0]))
-            cmds += [line_to(*pt) for pt in interior.coords[1:]]
-            cmds.append("Z")
-        paths.append(" ".join(cmds))
-    return " ".join(paths)
-
-
 def save_debug_contour_polygon(polygon, level, filename):
     fig, ax = plt.subplots()
     if polygon.is_empty or not polygon.is_valid:

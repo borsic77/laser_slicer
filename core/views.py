@@ -19,6 +19,7 @@ from core.utils.slicer import (
     project_geometry,
     scale_and_center_contours_to_substrate,
 )
+from core.utils.svg_export import contours_to_svg_zip
 
 
 @api_view(["POST"])
@@ -49,6 +50,25 @@ def elevation_range(request):
         logger.exception("Error getting elevation range")
         traceback.print_exc()
         return Response({"error": str(e)}, status=500)
+
+
+@api_view(["POST"])
+def export_svgs(request):
+    contours = request.data.get("layers")  # front-end sends the list it already has
+    if not contours:
+        return Response({"error": "No layers supplied"}, status=400)
+
+    try:
+        zip_bytes = contours_to_svg_zip(contours)  # ➋ magic happens here
+        return FileResponse(
+            io.BytesIO(zip_bytes),
+            content_type="application/zip",
+            as_attachment=True,
+            filename="contour_layers.zip",
+        )
+    except Exception as exc:
+        logger.exception("SVG export failed")
+        return Response({"error": str(exc)}, status=500)
 
 
 def compute_utm_bounds_from_wgs84(
@@ -168,14 +188,3 @@ def slice_contours(request):
         logger.exception("Error generating contours")
         traceback.print_exc()
         return Response({"error": str(e)}, status=500)
-
-
-@api_view(["GET"])
-def export_svgs(request):
-    # Create a dummy ZIP file with fake SVG content
-    mem_zip = io.BytesIO()
-    with zipfile.ZipFile(mem_zip, mode="w", compression=zipfile.ZIP_DEFLATED) as zf:
-        zf.writestr("layer_01.svg", "<svg><rect width='100' height='100'/></svg>")
-        zf.writestr("layer_02.svg", "<svg><circle cx='50' cy='50' r='40'/></svg>")
-    mem_zip.seek(0)
-    return FileResponse(mem_zip, as_attachment=True, filename="contours.zip")
