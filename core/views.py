@@ -7,11 +7,13 @@ from django.conf import settings
 from django.http import FileResponse
 from django.shortcuts import render
 from django.views.decorators.csrf import csrf_exempt
-from pyproj import Transformer
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 
 from core.services.contour_generator import ContourSlicingJob
+from core.services.elevation_service import ElevationRangeJob
+
+# from core.services.svg_zip_generator import SvgGenerationJob, ZipExportJob
 from core.utils.export_filename import build_export_basename
 from core.utils.geocoding import geocode_address
 from core.utils.slicer import (
@@ -39,31 +41,9 @@ def safe_api(view_func):
 @api_view(["POST"])
 @safe_api
 def elevation_range(request) -> Response:
-    """Return the min and max elevation in the given bounding box.
-
-    Args:
-        request (Request): Django REST Framework request containing bounds (lat/lon).
-
-    Returns:
-        Response: JSON response with 'min' and 'max' elevation values.
-    """
-    bounds = request.data["bounds"]
-
-    lat_min = float(bounds["lat_min"])
-    lon_min = float(bounds["lon_min"])
-    lat_max = float(bounds["lat_max"])
-    lon_max = float(bounds["lon_max"])
-
-    tile_paths = download_srtm_tiles_for_bounds((lon_min, lat_min, lon_max, lat_max))
-    elevation, _ = mosaic_and_crop(tile_paths, (lon_min, lat_min, lon_max, lat_max))
-
-    masked = np.ma.masked_where(
-        ~np.isfinite(elevation) | (elevation <= -32768), elevation
-    )
-    min_elev = max(-500, float(masked.min()))
-    max_elev = min(10000, float(masked.max()))
-
-    return Response({"min": min_elev, "max": max_elev})
+    bounds = _parse_bounds(request.data["bounds"])
+    result = ElevationRangeJob(bounds).run()
+    return Response(result)
 
 
 @csrf_exempt
