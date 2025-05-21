@@ -1,22 +1,9 @@
-import re
-import unicodedata
-from venv import logger
+import logging
 
+from django.conf import settings
+from django.utils.text import slugify
 
-def slugify(value: str) -> str:
-    """Converts a string to a safe slug with only ASCII alphanumerics and underscores.
-
-    Args:
-        value (str): The input string.
-
-    Returns:
-        str: Slugified version of the string.
-    """
-    value = (
-        unicodedata.normalize("NFKD", value).encode("ascii", "ignore").decode("ascii")
-    )
-    value = re.sub(r"[^\w\s-]", "", value).strip().lower()
-    return re.sub(r"[-\s]+", "_", value)
+logger = logging.getLogger(__name__)
 
 
 def build_export_basename(

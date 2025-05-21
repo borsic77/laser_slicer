@@ -1,6 +1,7 @@
 import logging
 import time
 from dataclasses import dataclass
+from functools import lru_cache
 
 import requests
 from django.conf import settings
@@ -8,6 +9,22 @@ from django.core.cache import cache
 from pyproj import Transformer
 
 logger = logging.getLogger(__name__)
+
+
+@lru_cache(maxsize=32)
+def get_transformer_for_coords(center_x: float, center_y: float) -> Transformer:
+    """Get a pyproj Transformer for converting WGS84 to UTM coordinates.
+    This function caches the transformer for different center coordinates to improve performance.
+    Args:
+        center_x (float): Longitude of the center point.
+        center_y (float): Latitude of the center point.
+    Returns:
+        Transformer: A pyproj Transformer object for the specified coordinates.
+    """
+    zone_number = int((center_x + 180) / 6) + 1
+    is_northern = center_y >= 0
+    epsg_code = f"326{zone_number:02d}" if is_northern else f"327{zone_number:02d}"
+    return Transformer.from_crs("EPSG:4326", f"EPSG:{epsg_code}", always_xy=True)
 
 
 @dataclass
@@ -76,10 +93,7 @@ def compute_utm_bounds_from_wgs84(
     Returns:
         tuple[float, float, float, float]: Bounding box in UTM coordinates as (min_x, min_y, max_x, max_y).
     """
-    zone_number = int((center_x + 180) / 6) + 1
-    is_northern = center_y >= 0
-    epsg_code = f"326{zone_number:02d}" if is_northern else f"327{zone_number:02d}"
-    transformer = Transformer.from_crs("EPSG:4326", f"EPSG:{epsg_code}", always_xy=True)
+    transformer = get_transformer_for_coords(center_x, center_y)
     utm_minx, utm_miny = transformer.transform(lon_min, lat_min)
     utm_maxx, utm_maxy = transformer.transform(lon_max, lat_max)
     return (utm_minx, utm_miny, utm_maxx, utm_maxy)
