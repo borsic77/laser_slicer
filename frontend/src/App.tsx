@@ -3,6 +3,8 @@ import './App.css';
 import ContourPreview from './components/ContourPreview';
 import MapView from './components/Mapview';
 
+const API_URL = import.meta.env.VITE_API_URL;
+
 // ──────────────────────────────────────────────────────────
 // Global reducer for all slicer parameters
 type SlicerParams = {
@@ -89,7 +91,7 @@ function App() {
       lon_max: bounds[1][1],
     }
 
-    const res = await fetch("http://localhost:8000/api/elevation-range/", {
+    const res = await fetch(`${API_URL}/api/elevation-range/`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ bounds: body }),
@@ -134,7 +136,7 @@ function App() {
   }, [elevationStats, params.heightPerLayer, params.numLayers]);
 
   async function fetchCoordinates(address: string, signal?: AbortSignal): Promise<[number, number]> {
-    const res = await fetch('http://localhost:8000/api/geocode/', {
+    const res = await fetch(`${API_URL}/api/geocode/`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ address }),
@@ -190,7 +192,7 @@ function App() {
 
     try {
       setSlicing(true)
-      const res = await fetch('http://localhost:8000/api/slice/', {
+      const res = await fetch(`${API_URL}/api/slice/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
@@ -220,7 +222,7 @@ function App() {
     const controller = new AbortController();
 
     try {
-      const res = await fetch('http://localhost:8000/api/export/', {
+      const res = await fetch(`${API_URL}/api/export/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 

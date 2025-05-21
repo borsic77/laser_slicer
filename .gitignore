@@ -1,17 +1,48 @@
-# Python-generated files
+# Python cache
 __pycache__/
-*.py[oc]
+*.py[co]
+*.pyo
+*.pyd
+
+# Build artifacts
 build/
 dist/
+*.egg-info/
 wheels/
-*.egg-info
 
 # Virtual environments
-.venv
+.venv/
+env/
 
-# environment file
+# Environment files
 .env
+.env.*
 
-# data directory
+# Django-specific
+*.log
+*.sqlite3
+logs/
+*.pot
+*.pyc
+
+# Elevation data and slices
 data/
-logs/django.log
+tmp/
+output/
+*.tif
+*.zip
+*.svg
+
+
+# VS Code
+.vscode/
+
+# Frontend: Node, Vite, React
+frontend/node_modules/
+frontend/dist/
+frontend/.env
+frontend/.vite/
+
+# System
+.DS_Store
+Thumbs.db

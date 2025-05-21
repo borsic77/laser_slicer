@@ -1,6 +1,7 @@
 import logging
 import math
 import os
+from tkinter import N
 from typing import List, Tuple
 
 import elevation
@@ -15,7 +16,9 @@ from filelock import FileLock
 from rasterio.merge import merge
 from rasterio.windows import from_bounds
 from shapely.geometry import (
+    GeometryCollection,
     LineString,
+    MultiPolygon,
     Polygon,
     mapping,
     shape,
@@ -335,6 +338,14 @@ def _extract_level_polygons(cs) -> List[Tuple[float, List[Polygon]]]:
 
 
 def _flatten_polygons(geoms: List[Polygon]) -> List[Polygon]:
+    """
+    Flattens a list of geometries, extracting only the Polygon types.
+    Handles MultiPolygons by extracting their constituent Polygons.
+    Args:
+        geoms (list): List of geometries (Polygon or MultiPolygon).
+    Returns:
+        list: Flattened list of Polygons.
+    """
     flat = []
     for geom in geoms:
         if geom.geom_type == "Polygon":
@@ -344,9 +355,16 @@ def _flatten_polygons(geoms: List[Polygon]) -> List[Polygon]:
     return flat
 
 
-# Utility to ensure geometry is a valid MultiPolygon
 def _force_multipolygon(geom):
-    from shapely.geometry import GeometryCollection, MultiPolygon, Polygon
+    """
+    Ensures the geometry is a MultiPolygon.
+    If it's a Polygon, it wraps it in a MultiPolygon.
+    If it's a GeometryCollection, it extracts the Polygons.
+    If it's empty or not a Polygon, returns an empty MultiPolygon.
+    Args:
+        geom (BaseGeometry): The geometry to check.
+    Returns:
+        MultiPolygon: A MultiPolygon geometry."""
 
     if isinstance(geom, (Polygon, MultiPolygon)):
         return MultiPolygon([geom]) if isinstance(geom, Polygon) else geom
@@ -405,6 +423,10 @@ def _grid_convergence_angle_from_geometry(projected_geoms: list) -> float:
     Computes the angle (in degrees) to rotate the projected geometries
     so that the bounding box aligns with the Cartesian axes.
     Uses the orientation of the minimum rotated rectangle of the union.
+    Args:
+        projected_geoms (list): List of projected geometries.
+    Returns:
+        float: Angle in degrees to rotate the geometries.
     """
     if not projected_geoms:
         return 0.0
@@ -434,9 +456,16 @@ def _grid_convergence_angle_from_geometry(projected_geoms: list) -> float:
 
 def _plot_contour_layers(
     contour_layers: List[dict], raw_xlim, raw_ylim, debug_image_path: str
-):
+) -> None:
     """
     Plots all the final contour layer geometries to a debug image.
+    Args:
+        contour_layers (list): List of contour layers with geometries.
+        raw_xlim (tuple): X-axis limits for the plot.
+        raw_ylim (tuple): Y-axis limits for the plot.
+        debug_image_path (str): Path to save the debug image.
+    Returns:
+        None
     """
     fig, ax = plt.subplots()
     for layer in contour_layers:

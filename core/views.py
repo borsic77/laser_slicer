@@ -135,6 +135,7 @@ def compute_utm_bounds_from_wgs84(
 
 
 DEBUG_IMAGE_PATH = settings.DEBUG_IMAGE_PATH
+DEBUG = settings.DEBUG
 
 logger = logging.getLogger(__name__)
 
