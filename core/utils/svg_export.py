@@ -1,12 +1,9 @@
 import io
 import zipfile
-from typing import Dict, List, Tuple
+from typing import List, Tuple
 
 import svgwrite
-from shapely.geometry import MultiPolygon, Polygon, shape
-from shapely.ops import unary_union
-
-from core.utils.export_filename import build_export_basename
+from shapely.geometry import Polygon, shape
 
 __all__ = [
     "contours_to_svg_zip",

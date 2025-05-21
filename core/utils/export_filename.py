@@ -1,11 +1,6 @@
-import logging
 import re
 import unicodedata
 from venv import logger
-
-from django.conf import settings
-
-logger = logging.getLogger(__name__)
 
 
 def slugify(value: str) -> str:

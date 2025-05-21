@@ -2,7 +2,6 @@ import io
 import logging
 from functools import wraps
 
-import numpy as np
 from django.conf import settings
 from django.http import FileResponse
 from django.shortcuts import render
@@ -12,15 +11,9 @@ from rest_framework.response import Response
 
 from core.services.contour_generator import ContourSlicingJob
 from core.services.elevation_service import ElevationRangeJob
-
-# from core.services.svg_zip_generator import SvgGenerationJob, ZipExportJob
+from core.services.svg_zip_generator import generate_svg_layers, zip_svgs
 from core.utils.export_filename import build_export_basename
 from core.utils.geocoding import geocode_address
-from core.utils.slicer import (
-    download_srtm_tiles_for_bounds,
-    mosaic_and_crop,
-)
-from core.utils.svg_export import contours_to_svg_zip
 
 logger = logging.getLogger(__name__)
 
@@ -73,9 +66,8 @@ def export_svgs(request) -> FileResponse | Response:
     base_filename = build_export_basename(address, coords, height_mm, num_layers)
     filename = f"{base_filename}.zip"
 
-    zip_bytes = contours_to_svg_zip(
-        contours, basename=base_filename
-    )  # generate SVGs in memory
+    svg_files = generate_svg_layers(contours, basename=base_filename)
+    zip_bytes = zip_svgs(svg_files)  # generate SVGs in memory
 
     response = FileResponse(
         io.BytesIO(zip_bytes),
