@@ -5,6 +5,7 @@ from dataclasses import dataclass
 import requests
 from django.conf import settings
 from django.core.cache import cache
+from pyproj import Transformer
 
 logger = logging.getLogger(__name__)
 
@@ -52,3 +53,37 @@ def geocode_address(address: str) -> Coordinates:
     lon = float(results[0]["lon"])
     logger.info(f"Geocoded {address} to ({lat}, {lon})")
     return Coordinates(lat=lat, lon=lon)
+
+
+def compute_utm_bounds_from_wgs84(
+    lon_min: float,
+    lat_min: float,
+    lon_max: float,
+    lat_max: float,
+    center_x: float,
+    center_y: float,
+) -> tuple[float, float, float, float]:
+    """Convert WGS84 bounding box to projected UTM bounds.
+
+    Args:
+        lon_min (float): Minimum longitude of bounding box.
+        lat_min (float): Minimum latitude of bounding box.
+        lon_max (float): Maximum longitude of bounding box.
+        lat_max (float): Maximum latitude of bounding box.
+        center_x (float): Center longitude used to determine UTM zone.
+        center_y (float): Center latitude used to determine UTM zone.
+
+    Returns:
+        tuple[float, float, float, float]: Bounding box in UTM coordinates as (min_x, min_y, max_x, max_y).
+    """
+    zone_number = int((center_x + 180) / 6) + 1
+    is_northern = center_y >= 0
+    epsg_code = f"326{zone_number:02d}" if is_northern else f"327{zone_number:02d}"
+    transformer = Transformer.from_crs("EPSG:4326", f"EPSG:{epsg_code}", always_xy=True)
+    utm_minx, utm_miny = transformer.transform(lon_min, lat_min)
+    utm_maxx, utm_maxy = transformer.transform(lon_max, lat_max)
+    return (utm_minx, utm_miny, utm_maxx, utm_maxy)
+
+
+DEBUG_IMAGE_PATH = settings.DEBUG_IMAGE_PATH
+DEBUG = settings.DEBUG

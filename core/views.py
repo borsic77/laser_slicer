@@ -1,6 +1,5 @@
 import io
 import logging
-import traceback
 from functools import wraps
 
 import numpy as np
@@ -12,14 +11,12 @@ from pyproj import Transformer
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 
+from core.services.contour_generator import ContourSlicingJob
 from core.utils.export_filename import build_export_basename
 from core.utils.geocoding import geocode_address
 from core.utils.slicer import (
     download_srtm_tiles_for_bounds,
-    generate_contours,
     mosaic_and_crop,
-    project_geometry,
-    scale_and_center_contours_to_substrate,
 )
 from core.utils.svg_export import contours_to_svg_zip
 
@@ -110,40 +107,6 @@ def export_svgs(request) -> FileResponse | Response:
     return response
 
 
-def compute_utm_bounds_from_wgs84(
-    lon_min: float,
-    lat_min: float,
-    lon_max: float,
-    lat_max: float,
-    center_x: float,
-    center_y: float,
-) -> tuple[float, float, float, float]:
-    """Convert WGS84 bounding box to projected UTM bounds.
-
-    Args:
-        lon_min (float): Minimum longitude of bounding box.
-        lat_min (float): Minimum latitude of bounding box.
-        lon_max (float): Maximum longitude of bounding box.
-        lat_max (float): Maximum latitude of bounding box.
-        center_x (float): Center longitude used to determine UTM zone.
-        center_y (float): Center latitude used to determine UTM zone.
-
-    Returns:
-        tuple[float, float, float, float]: Bounding box in UTM coordinates as (min_x, min_y, max_x, max_y).
-    """
-    zone_number = int((center_x + 180) / 6) + 1
-    is_northern = center_y >= 0
-    epsg_code = f"326{zone_number:02d}" if is_northern else f"327{zone_number:02d}"
-    transformer = Transformer.from_crs("EPSG:4326", f"EPSG:{epsg_code}", always_xy=True)
-    utm_minx, utm_miny = transformer.transform(lon_min, lat_min)
-    utm_maxx, utm_maxy = transformer.transform(lon_max, lat_max)
-    return (utm_minx, utm_miny, utm_maxx, utm_maxy)
-
-
-DEBUG_IMAGE_PATH = settings.DEBUG_IMAGE_PATH
-DEBUG = settings.DEBUG
-
-
 @csrf_exempt
 @api_view(["POST"])
 @safe_api
@@ -175,82 +138,49 @@ def index(request) -> Response:
     return render(request, "core/index.html")
 
 
+def _parse_bounds(bounds: dict) -> tuple[float, float, float, float]:
+    """Parse bounding box coordinates from a dictionary.
+    Args:
+        bounds (dict): Dictionary containing 'lon_min', 'lat_min', 'lon_max', 'lat_max'.
+    Returns:
+        tuple[float, float, float, float]: Tuple of (lon_min, lat_min, lon_max, lat_max).
+    """
+    return (
+        float(bounds["lon_min"]),
+        float(bounds["lat_min"]),
+        float(bounds["lon_max"]),
+        float(bounds["lat_max"]),
+    )
+
+
+def _compute_center(bounds: dict) -> tuple[float, float]:
+    """Compute the center of a bounding box.
+    Args:
+        bounds (dict): Dictionary containing 'lon_min', 'lat_min', 'lon_max', 'lat_max'.
+    Returns:
+        tuple[float, float]: Tuple of (lon_center, lat_center).
+    """
+    lat_min = float(bounds["lat_min"])
+    lat_max = float(bounds["lat_max"])
+    lon_min = float(bounds["lon_min"])
+    lon_max = float(bounds["lon_max"])
+    return ((lon_min + lon_max) / 2, (lat_min + lat_max) / 2)
+
+
 @csrf_exempt
 @api_view(["POST"])
 @safe_api
-def slice_contours(request) -> Response:
-    """Slice elevation data into contour layers for laser cutting.
-
-    Args:
-        request (Request): JSON POST request with slicing parameters and bounding box.
-
-    Returns:
-        Response: JSON with contour data or error message.
-    """
-    height = float(request.data["height_per_layer"])
-    layers = int(request.data["num_layers"])
-    simplify = float(request.data["simplify"])
-    bounds = request.data["bounds"]
-
-    lat_min = float(bounds["lat_min"])
-    lon_min = float(bounds["lon_min"])
-    lat_max = float(bounds["lat_max"])
-    lon_max = float(bounds["lon_max"])
-
-    substrate_size = float(request.data["substrate_size"])
-    layer_thickness = float(request.data["layer_thickness"])
-
-    center_x = (lon_min + lon_max) / 2
-    center_y = (lat_min + lat_max) / 2
-
-    logger.info(
-        f"Slicing bounds ({lat_min}, {lon_min}) to ({lat_max}, {lon_max}) "
-        f"with {height}m per layer, {layers} layers, simplify={simplify}"
+def slice_contours(request):
+    job = ContourSlicingJob(
+        bounds=_parse_bounds(request.data["bounds"]),
+        height_per_layer=float(request.data["height_per_layer"]),
+        num_layers=int(request.data["num_layers"]),
+        simplify=float(request.data["simplify"]),
+        substrate_size_mm=float(request.data["substrate_size"]),
+        layer_thickness_mm=float(request.data["layer_thickness"]),
+        center=_compute_center(request.data["bounds"]),
     )
-
-    # Download tiles
-    tile_paths = download_srtm_tiles_for_bounds((lon_min, lat_min, lon_max, lat_max))
-
-    logger.debug(f"downloaded paths: {tile_paths}")
-
-    # Merge and clip to viewport
-    elevation, transform = mosaic_and_crop(
-        tile_paths, (lon_min, lat_min, lon_max, lat_max)
-    )
-    logger.debug("Merged and clipped.")
-
-    # Generate contours and save a preview
-
-    logger.debug("Calling generate_contours...")
-
-    contours = generate_contours(
-        elevation,
-        transform,
-        height,
-        simplify,
-        DEBUG_IMAGE_PATH,
-        center=(center_x, center_y),
-        scale=100,
-        bounds=(lon_min, lat_min, lon_max, lat_max),
-    )
-    logger.info(f"Generated {len(contours)} contour polygons.")
-
-    # Project each contour geometry to UTM coordinates
-    contours = project_geometry(contours, center_x, center_y)
-
-    utm_bounds = compute_utm_bounds_from_wgs84(
-        lon_min, lat_min, lon_max, lat_max, center_x, center_y
-    )
-    logger.debug(
-        f"UTM bounds: ({utm_bounds[0]:.2f}, {utm_bounds[1]:.2f}) → ({utm_bounds[2]:.2f}, {utm_bounds[3]:.2f}) "
-        f"→ extent: {utm_bounds[2] - utm_bounds[0]:.2f} m × {utm_bounds[3] - utm_bounds[1]:.2f} m"
-    )
-    contours = scale_and_center_contours_to_substrate(
-        contours, substrate_size, utm_bounds
-    )
-    for contour in contours:
-        contour["thickness"] = layer_thickness / 1000.0  # in meters
-
+    layers = job.run()
     return Response(
-        {"status": "sliced", "preview": DEBUG_IMAGE_PATH, "layers": contours}
+        {"status": "sliced", "preview": settings.DEBUG_IMAGE_PATH, "layers": layers}
     )
