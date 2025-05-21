@@ -35,7 +35,9 @@ output/
 
 
 # VS Code
-.vscode/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
 
 # Frontend: Node, Vite, React
 frontend/node_modules/
