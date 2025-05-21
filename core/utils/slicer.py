@@ -1,6 +1,7 @@
 import logging
 import math
 import os
+from collections import defaultdict
 from tkinter import N
 from typing import List, Tuple
 
@@ -24,6 +25,7 @@ from shapely.geometry import (
     shape,
 )
 from shapely.geometry.base import BaseGeometry
+from shapely.geometry.polygon import orient
 from shapely.ops import transform, unary_union
 
 # Use headless matplotlib
@@ -391,7 +393,6 @@ def _compute_layer_bands(
        - store the result as the full base of this slice
     3. Reverse before returning to restore low → high order.
     """
-    from shapely.geometry.polygon import orient
 
     contour_layers: list[dict] = []
     cumulative = None  # union of this and all higher-level layers
@@ -430,8 +431,6 @@ def _grid_convergence_angle_from_geometry(projected_geoms: list) -> float:
     """
     if not projected_geoms:
         return 0.0
-
-    from shapely.geometry import MultiPolygon
 
     unioned = unary_union(projected_geoms)
     if unioned.is_empty:
@@ -581,7 +580,7 @@ def project_geometry(
 
     for contour, geom in projected_geoms:
         rotated_geom = shapely.affinity.rotate(
-            geom, -rot_angle + 90, origin=center
+            geom, -rot_angle - 90, origin=center
         )  # adding 90 because everything got rotated by 90 deg cw, and i can't find the bug
         contour["geometry"] = mapping(rotated_geom)
         projected_contours.append(contour)
@@ -610,10 +609,6 @@ def scale_and_center_contours_to_substrate(
     Returns a new list of updated contours.
     """
     substrate_m = substrate_size_mm / 1000.0
-
-    from collections import defaultdict
-
-    from shapely.geometry import MultiPolygon
 
     minx, miny, maxx, maxy = utm_bounds
     width = maxx - minx

@@ -1,6 +1,7 @@
 import io
 import logging
 import traceback
+from functools import wraps
 
 import numpy as np
 from django.conf import settings
@@ -22,9 +23,24 @@ from core.utils.slicer import (
 )
 from core.utils.svg_export import contours_to_svg_zip
 
+logger = logging.getLogger(__name__)
+
+
+def safe_api(view_func):
+    @wraps(view_func)
+    def wrapper(*args, **kwargs):
+        try:
+            return view_func(*args, **kwargs)
+        except Exception as e:
+            logger.exception(f"API failure in {view_func.__name__}")
+            return Response({"error": "An unexpected error occurred."}, status=500)
+
+    return wrapper
+
 
 @csrf_exempt
 @api_view(["POST"])
+@safe_api
 def elevation_range(request) -> Response:
     """Return the min and max elevation in the given bounding box.
 
@@ -34,34 +50,28 @@ def elevation_range(request) -> Response:
     Returns:
         Response: JSON response with 'min' and 'max' elevation values.
     """
-    try:
-        bounds = request.data["bounds"]
+    bounds = request.data["bounds"]
 
-        lat_min = float(bounds["lat_min"])
-        lon_min = float(bounds["lon_min"])
-        lat_max = float(bounds["lat_max"])
-        lon_max = float(bounds["lon_max"])
+    lat_min = float(bounds["lat_min"])
+    lon_min = float(bounds["lon_min"])
+    lat_max = float(bounds["lat_max"])
+    lon_max = float(bounds["lon_max"])
 
-        tile_paths = download_srtm_tiles_for_bounds(
-            (lon_min, lat_min, lon_max, lat_max)
-        )
-        elevation, _ = mosaic_and_crop(tile_paths, (lon_min, lat_min, lon_max, lat_max))
+    tile_paths = download_srtm_tiles_for_bounds((lon_min, lat_min, lon_max, lat_max))
+    elevation, _ = mosaic_and_crop(tile_paths, (lon_min, lat_min, lon_max, lat_max))
 
-        masked = np.ma.masked_where(
-            ~np.isfinite(elevation) | (elevation <= -32768), elevation
-        )
-        min_elev = max(-500, float(masked.min()))
-        max_elev = min(10000, float(masked.max()))
+    masked = np.ma.masked_where(
+        ~np.isfinite(elevation) | (elevation <= -32768), elevation
+    )
+    min_elev = max(-500, float(masked.min()))
+    max_elev = min(10000, float(masked.max()))
 
-        return Response({"min": min_elev, "max": max_elev})
-    except Exception as e:
-        logger.exception("Error getting elevation range")
-        traceback.print_exc()
-        return Response({"error": str(e)}, status=500)
+    return Response({"min": min_elev, "max": max_elev})
 
 
 @csrf_exempt
 @api_view(["POST"])
+@safe_api
 def export_svgs(request) -> FileResponse | Response:
     """Generate a ZIP archive of SVG files from provided contour layers.
 
@@ -75,33 +85,29 @@ def export_svgs(request) -> FileResponse | Response:
     if not contours:
         return Response({"error": "No layers supplied"}, status=400)
 
-    try:
-        address = request.data.get("address", "").strip()
-        coords = request.data.get("coordinates", None)
-        height_mm = request.data.get("height_per_layer", "unknown")
-        num_layers = len(contours)
-        logger.debug(
-            f"Exporting {num_layers} layers for address: {address}, coords: {coords}, height: {height_mm}"
-        )
+    address = request.data.get("address", "").strip()
+    coords = request.data.get("coordinates", None)
+    height_mm = request.data.get("height_per_layer", "unknown")
+    num_layers = len(contours)
+    logger.debug(
+        f"Exporting {num_layers} layers for address: {address}, coords: {coords}, height: {height_mm}"
+    )
 
-        base_filename = build_export_basename(address, coords, height_mm, num_layers)
-        filename = f"{base_filename}.zip"
+    base_filename = build_export_basename(address, coords, height_mm, num_layers)
+    filename = f"{base_filename}.zip"
 
-        zip_bytes = contours_to_svg_zip(
-            contours, basename=base_filename
-        )  # generate SVGs in memory
+    zip_bytes = contours_to_svg_zip(
+        contours, basename=base_filename
+    )  # generate SVGs in memory
 
-        response = FileResponse(
-            io.BytesIO(zip_bytes),
-            content_type="application/zip",
-            as_attachment=True,
-        )
-        response["Content-Disposition"] = f'attachment; filename="{filename}"'
-        response["Access-Control-Expose-Headers"] = "Content-Disposition"
-        return response
-    except Exception as exc:
-        logger.exception("SVG export failed")
-        return Response({"error": str(exc)}, status=500)
+    response = FileResponse(
+        io.BytesIO(zip_bytes),
+        content_type="application/zip",
+        as_attachment=True,
+    )
+    response["Content-Disposition"] = f'attachment; filename="{filename}"'
+    response["Access-Control-Expose-Headers"] = "Content-Disposition"
+    return response
 
 
 def compute_utm_bounds_from_wgs84(
@@ -137,11 +143,10 @@ def compute_utm_bounds_from_wgs84(
 DEBUG_IMAGE_PATH = settings.DEBUG_IMAGE_PATH
 DEBUG = settings.DEBUG
 
-logger = logging.getLogger(__name__)
-
 
 @csrf_exempt
 @api_view(["POST"])
+@safe_api
 def geocode(request) -> Response:
     """Resolve an address to latitude and longitude using Nominatim.
 
@@ -154,13 +159,8 @@ def geocode(request) -> Response:
     address = request.data.get("address")
     if not address:
         return Response({"error": "Address is required"}, status=400)
-    try:
-        coords = geocode_address(address)
-        return Response({"lat": coords.lat, "lon": coords.lon})
-    except Exception as e:
-        logger.exception("Error geocoding address")
-        traceback.print_exc()
-        return Response({"error": str(e)}, status=500)
+    coords = geocode_address(address)
+    return Response({"lat": coords.lat, "lon": coords.lon})
 
 
 def index(request) -> Response:
@@ -177,6 +177,7 @@ def index(request) -> Response:
 
 @csrf_exempt
 @api_view(["POST"])
+@safe_api
 def slice_contours(request) -> Response:
     """Slice elevation data into contour layers for laser cutting.
 
@@ -186,80 +187,70 @@ def slice_contours(request) -> Response:
     Returns:
         Response: JSON with contour data or error message.
     """
-    try:
-        height = float(request.data["height_per_layer"])
-        layers = int(request.data["num_layers"])
-        simplify = float(request.data["simplify"])
-        bounds = request.data["bounds"]
+    height = float(request.data["height_per_layer"])
+    layers = int(request.data["num_layers"])
+    simplify = float(request.data["simplify"])
+    bounds = request.data["bounds"]
 
-        lat_min = float(bounds["lat_min"])
-        lon_min = float(bounds["lon_min"])
-        lat_max = float(bounds["lat_max"])
-        lon_max = float(bounds["lon_max"])
+    lat_min = float(bounds["lat_min"])
+    lon_min = float(bounds["lon_min"])
+    lat_max = float(bounds["lat_max"])
+    lon_max = float(bounds["lon_max"])
 
-        substrate_size = float(request.data["substrate_size"])
-        layer_thickness = float(request.data["layer_thickness"])
+    substrate_size = float(request.data["substrate_size"])
+    layer_thickness = float(request.data["layer_thickness"])
 
-        center_x = (lon_min + lon_max) / 2
-        center_y = (lat_min + lat_max) / 2
+    center_x = (lon_min + lon_max) / 2
+    center_y = (lat_min + lat_max) / 2
 
-        logger.info(
-            f"Slicing bounds ({lat_min}, {lon_min}) to ({lat_max}, {lon_max}) "
-            f"with {height}m per layer, {layers} layers, simplify={simplify}"
-        )
+    logger.info(
+        f"Slicing bounds ({lat_min}, {lon_min}) to ({lat_max}, {lon_max}) "
+        f"with {height}m per layer, {layers} layers, simplify={simplify}"
+    )
 
-        # Download tiles
-        tile_paths = download_srtm_tiles_for_bounds(
-            (lon_min, lat_min, lon_max, lat_max)
-        )
+    # Download tiles
+    tile_paths = download_srtm_tiles_for_bounds((lon_min, lat_min, lon_max, lat_max))
 
-        logger.debug(f"downloaded paths: {tile_paths}")
+    logger.debug(f"downloaded paths: {tile_paths}")
 
-        # Merge and clip to viewport
-        elevation, transform = mosaic_and_crop(
-            tile_paths, (lon_min, lat_min, lon_max, lat_max)
-        )
-        logger.debug("Merged and clipped.")
+    # Merge and clip to viewport
+    elevation, transform = mosaic_and_crop(
+        tile_paths, (lon_min, lat_min, lon_max, lat_max)
+    )
+    logger.debug("Merged and clipped.")
 
-        # Generate contours and save a preview
+    # Generate contours and save a preview
 
-        logger.debug("Calling generate_contours...")
-        try:
-            contours = generate_contours(
-                elevation,
-                transform,
-                height,
-                simplify,
-                DEBUG_IMAGE_PATH,
-                center=(center_x, center_y),
-                scale=100,
-                bounds=(lon_min, lat_min, lon_max, lat_max),
-            )
-            logger.info(f"Generated {len(contours)} contour polygons.")
-        except Exception as e:
-            logger.exception("Error generating contours")
-            traceback.print_exc()
-            return Response({"error": str(e)}, status=500)
-        # Project each contour geometry to UTM coordinates
-        contours = project_geometry(contours, center_x, center_y)
+    logger.debug("Calling generate_contours...")
 
-        utm_bounds = compute_utm_bounds_from_wgs84(
-            lon_min, lat_min, lon_max, lat_max, center_x, center_y
-        )
-        logger.debug(
-            f"UTM bounds: ({utm_bounds[0]:.2f}, {utm_bounds[1]:.2f}) → ({utm_bounds[2]:.2f}, {utm_bounds[3]:.2f}) "
-            f"→ extent: {utm_bounds[2] - utm_bounds[0]:.2f} m × {utm_bounds[3] - utm_bounds[1]:.2f} m"
-        )
-        contours = scale_and_center_contours_to_substrate(
-            contours, substrate_size, utm_bounds
-        )
-        for contour in contours:
-            contour["thickness"] = layer_thickness / 1000.0  # in meters
+    contours = generate_contours(
+        elevation,
+        transform,
+        height,
+        simplify,
+        DEBUG_IMAGE_PATH,
+        center=(center_x, center_y),
+        scale=100,
+        bounds=(lon_min, lat_min, lon_max, lat_max),
+    )
+    logger.info(f"Generated {len(contours)} contour polygons.")
 
-        return Response(
-            {"status": "sliced", "preview": DEBUG_IMAGE_PATH, "layers": contours}
-        )
-    except Exception as e:
-        logger.exception("Error generating contours")
-        traceback.print_exc()
-        return Response({"error": str(e)}, status=500)
+    # Project each contour geometry to UTM coordinates
+    contours = project_geometry(contours, center_x, center_y)
+
+    utm_bounds = compute_utm_bounds_from_wgs84(
+        lon_min, lat_min, lon_max, lat_max, center_x, center_y
+    )
+    logger.debug(
+        f"UTM bounds: ({utm_bounds[0]:.2f}, {utm_bounds[1]:.2f}) → ({utm_bounds[2]:.2f}, {utm_bounds[3]:.2f}) "
+        f"→ extent: {utm_bounds[2] - utm_bounds[0]:.2f} m × {utm_bounds[3] - utm_bounds[1]:.2f} m"
+    )
+    contours = scale_and_center_contours_to_substrate(
+        contours, substrate_size, utm_bounds
+    )
+    for contour in contours:
+        contour["thickness"] = layer_thickness / 1000.0  # in meters
+
+    return Response(
+        {"status": "sliced", "preview": DEBUG_IMAGE_PATH, "layers": contours}
+    )
