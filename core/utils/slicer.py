@@ -508,7 +508,10 @@ def generate_contours(
 
 
 def project_geometry(
-    contours: List[dict], center_lon: float, center_lat: float
+    contours: List[dict],
+    center_lon: float,
+    center_lat: float,
+    simplify_tolerance: float = 0.0,
 ) -> List[dict]:
     """
     Projects a list of contour geometries from WGS84 to a local UTM zone based on the center longitude.
@@ -550,6 +553,13 @@ def project_geometry(
         rotated_geom = shapely.affinity.rotate(
             geom, -rot_angle - 90, origin=center
         )  # adding 90 because everything got rotated by 90 deg cw, and i can't find the bug
+        if simplify_tolerance > 0.0:
+            logger.debug(
+                f"Simplifying geometry for elevation {contour['elevation']} with tolerance {simplify_tolerance}"
+            )
+            rotated_geom = rotated_geom.simplify(
+                simplify_tolerance, preserve_topology=True
+            )
         contour["geometry"] = mapping(rotated_geom)
         projected_contours.append(contour)
 

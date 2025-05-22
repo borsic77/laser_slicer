@@ -338,7 +338,7 @@ useEffect(() => {
             </label>
             <label>
               Simplify shape:
-              <input type="range" id="simplify" min="0" max="1" step="0.05" />
+              <input type="range" id="simplify" min="0" max="25" step="1" />
             </label>
             <label>
               Substrate size (mm):

@@ -45,7 +45,7 @@ class ContourSlicingJob:
             scale=100,
             bounds=self.bounds,
         )
-        contours = project_geometry(contours, cx, cy)
+        contours = project_geometry(contours, cx, cy, simplify_tolerance=self.simplify)
         utm_bounds = compute_utm_bounds_from_wgs84(
             lon_min, lat_min, lon_max, lat_max, cx, cy
         )
