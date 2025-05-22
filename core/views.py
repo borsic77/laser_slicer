@@ -19,6 +19,14 @@ logger = logging.getLogger(__name__)
 
 
 def safe_api(view_func):
+    """Decorator to handle exceptions in API views.
+    Logs the exception and returns a generic error response.
+    Args:
+        view_func (callable): The view function to wrap.
+    Returns:
+        callable: The wrapped view function.
+    """
+
     @wraps(view_func)
     def wrapper(*args, **kwargs):
         try:
@@ -34,6 +42,12 @@ def safe_api(view_func):
 @api_view(["POST"])
 @safe_api
 def elevation_range(request) -> Response:
+    """Fetch elevation data for a given bounding box.
+    Args:
+        request (Request): POST request with bounding box coordinates.
+    Returns:
+        Response: JSON with elevation data or error message.
+    """
     bounds = _parse_bounds(request.data["bounds"])
     try:
         result = ElevationRangeJob(bounds).run()
@@ -147,6 +161,12 @@ def _compute_center(bounds: dict) -> tuple[float, float]:
 @api_view(["POST"])
 @safe_api
 def slice_contours(request):
+    """Slice contours into layers based on provided parameters.
+    Args:
+        request (Request): POST request with slicing parameters.
+    Returns:
+        Response: JSON with slicing status and preview image.
+    """
     job = ContourSlicingJob(
         bounds=_parse_bounds(request.data["bounds"]),
         height_per_layer=float(request.data["height_per_layer"]),
@@ -155,6 +175,8 @@ def slice_contours(request):
         substrate_size_mm=float(request.data["substrate_size"]),
         layer_thickness_mm=float(request.data["layer_thickness"]),
         center=_compute_center(request.data["bounds"]),
+        smoothing=int(request.data.get("smoothing", 0)),
+        min_area=float(request.data.get("min_area", 0.0)),
     )
     layers = job.run()
     return Response(

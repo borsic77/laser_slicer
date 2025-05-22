@@ -65,6 +65,10 @@ function App() {
   const [params, dispatch] = useReducer(slicerReducer, initialSlicerParams);
   const lastChanged = useRef<'height' | 'layers' | null>(null);
 
+  const [simplify, setSimplify] = useState(0);
+  const [smoothing, setSmoothing] = useState(0);
+  const [minArea, setMinArea] = useState(0);
+
   function getWidthHeightMeters(bounds: [[number, number], [number, number]]): { width: number; height: number } {
     const [latMin, lonMin] = bounds[0]
     const [latMax, lonMax] = bounds[1]
@@ -193,7 +197,9 @@ useEffect(() => {
       lon: coordinates[1],
       height_per_layer: height,
       num_layers: layers,
-      simplify: Number((document.getElementById('simplify') as HTMLInputElement).value),
+      simplify,
+      smoothing,
+      min_area: minArea,
       bounds: {
         lat_min: bounds[0][0],
         lon_min: bounds[0][1],
@@ -288,7 +294,7 @@ useEffect(() => {
   return (
     <div className="container">
       <header>
-        <h1>Lasercut Contour Map Generator</h1>
+        <h1>Laser Contour Map Generator</h1>
       </header>
       <div className="content-wrapper">
         <div className="sidebar">
@@ -336,9 +342,29 @@ useEffect(() => {
                 }}
               />
             </label>
-            <label>
+            <label title="Reduce geometry complexity by removing small details. 0 = no simplification.">
               Simplify shape:
-              <input type="range" id="simplify" min="0" max="25" step="1" />
+              <input
+                type="range"
+                id="simplify"
+                min="0"
+                max="25"
+                step="1"
+                value={simplify}
+                onChange={(e) => setSimplify(Number(e.target.value))}
+              />
+            </label>
+            <label title="Smooth jagged edges with a small buffer in/out operation. 0 = no smoothing.">
+              Smoothing:
+              <input
+                type="range"
+                id="smoothing"
+                min="0"
+                max="200"
+                step="1"
+                value={smoothing}
+                onChange={(e) => setSmoothing(Number(e.target.value))}
+              />
             </label>
             <label>
               Substrate size (mm):
@@ -358,6 +384,17 @@ useEffect(() => {
                 onChange={(e) => dispatch({ type: 'SET_LAYER_THICKNESS', value: Number(e.target.value) })}
               />
             </label>
+            <label title="Remove small polygons below this area in square centimeters - measured on the scaled geometry (laser output). 0 = no filtering.">
+              Minimum feature size (cm²):
+              <input
+                type="number"
+                id="min-area"
+                min="0"
+                step="10"
+                value={minArea}
+                onChange={(e) => setMinArea(Number(e.target.value))}
+              />
+            </label>            
             <label>
               <input
                 type="checkbox"

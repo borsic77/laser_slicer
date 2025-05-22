@@ -15,6 +15,11 @@ class ElevationDataError(ValueError):
 
 
 class ElevationRangeJob:
+    """Class to compute the elevation range within a specified bounding box.
+    This class is responsible for downloading elevation data and calculating
+    the minimum and maximum elevation values.
+    """
+
     def __init__(self, bounds: tuple[float, float, float, float]):
         """
         Initializes the elevation range job.

@@ -517,6 +517,13 @@ def project_geometry(
     Projects a list of contour geometries from WGS84 to a local UTM zone based on the center longitude.
     Returns the list with updated projected geometries.
     Also saves a debug image of all projected geometries.
+    Args:
+        contours (List[dict]): List of contour dictionaries with 'geometry' in WGS84.
+        center_lon (float): Longitude of the center point for UTM zone determination.
+        center_lat (float): Latitude of the center point for UTM zone determination.
+        simplify_tolerance (float): Tolerance for simplifying geometries.
+    Returns:
+        List[dict]: Updated list of contours with projected geometries.
     """
     # Determine UTM zone
     zone_number = int((center_lon + 180) / 6) + 1
@@ -551,7 +558,7 @@ def project_geometry(
 
     for contour, geom in projected_geoms:
         rotated_geom = shapely.affinity.rotate(
-            geom, -rot_angle - 90, origin=center
+            geom, -rot_angle + 90, origin=center
         )  # adding 90 because everything got rotated by 90 deg cw, and i can't find the bug
         if simplify_tolerance > 0.0:
             logger.debug(
@@ -585,6 +592,12 @@ def scale_and_center_contours_to_substrate(
     """
     Scales and centers projected contour geometries to fit within a bounding box derived from the given UTM bounds.
     Returns a new list of updated contours.
+    Args:
+        contours (List[dict]): List of contour dictionaries with projected 'geometry'.
+        substrate_size_mm (float): Size of the substrate in millimeters.
+        utm_bounds (Tuple[float, float, float, float]): UTM bounding box (minx, miny, maxx, maxy).
+    Returns:
+        List[dict]: Updated list of contours with scaled and centered geometries.
     """
     substrate_m = substrate_size_mm / 1000.0
 
@@ -630,3 +643,72 @@ def scale_and_center_contours_to_substrate(
         f"Overall scaled extent: {max_x - min_x:.4f} m × {max_y - min_y:.4f} m"
     )
     return updated
+
+
+def smooth_geometry(
+    contours: List[dict],
+    smoothing: int,
+) -> List[dict]:
+    """
+    Applies optional smoothing to projected contour geometries.
+
+    Args:
+        contours (List[dict]): List of contour dictionaries with projected 'geometry'.
+        smoothing (int): Buffer radius multiplier for smoothing (0 = no smoothing).
+
+    Returns:
+        List[dict]: Updated list of contours with smoothed geometries.
+    """
+    if smoothing <= 0:
+        return contours
+
+    smoothed_contours = []
+
+    for contour in contours:
+        geom = shape(contour["geometry"])
+
+        if smoothing > 0:
+            geom = geom.buffer(smoothing).buffer(-smoothing)
+        logger.debug(
+            f"Contour at elevation {contour['elevation']} smoothed with radius {smoothing}"
+        )
+
+        contour["geometry"] = mapping(geom)
+        smoothed_contours.append(contour)
+
+    return smoothed_contours
+
+
+# --- Minimum area filtering for projected/scaled contours ---
+
+
+def filter_small_features(contours: List[dict], min_area_cm2: float) -> List[dict]:
+    """
+    Filters out polygons smaller than the specified area (in cm²)
+    from the already projected and scaled contours.
+
+    Args:
+        contours (List[dict]): List of contour dictionaries with projected and scaled 'geometry'.
+        min_area_cm2 (float): Minimum polygon area in cm² to keep.
+
+    Returns:
+        List[dict]: Filtered list of contours.
+    """
+    if min_area_cm2 <= 0:
+        return contours
+    logger.debug(
+        f"Filtering contours smaller than {min_area_cm2} cm² ({min_area_cm2 / 1e4:.4f} m²)"
+    )
+    min_area_m2 = min_area_cm2 / 1e4  # convert to m²
+    filtered = []
+
+    for contour in contours:
+        geom = shape(contour["geometry"])
+        parts = [g for g in _flatten_polygons([geom]) if g.area >= min_area_m2]
+        if not parts:
+            continue
+        geom = MultiPolygon(parts)
+        contour["geometry"] = mapping(geom)
+        filtered.append(contour)
+
+    return filtered
