@@ -1,16 +1,37 @@
 import { OrbitControls } from '@react-three/drei';
-import { Canvas, useFrame, useThree } from '@react-three/fiber';
+import { Canvas, useThree } from '@react-three/fiber';
 import type { MultiPolygon } from 'geojson';
 import { useMemo } from 'react';
 import * as THREE from 'three';
 
-function CameraLookAtCenter({ y = 0 }: { y: number }) {
-  const { camera } = useThree()
-  useFrame(() => {
-    camera.lookAt(0, 0, y)
-  })
-  return null
+function CameraController({ layers }: { layers: { geometry: MultiPolygon; elevation: number; thickness?: number }[] }) {
+  const { camera } = useThree();
+
+  const target = useMemo(() => {
+    const points: [number, number][] = layers.flatMap(layer =>
+      layer.geometry.coordinates.flatMap((polygon) =>
+        polygon.flat().filter((p): p is [number, number] =>
+          Array.isArray(p) && p.length === 2 && typeof p[0] === 'number' && typeof p[1] === 'number'
+        )
+      )
+    );
+
+    if (points.length === 0) return new THREE.Vector3(0, 0, 0);
+
+    const avgX = points.reduce((sum: number, p: [number, number]) => sum + p[0], 0) / points.length;
+    const avgY = points.reduce((sum: number, p: [number, number]) => sum + p[1], 0) / points.length;
+
+    return new THREE.Vector3(avgX, avgY, 0);
+  }, [layers]);
+
+  useMemo(() => {
+    camera.position.set(target.x, target.y, 1); // optional: face top-down
+    camera.lookAt(target);
+  }, [camera, target]);
+
+  return <OrbitControls target={target.toArray()} />;
 }
+
 
 interface ContourPreviewProps {
   layers: { geometry: MultiPolygon; elevation: number; thickness?: number }[]
@@ -157,19 +178,22 @@ function PolygonLayer({
 export default function ContourPreview({ layers }: ContourPreviewProps) {
   // console.log("ContourPreview layers:", layers)
   const minElevation = layers.length > 0 ? Math.min(...layers.map(layer => layer.elevation)) : 0
-  const allPoints: [number, number][] = layers
-    .flatMap(layer =>
-      layer.geometry.coordinates.flatMap(polygon =>
-        polygon.flat().filter((p): p is [number, number] => Array.isArray(p) && p.length === 2)
-      )
-    )
-  const xs = allPoints.map(p => p[0])
-  const ys = allPoints.map(p => p[1])
-  const cx = (Math.min(...xs) + Math.max(...xs)) / 2
-  const cy = (Math.min(...ys) + Math.max(...ys)) / 2
-  const xExtent = Math.max(...xs) - Math.min(...xs)
-  const yExtent = Math.max(...ys) - Math.min(...ys)
-  const xyExtent = Math.max(xExtent, yExtent)
+  const { allPoints, cx, cy, xyExtent } = useMemo(() => {
+    const points: [number, number][] = layers
+      .flatMap(layer =>
+        layer.geometry.coordinates.flatMap(polygon =>
+          polygon.flat().filter((p): p is [number, number] => Array.isArray(p) && p.length === 2)
+        )
+      );
+    const xs = points.map(p => p[0]);
+    const ys = points.map(p => p[1]);
+    const cx = (Math.min(...xs) + Math.max(...xs)) / 2;
+    const cy = (Math.min(...ys) + Math.max(...ys)) / 2;
+    const xExtent = Math.max(...xs) - Math.min(...xs);
+    const yExtent = Math.max(...ys) - Math.min(...ys);
+    const xyExtent = Math.max(xExtent, yExtent);
+    return { allPoints: points, cx, cy, xyExtent };
+  }, [layers]);
 
   const cumulativeHeights = useMemo(() => {
     const result: number[] = []
@@ -190,19 +214,16 @@ export default function ContourPreview({ layers }: ContourPreviewProps) {
     <div style={{ height: '400px', width: '100%', background: '#111' }}>
       <Canvas
         style={{ width: '100%', height: '100%' }}
-        camera={{ position: [0.5, 0.5, 1.0], fov: 50 }}
-      >
-        <ambientLight intensity={0.8} />
-        <directionalLight position={[0, 200, 0]} intensity={3} castShadow />
-        <pointLight position={[0, 100, 0]} intensity={1.5} />
-        <OrbitControls maxDistance={1.5} />
-        <CameraLookAtCenter y={0.1} />
-        {layers.length === 0 && (
-          <mesh>
-            <boxGeometry args={[1, 1, 1]} />
-            <meshStandardMaterial color="orange" />
-          </mesh>
-        )}
+        orthographic camera={{ zoom: 600, position: [0, 0, 1] }}>
+          <ambientLight intensity={0.4} />
+          <directionalLight position={[0.5, 0.5, 1]} intensity={0.6} castShadow={false} />
+          <CameraController layers={layers} />
+                {layers.length === 0 && (
+                  <mesh>
+                    <boxGeometry args={[1, 1, 1]} />
+                    <meshStandardMaterial color="orange" />
+                  </mesh>
+                )}
         {layers.map((layer, idx) => {
           const positionY = cumulativeHeights[idx]
           return (
