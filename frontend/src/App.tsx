@@ -1,4 +1,6 @@
 import { useEffect, useReducer, useRef, useState } from 'react';
+import { ToastContainer, toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 import './App.css';
 import ContourPreview from './components/ContourPreview';
 import MapView from './components/Mapview';
@@ -103,18 +105,28 @@ function App() {
     setElevationStats({ min: data.min, max: data.max })
   }
 
-  useEffect(() => {
-    if (!bounds) return
-    const dims = getWidthHeightMeters(bounds)
-    setAreaStats(dims)
-    const controller = new AbortController();
-    fetchElevationRange(bounds, controller.signal).catch((err) => {
-      if (err.name !== "AbortError") {
+useEffect(() => {
+  if (!bounds) return;
+  const dims = getWidthHeightMeters(bounds);
+  setAreaStats(dims);
+  const controller = new AbortController();
+
+  const fetchData = async () => {
+    try {
+      await fetchElevationRange(bounds, controller.signal);
+    } catch (err) {
+      if (err instanceof Error && err.name !== "AbortError") {
         console.error("Elevation range error:", err);
       }
-    });
-    return () => controller.abort();
-  }, [bounds])
+    }
+  };
+
+  fetchData();
+
+  return () => {
+    controller.abort();
+  };
+}, [bounds]);
 
   useEffect(() => {
     if (!elevationStats) return;
@@ -153,22 +165,24 @@ function App() {
     fetchCoordinates(address, controller.signal)
       .then(setCoordinates)
       .catch((error) => {
-        if (error.name !== 'AbortError') {
-          alert('Geocoding failed: ' + error);
+        if (error instanceof Error && error.name !== 'AbortError') {
+          toast.error('Geocoding failed: ' + error.message);
+        } else {
+          toast.error('Geocoding failed: An unknown error occurred.');
         }
       });
   }
 
   const handleSlice = async () => {
     if (!coordinates) {
-      alert("Please select a location first.")
+      toast.warn("Please select a location first.");
       return
     }
     const height = params.heightPerLayer;
     const layers = params.numLayers;
 
     if (!bounds) {
-      alert("Could not read selected bounds.")
+      toast.warn("Could not read selected bounds.");
       return;
     }
 
@@ -213,7 +227,11 @@ function App() {
       controller.abort();
     } catch (error) {
       setSlicing(false)
-      alert("Slicing failed: " + error)
+      if (error instanceof Error) {
+        toast.error("Slicing failed: " + error.message);
+      } else {
+        toast.error("Slicing failed: An unknown error occurred.");
+      }
       controller.abort();
     }
   }
@@ -258,7 +276,11 @@ function App() {
       a.remove();
       controller.abort();
     } catch (error) {
-      alert("Export failed: " + error)
+      if (error instanceof Error) {
+        toast.error("Export failed: " + error.message);
+      } else {
+        toast.error("Export failed: An unknown error occurred.");
+      }
       controller.abort();
     }
   }
@@ -369,6 +391,15 @@ function App() {
           <p><strong>Highest Elevation:</strong> {elevationStats ? `${elevationStats.max.toFixed(0)} m` : '…'}</p>
         </div>
       </div>
+      <ToastContainer
+        aria-label="Notification messages"
+        position="bottom-right"
+        autoClose={5000}
+        hideProgressBar={false}
+        newestOnTop
+        closeOnClick
+        pauseOnHover
+      />
     </div>
   )
 }

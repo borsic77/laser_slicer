@@ -1,5 +1,8 @@
 {
   "devDependencies": {
     "@types/node": "^22.15.21"
+  },
+  "dependencies": {
+    "react-toastify": "^11.0.5"
   }
 }
