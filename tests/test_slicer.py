@@ -136,7 +136,7 @@ from shapely.ops import transform, unary_union
 # Use headless matplotlib
 matplotlib.use("Agg")
 
-SRTM_CACHE_DIR = settings.SRTM_CACHE_DIR
+TILE_CACHE_DIR = settings.TILE_CACHE_DIR
 DEBUG_IMAGE_PATH = settings.DEBUG_IMAGE_PATH
 logger = logging.getLogger(__name__)
 
@@ -164,7 +164,7 @@ def download_srtm_tiles_for_bounds(
     Downloads all SRTM tiles that intersect the given bounding box.
     Returns a list of file paths to the GeoTIFFs.
     """
-    os.makedirs(SRTM_CACHE_DIR, exist_ok=True)
+    os.makedirs(TILE_CACHE_DIR, exist_ok=True)
     lon_min, lat_min, lon_max, lat_max = bounds
 
     lat_range = range(int(lat_min), int(lat_max) + 1)
@@ -175,7 +175,7 @@ def download_srtm_tiles_for_bounds(
     for lat in lat_range:
         for lon in lon_range:
             tile_bounds = (lon, lat, lon + 1, lat + 1)
-            tif_path = os.path.join(SRTM_CACHE_DIR, f"srtm_{lat}_{lon}.tif")
+            tif_path = os.path.join(TILE_CACHE_DIR, f"srtm_{lat}_{lon}.tif")
             if not os.path.exists(tif_path):
                 elevation.clip(bounds=tile_bounds, output=tif_path)
             paths.append(tif_path)

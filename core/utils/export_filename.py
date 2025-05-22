@@ -1,6 +1,5 @@
 import logging
 
-from django.conf import settings
 from django.utils.text import slugify
 
 logger = logging.getLogger(__name__)

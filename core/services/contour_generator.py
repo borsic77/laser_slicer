@@ -1,8 +1,8 @@
 from django.conf import settings
 
+from core.utils.download_clip_elevation_tiles import download_srtm_tiles_for_bounds
 from core.utils.geocoding import compute_utm_bounds_from_wgs84
 from core.utils.slicer import (
-    download_srtm_tiles_for_bounds,
     generate_contours,
     mosaic_and_crop,
     project_geometry,

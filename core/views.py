@@ -10,7 +10,7 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 
 from core.services.contour_generator import ContourSlicingJob
-from core.services.elevation_service import ElevationRangeJob
+from core.services.elevation_service import ElevationDataError, ElevationRangeJob
 from core.services.svg_zip_generator import generate_svg_layers, zip_svgs
 from core.utils.export_filename import build_export_basename
 from core.utils.geocoding import geocode_address
@@ -35,8 +35,12 @@ def safe_api(view_func):
 @safe_api
 def elevation_range(request) -> Response:
     bounds = _parse_bounds(request.data["bounds"])
-    result = ElevationRangeJob(bounds).run()
-    return Response(result)
+    try:
+        result = ElevationRangeJob(bounds).run()
+        return Response(result)
+    except ElevationDataError as e:
+        logger.warning(f"Elevation data error for bounds {bounds}: {e}")
+        return Response({"error": str(e)}, status=400)
 
 
 @csrf_exempt

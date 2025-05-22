@@ -31,7 +31,7 @@ from shapely.ops import transform, unary_union
 # Use headless matplotlib
 matplotlib.use("Agg")
 
-SRTM_CACHE_DIR = settings.SRTM_CACHE_DIR
+TILE_CACHE_DIR = settings.TILE_CACHE_DIR
 DEBUG_IMAGE_PATH = settings.DEBUG_IMAGE_PATH
 DEBUG = settings.DEBUG
 if DEBUG:
@@ -53,20 +53,6 @@ def round_affine(
     return rasterio.Affine(
         *(round(val, int(-math.log10(precision))) for val in transform)
     )
-
-
-# Utility function to check for antimeridian crossing
-def is_antimeridian_crossing(bounds: Tuple[float, float, float, float]) -> bool:
-    """Checks if a bounding box crosses the antimeridian.
-
-    Args:
-        bounds (Tuple[float, float, float, float]): Bounding box as (lon_min, lat_min, lon_max, lat_max).
-
-    Returns:
-        bool: True if the bounding box crosses the antimeridian, False otherwise.
-    """
-    lon_min, _, lon_max, _ = bounds
-    return lon_min > lon_max
 
 
 def clean_geometry(geom: BaseGeometry) -> BaseGeometry | None:
@@ -111,66 +97,51 @@ def save_debug_contour_polygon(polygon, level: float, filename: str) -> None:
     plt.close(fig)
 
 
-def download_srtm_tiles_for_bounds(
-    bounds: Tuple[float, float, float, float],
-) -> List[str]:
-    """Downloads SRTM tiles intersecting the given bounding box.
-
-    Args:
-        bounds (tuple): Geographic bounding box (lon_min, lat_min, lon_max, lat_max).
-
-    Returns:
-        list[str]: File paths to downloaded GeoTIFFs.
-    """
-    if is_antimeridian_crossing(bounds):
-        logger.warning("Antimeridian crossing detected; splitting bounds.")
-        lon_min, lat_min, lon_max, lat_max = bounds
-        # First half: (lon_min to 180)
-        paths1 = download_srtm_tiles_for_bounds((lon_min, lat_min, 180.0, lat_max))
-        # Second half: (-180 to lon_max)
-        paths2 = download_srtm_tiles_for_bounds((-180.0, lat_min, lon_max, lat_max))
-        return paths1 + paths2
-
-    os.makedirs(SRTM_CACHE_DIR, exist_ok=True)
-    lon_min, lat_min, lon_max, lat_max = bounds
-
-    lat_range = range(int(lat_min), int(lat_max) + 1)
-    lon_range = range(int(lon_min), int(lon_max) + 1)
-
-    paths = []
-
-    for lat in lat_range:
-        for lon in lon_range:
-            tile_bounds = (lon, lat, lon + 1, lat + 1)
-            tif_path = os.path.join(SRTM_CACHE_DIR, f"srtm_{lat}_{lon}.tif")
-            lock_path = tif_path + ".lock"
-            with FileLock(lock_path, timeout=60):
-                if not os.path.exists(tif_path):
-                    elevation.clip(bounds=tile_bounds, output=tif_path)
-            paths.append(tif_path)
-
-    return paths
-
-
 def mosaic_and_crop(
     tif_paths: List[str], bounds: Tuple[float, float, float, float]
 ) -> Tuple[np.ndarray, rasterio.Affine]:
     """Merges and crops SRTM tiles to the bounding box.
 
     Args:
-        tif_paths (list): List of GeoTIFF paths.
+        tif_paths (list): List of .hgt.gz or GeoTIFF paths.
         bounds (tuple): Bounding box (lon_min, lat_min, lon_max, lat_max).
 
     Returns:
         tuple: Cropped elevation array and its affine transform.
     """
-    src_files = [rasterio.open(p) for p in tif_paths]
+    src_files = [
+        rasterio.open(f"/vsigzip/{p}") if p.endswith(".gz") else rasterio.open(p)
+        for p in tif_paths
+    ]
 
     # Merge to a single raster
     mosaic, transform = merge(src_files)
+    merged_bounds = rasterio.transform.array_bounds(
+        mosaic.shape[1], mosaic.shape[2], transform
+    )
+    logger.debug(f"Merged raster bounds: {merged_bounds}")
+    logger.debug(f"Requested crop bounds: {bounds}")
+    logger.debug(f"Merged shape: {mosaic.shape}, transform: {transform}")
+    # Unpack bounds and ensure lat_min < lat_max
+    lon_min, lat_min, lon_max, lat_max = bounds
+    if lat_min > lat_max:
+        lat_min, lat_max = lat_max, lat_min
+    bounds = (lon_min, lat_min, lon_max, lat_max)
 
-    # Clip using bounds
-    window = from_bounds(*bounds, transform=transform)
+    # Check raster orientation
+    if transform.e > 0:
+        logger.warning(
+            "Unexpected raster orientation (north-up). SRTM tiles usually have north-down orientation."
+        )
+
+    # Clip using bounds, with error handling
+    try:
+        window = from_bounds(*bounds, transform=transform)
+    except ValueError as e:
+        logger.error(
+            f"Failed to compute raster window from bounds {bounds} with given transform: {transform}"
+        )
+        raise
     row_off = int(window.row_off)
     row_end = row_off + int(window.height)
     col_off = int(window.col_off)
@@ -180,7 +151,6 @@ def mosaic_and_crop(
 
     cropped_transform = round_affine(rasterio.windows.transform(window, transform))
 
-    # Close opened files
     for src in src_files:
         src.close()
 

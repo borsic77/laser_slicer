@@ -30,7 +30,11 @@ ALLOWED_HOSTS = os.getenv("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1").split("
 
 # Directories for storing elevation files and cache
 
-SRTM_CACHE_DIR = os.getenv("SRTM_CACHE_DIR", BASE_DIR / "data" / "srtm_cache")
+TILE_CACHE_DIR = (
+    Path(os.environ.get("TILE_CACHE_DIR"))
+    if "TILE_CACHE_DIR" in os.environ
+    else Path(__file__).resolve().parent.parent.parent / "data" / "srtm_cache"
+)
 DEBUG_IMAGE_PATH = os.getenv("DEBUG_IMAGE_PATH", BASE_DIR / "data" / "debug_images")
 SVG_TMP_DIR = os.getenv("SVG_TMP_DIR", BASE_DIR / "tmp" / "svg_tmp")
 NOMINATIM_USER_AGENT = os.getenv("USER_AGENT", "laser-slicer/1.0 (contact@email.com)")
