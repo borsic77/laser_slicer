@@ -2,10 +2,8 @@ import logging
 import math
 import os
 from collections import defaultdict
-from tkinter import N
 from typing import List, Tuple
 
-import elevation
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
@@ -13,7 +11,6 @@ import pyproj
 import rasterio
 import shapely
 from django.conf import settings
-from filelock import FileLock
 from rasterio.merge import merge
 from rasterio.windows import from_bounds
 from shapely.geometry import (
@@ -26,8 +23,8 @@ from shapely.geometry import (
 )
 from shapely.geometry.base import BaseGeometry
 from shapely.geometry.polygon import orient
-from shapely.validation import make_valid
 from shapely.ops import transform, unary_union
+from shapely.validation import make_valid
 
 # Use headless matplotlib
 matplotlib.use("Agg")
@@ -233,10 +230,11 @@ def _create_contourf_levels(elevation_data: np.ndarray, interval: float) -> np.n
     """
     Computes the elevation contour levels aligned with the interval,
     starting slightly below the minimum and up to above the maximum.
+    Adds a small epsilon to ensure inclusion of the upper bound.
     """
     min_elev = np.floor(np.min(elevation_data) / interval) * interval
     max_elev = np.ceil(np.max(elevation_data) / interval) * interval
-    levels = np.arange(min_elev, max_elev + interval, interval)
+    levels = np.arange(min_elev, max_elev + 1e-6, interval)
     return levels
 
 
