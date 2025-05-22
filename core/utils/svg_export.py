@@ -10,11 +10,6 @@ __all__ = [
 ]
 
 
-# -----------------------------------------------------------------------------
-# Public helper
-# -----------------------------------------------------------------------------
-
-
 def contours_to_svg_zip(
     contours: List[dict],
     stroke_cut: str = "#000000",
@@ -157,6 +152,7 @@ def contours_to_svg_zip(
                 size=(f"{width_mm:.3f}mm", f"{height_mm:.3f}mm"),
                 viewBox=f"0 0 {width_mm:.3f} {height_mm:.3f}",
             )
+            dwg.set_desc(title=f"Elevation: {layer['elevation']} m, Layer: #{idx + 1}")
 
             # ----------------------------------------------
             # Cut paths – solid stroke

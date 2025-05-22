@@ -26,6 +26,7 @@ from shapely.geometry import (
 )
 from shapely.geometry.base import BaseGeometry
 from shapely.geometry.polygon import orient
+from shapely.validation import make_valid
 from shapely.ops import transform, unary_union
 
 # Use headless matplotlib
@@ -58,7 +59,7 @@ def round_affine(
 def clean_geometry(geom: BaseGeometry) -> BaseGeometry | None:
     """Cleans a geometry by attempting to fix invalid shapes.
 
-    Applies a zero-width buffer to fix minor topology issues and
+    Applies make_valid to fix topology issues and
     removes empty or zero-area geometries.
 
     Args:
@@ -67,11 +68,10 @@ def clean_geometry(geom: BaseGeometry) -> BaseGeometry | None:
     Returns:
         BaseGeometry | None: A cleaned geometry if valid, otherwise None.
     """
-    if not geom.is_valid:
-        geom = geom.buffer(0)
+    geom = make_valid(geom)
     if geom.is_empty or geom.area == 0:
         return None
-    return geom
+    return orient(geom)
 
 
 def save_debug_contour_polygon(polygon, level: float, filename: str) -> None:
