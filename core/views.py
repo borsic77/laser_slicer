@@ -181,5 +181,9 @@ def slice_contours(request):
     )
     layers = job.run()
     return Response(
-        {"status": "sliced", "preview": settings.DEBUG_IMAGE_PATH, "layers": layers}
+        {
+            "status": "sliced",
+            "preview": str(settings.DEBUG_IMAGE_PATH),
+            "layers": layers,
+        }
     )

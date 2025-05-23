@@ -1,30 +1,28 @@
-# core/Dockerfile
-FROM python:3.11-slim
+FROM osgeo/gdal:ubuntu-small-3.6.2
 
-# Install system dependencies for Rasterio, GDAL, etc.
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-        gdal-bin libgdal-dev proj-bin && \
-    rm -rf /var/lib/apt/lists/*
+# Install system dependencies
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update && apt-get install --no-install-recommends -y \
+    python3-pip python3-dev python3-gdal gdal-bin \
+    build-essential g++ \
+    curl ca-certificates \
+    tzdata \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 
-# Set working directory
 WORKDIR /app
 
-# Install uv (Python package manager)
-RUN pip install --no-cache-dir uv
+# Copy only dependency declarations for caching
+COPY pyproject.toml poetry.lock* ./
 
-# Copy Python project files
-COPY pyproject.toml /app/
-COPY core /app/core
+RUN curl -sSL https://install.python-poetry.org | python3 -
+ENV PATH="/root/.local/bin:$PATH"
+RUN poetry config virtualenvs.create false \
+ && poetry install --no-interaction --no-root
 
-# Install Python dependencies
-RUN uv pip install --system --no-cache .
 
-# Collect static files at build time (if you want)
-# RUN python core/manage.py collectstatic --noinput
+# Copy full application source
+COPY . .
 
-# Expose Django port
 EXPOSE 8000
-
-# Run Django dev server 
-CMD ["python", "core/manage.py", "runserver", "0.0.0.0:8000"]
+CMD ["python3", "manage.py", "runserver", "0.0.0.0:8000"]

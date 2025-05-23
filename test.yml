@@ -1,0 +1,6 @@
+services:
+  test:
+    image: alpine
+    command: ["echo", "it works"]
+    ports:
+      - 1234:1234

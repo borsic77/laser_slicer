@@ -7,13 +7,12 @@ services:
       - ./core:/app/core
       - ./pyproject.toml:/app/pyproject.toml
     environment:
-      - DJANGO_SECRET_KEY=7XbtLjQ7SXShn!q&XNgsJ&BBNDKo764dt6CBjY?S?x7$do4Foh
-      - DJANGO_DEBUG=True
-      - DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1,backend
-      - USER_AGENT=laser-slicer/1.0 (boris.legradic@gmail.com)
+      DJANGO_SECRET_KEY: "testexample"
+      DJANGO_DEBUG: "True"
+      DJANGO_ALLOWED_HOSTS: "localhost,127.0.0.1,backend"
+      USER_AGENT: "laser-slicer/1.0 (boris.legradic@gmail.com)"
     ports:
       - "8000:8000"
-    # Optionally wait for frontend to be up if you have dependencies
     depends_on:
       - frontend
 
@@ -21,9 +20,8 @@ services:
     build:
       context: .
       dockerfile: frontend/Dockerfile
-    volumes:
-      - ./frontend:/app
     environment:
-      - VITE_API_URL=http://backend:8000
+      - VITE_API_URL=http://localhost:8000
     ports:
       - "5173:5173"
+    command: npm run dev -- --host
