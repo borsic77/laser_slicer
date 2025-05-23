@@ -3,6 +3,7 @@ import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import './App.css';
 import ContourPreview from './components/ContourPreview';
+import ManualModal from './components/ManualModal';
 import MapView from './components/Mapview';
 
 const API_URL = import.meta.env.VITE_API_URL;
@@ -68,6 +69,9 @@ function App() {
   const [simplify, setSimplify] = useState(0);
   const [smoothing, setSmoothing] = useState(0);
   const [minArea, setMinArea] = useState(0);
+  const [minFeatureWidth, setMinFeatureWidth] = useState(0);
+
+  const [showManual, setShowManual] = useState(false);
 
   function getWidthHeightMeters(bounds: [[number, number], [number, number]]): { width: number; height: number } {
     const [latMin, lonMin] = bounds[0]
@@ -200,6 +204,7 @@ useEffect(() => {
       simplify,
       smoothing,
       min_area: minArea,
+      min_feature_width: minFeatureWidth,
       bounds: {
         lat_min: bounds[0][0],
         lon_min: bounds[0][1],
@@ -254,7 +259,8 @@ useEffect(() => {
           address,
           coordinates,
           height_per_layer: params.heightPerLayer,   
-          num_layers: params.numLayers,     
+          num_layers: params.numLayers,  
+          min_feature_width: minFeatureWidth,
         }),
         signal: controller.signal,
       })
@@ -294,10 +300,11 @@ useEffect(() => {
   return (
     <div className="container">
       <header>
-        <h1>Laser Contour Map Generator</h1>
+        <h2>Laser Contour Map Generator</h2>
       </header>
       <div className="content-wrapper">
         <div className="sidebar">
+          <button onClick={() => setShowManual(true)}>Manual ❓</button>
           <div className="controls">
             <input
               type="text"
@@ -394,7 +401,18 @@ useEffect(() => {
                 value={minArea}
                 onChange={(e) => setMinArea(Number(e.target.value))}
               />
-            </label>            
+            </label>
+            <label title="Remove narrow features (e.g., bridges, ingresses) below this width in mm. Applied after scaling. 0 = no filtering.">
+              Minimum feature width (mm):
+              <input
+                type="number"
+                id="min-feature-width"
+                min="0"
+                step="0.1"
+                value={minFeatureWidth}
+                onChange={(e) => setMinFeatureWidth(Number(e.target.value))}
+              />
+            </label>
             <label>
               <input
                 type="checkbox"
@@ -437,6 +455,7 @@ useEffect(() => {
         closeOnClick
         pauseOnHover
       />
+      {showManual && <ManualModal onClose={() => setShowManual(false)} />}
     </div>
   )
 }
