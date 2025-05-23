@@ -1,3 +1,16 @@
+"""
+svg_export.py
+
+Generates laser-cutter-ready SVG files from a list of elevation contour bands,
+and bundles them as a ZIP archive.
+
+Each SVG encodes one contour layer (for cutting) and, optionally, an alignment
+outline for stacking, plus a label. Coordinates are assumed to be in UTM (meters)
+and are mapped to SVG millimeters with Y-axis flipped to match physical orientation.
+
+Intended for use with laser-cuttable topographic models.
+"""
+
 import io
 import zipfile
 from typing import List, Tuple
@@ -10,6 +23,132 @@ __all__ = [
 ]
 
 
+def _to_svg_coords(
+    x_m: float,
+    y_m: float,
+    glob_minx: float,
+    glob_maxx: float,
+    glob_miny: float,
+    glob_maxy: float,
+) -> Tuple[float, float]:
+    """
+    Convert UTM coordinates (in meters) to SVG coordinates (in mm), flipping
+    Y axis to map north-up (UTM) to SVG’s y-down.
+
+    Args:
+        x_m (float): X coordinate in UTM meters.
+        y_m (float): Y coordinate in UTM meters.
+        glob_minx (float): Global minimum X coordinate.
+        glob_maxx (float): Global maximum X coordinate.
+        glob_miny (float): Global minimum Y coordinate.
+        glob_maxy (float): Global maximum Y coordinate.
+
+    Returns:
+        Tuple[float, float]: Corresponding X, Y in SVG mm coordinates.
+    """
+    x_mm = (x_m - glob_minx) * 1000.0
+    y_mm = (glob_maxy - y_m) * 1000.0
+    return round(x_mm, 3), round(y_mm, 3)
+
+
+def _polygon_to_path(
+    p: Polygon,
+    glob_minx: float,
+    glob_maxx: float,
+    glob_miny: float,
+    glob_maxy: float,
+    include_holes: bool = True,
+) -> str:
+    """Convert a Shapely Polygon to an SVG path string.
+    Close path with ‘Z’ so laser doesn’t leave open segments.
+
+    Args:
+        p (Polygon): Polygon to convert.
+        glob_minx (float): Global minimum X coordinate.
+        glob_maxx (float): Global maximum X coordinate.
+        glob_miny (float): Global minimum Y coordinate.
+        glob_maxy (float): Global maximum Y coordinate.
+        include_holes (bool): Whether to include interior rings.
+
+    Returns:
+        str: SVG path 'd' attribute string.
+    """
+
+    def _ring_to_cmds(coords):
+        if not coords:
+            return ""
+        cmds = [
+            "M {:.3f} {:.3f}".format(
+                *_to_svg_coords(*coords[0], glob_minx, glob_maxx, glob_miny, glob_maxy)
+            )
+        ]
+        for x, y in coords[1:]:
+            cmds.append(
+                "L {:.3f} {:.3f}".format(
+                    *_to_svg_coords(x, y, glob_minx, glob_maxx, glob_miny, glob_maxy)
+                )
+            )
+        cmds.append("Z")
+        return " ".join(cmds)
+
+    outer = _ring_to_cmds(list(p.exterior.coords))
+    inners = ""
+    if include_holes:
+        inners = " ".join(_ring_to_cmds(list(r.coords)) for r in p.interiors)
+    return f"{outer} {inners}".strip()
+
+
+def _geom_to_paths(
+    g,
+    glob_minx: float,
+    glob_maxx: float,
+    glob_miny: float,
+    glob_maxy: float,
+    include_holes: bool = True,
+) -> List[str]:
+    """Convert a Shapely geometry into a list of SVG path strings.
+    Recursively decompose MultiPolygons.
+
+    Args:
+        g (BaseGeometry): Shapely geometry (Polygon or MultiPolygon).
+        glob_minx (float): Global minimum X coordinate.
+        glob_maxx (float): Global maximum X coordinate.
+        glob_miny (float): Global minimum Y coordinate.
+        glob_maxy (float): Global maximum Y coordinate.
+        include_holes (bool): Whether to include holes in the path.
+
+    Returns:
+        List[str]: List of SVG path strings.
+    """
+    if g.geom_type == "Polygon":
+        return [
+            _polygon_to_path(
+                g,
+                glob_minx,
+                glob_maxx,
+                glob_miny,
+                glob_maxy,
+                include_holes=include_holes,
+            )
+        ]
+    elif g.geom_type == "MultiPolygon":
+        paths = []
+        for poly in g.geoms:
+            paths.extend(
+                _geom_to_paths(
+                    poly,
+                    glob_minx,
+                    glob_maxx,
+                    glob_miny,
+                    glob_maxy,
+                    include_holes=include_holes,
+                )
+            )
+        return paths
+    else:
+        return []
+
+
 def contours_to_svg_zip(
     contours: List[dict],
     stroke_cut: str = "#000000",
@@ -19,7 +158,13 @@ def contours_to_svg_zip(
 ) -> bytes:
     """Convert a list of contour *bands* (as returned by
     ``generate_contours`` / ``scale_and_center_contours_to_substrate``)
-    into a ZIP archive of individual‑layer SVG files.
+    into a ZIP archive of individual‑layer SVG files. Bands are assumed to be
+    Shapely geometries with a "geometry" key containing the actual geometry
+    (e.g., a Polygon or MultiPolygon) and an "elevation" key with the
+    corresponding elevation value. The bands are intended for use in
+    laser-cutting applications, where each layer represents a slice of
+    topography at a specific elevation.
+    Each layer is represented by a separate SVG file in the ZIP archive.
 
     Each SVG contains
     1. *cut* geometry for the current layer ("stroke_cut" colour).
@@ -61,68 +206,10 @@ def contours_to_svg_zip(
     width_mm = glob_maxx - glob_minx
     height_mm = glob_maxy - glob_miny
 
-    def _to_svg_coords(x_m: float, y_m: float) -> Tuple[float, float]:
-        """Convert UTM coordinates (in meters) to SVG coordinates (in mm), flipping Y.
-
-        Args:
-            x_m (float): X coordinate in UTM meters.
-            y_m (float): Y coordinate in UTM meters.
-
-        Returns:
-            Tuple[float, float]: Corresponding X, Y in SVG mm coordinates.
-        """
-        x_mm = (x_m - glob_minx) * 1000.0
-        y_mm = (glob_maxy - y_m) * 1000.0
-        return round(x_mm, 3), round(y_mm, 3)
-
-    def _polygon_to_path(p: Polygon, include_holes: bool = True) -> str:
-        """Convert a Shapely Polygon to an SVG path string.
-
-        Args:
-            p (Polygon): Polygon to convert.
-            include_holes (bool): Whether to include interior rings.
-
-        Returns:
-            str: SVG path 'd' attribute string.
-        """
-
-        def _ring_to_cmds(coords):
-            if not coords:
-                return ""
-            cmds = ["M {:.3f} {:.3f}".format(*_to_svg_coords(*coords[0]))]
-            for x, y in coords[1:]:
-                cmds.append("L {:.3f} {:.3f}".format(*_to_svg_coords(x, y)))
-            cmds.append("Z")
-            return " ".join(cmds)
-
-        outer = _ring_to_cmds(list(p.exterior.coords))
-        inners = ""
-        if include_holes:
-            inners = " ".join(_ring_to_cmds(list(r.coords)) for r in p.interiors)
-        return f"{outer} {inners}".strip()
-
-    def _geom_to_paths(g, include_holes: bool = True) -> List[str]:
-        """Convert a Shapely geometry into a list of SVG path strings.
-
-        Args:
-            g (BaseGeometry): Shapely geometry (Polygon or MultiPolygon).
-            include_holes (bool): Whether to include holes in the path.
-
-        Returns:
-            List[str]: List of SVG path strings.
-        """
-        if g.geom_type == "Polygon":
-            return [_polygon_to_path(g, include_holes=include_holes)]
-        elif g.geom_type == "MultiPolygon":
-            paths = []
-            for poly in g.geoms:
-                paths.extend(_geom_to_paths(poly, include_holes=include_holes))
-            return paths
-        else:
-            return []
-
     # ---------------------------------------------------------------
     # Build the ZIP in‑memory
+    # The "cut" geometry is the unique material of this layer (difference with the layer above).
+    # The "align" geometry is only the outer shell of the next layer up, for manual stacking alignment.
     # ---------------------------------------------------------------
     mem_zip = io.BytesIO()
     with zipfile.ZipFile(mem_zip, mode="w", compression=zipfile.ZIP_DEFLATED) as zf:
@@ -137,6 +224,7 @@ def contours_to_svg_zip(
             )
 
             # *Cut* geometry: the material for *this* slice only
+            # buffer(0) is used to clean up potential geometry artefacts after difference.
             cut_geom = (
                 band_i.difference(band_above).buffer(0)
                 if band_above is not None and not band_above.is_empty
@@ -157,7 +245,9 @@ def contours_to_svg_zip(
             # ----------------------------------------------
             # Cut paths – solid stroke
             # ----------------------------------------------
-            for path_d in _geom_to_paths(cut_geom):
+            for path_d in _geom_to_paths(
+                cut_geom, glob_minx, glob_maxx, glob_miny, glob_maxy
+            ):
                 dwg.add(
                     dwg.path(
                         d=path_d,
@@ -171,7 +261,14 @@ def contours_to_svg_zip(
             # Alignment outline – secondary colour
             # ----------------------------------------------
             if align_geom is not None and not align_geom.is_empty:
-                for path_d in _geom_to_paths(align_geom, include_holes=False):
+                for path_d in _geom_to_paths(
+                    align_geom,
+                    glob_minx,
+                    glob_maxx,
+                    glob_miny,
+                    glob_maxy,
+                    include_holes=False,
+                ):
                     dwg.add(
                         dwg.path(
                             d=path_d,
@@ -181,7 +278,8 @@ def contours_to_svg_zip(
                         )
                     )
             label = f"{layer['elevation']} / #{idx + 1}"
-            # Place label(s) inside each polygon of the alignment geometry (or cut geometry if top layer)
+            # Place a text label ("elevation / #index") inside each polygon for alignment during assembly.
+            # Use representative_point() to guarantee it's inside the polygon.
             target_geom = align_geom if align_geom is not None else band_i
             geoms = (
                 [target_geom]
@@ -190,7 +288,14 @@ def contours_to_svg_zip(
             )
             for poly in geoms:
                 label_point = poly.representative_point()
-                lx, ly = _to_svg_coords(label_point.x, label_point.y)
+                lx, ly = _to_svg_coords(
+                    label_point.x,
+                    label_point.y,
+                    glob_minx,
+                    glob_maxx,
+                    glob_miny,
+                    glob_maxy,
+                )
                 dwg.add(
                     dwg.text(
                         label,
@@ -203,6 +308,7 @@ def contours_to_svg_zip(
                 )
 
             svg_bytes = dwg.tostring().encode()
+            # Filename encodes layer order and elevation for traceability in multi-layer jobs.
             fname = (
                 f"layer_{idx + 1:02d}_{int(round(layer['elevation']))}m_{basename}.svg"
             )

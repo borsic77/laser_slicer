@@ -1,3 +1,16 @@
+"""
+Core utilities for slicing SRTM (DEM) data into stacked contour bands for laser cutting.
+
+Key responsibilities:
+- Merging/cropping DEM tiles to area of interest
+- Generating robust, closed polygons for each contour interval
+- Geometric cleaning, simplification, and projection
+- Scaling contours to match laser substrate dimensions
+- Filtering out small or narrow features unsuitable for cutting
+
+Most functions are pure and stateless, facilitating unit testing and background task execution.
+"""
+
 import logging
 import math
 import os
@@ -84,7 +97,7 @@ def clean_geometry_strict(geom: BaseGeometry) -> BaseGeometry | None:
     if geom.is_empty or geom.area == 0:
         return None
     if not geom.is_valid:
-        # Buffer(0) can sometimes repair remaining self-intersections
+        # Shapely's buffer(0) is a standard trick to clean up slight self-intersections in polygons.
         try:
             geom = geom.buffer(0)
         except Exception:
@@ -153,7 +166,9 @@ def mosaic_and_crop(
     logger.debug(f"Merged raster bounds: {merged_bounds}")
     logger.debug(f"Requested crop bounds: {bounds}")
     logger.debug(f"Merged shape: {mosaic.shape}, transform: {transform}")
-    # Unpack bounds and ensure lat_min < lat_max
+    # Ensure bounds are ordered (south < north), as rasterio expects this order for windows
+    # SRTM data (GeoTIFF/HGT) can be in either north-up or south-up order. Rasterio expects bounds as (min, max), regardless of raster orientation.
+
     lon_min, lat_min, lon_max, lat_max = bounds
     if lat_min > lat_max:
         lat_min, lat_max = lat_max, lat_min
@@ -215,6 +230,7 @@ def walk_bbox_between(
             return (coords[start_idx:] + coords[: end_idx + 1])[::-1]
 
 
+# not used right now, delete later
 def is_almost_closed(line: LineString, tolerance: float = 1e-8) -> bool:
     """Checks if a LineString is nearly closed within a tolerance.
 
@@ -317,7 +333,8 @@ def _extract_level_polygons(cs) -> List[Tuple[float, List[Polygon]]]:
 
             level_polys.append((level, polys))
         return level_polys
-
+    # Fallback: if collections is not available, use allsegs
+    # fall back to assembling closed polygons from boundary segments (less robust, but works for simple DEMs)
     # ---------- Fallback method ---------------------------------------------------
     else:
         logger.warning(
@@ -383,8 +400,15 @@ def _compute_layer_bands(
     transform: rasterio.Affine,
 ) -> List[dict]:
     """
-    Builds a stack of cumulative contour *bands*, where each band supports
-    all the layers above it (for physical stacking).
+
+    Build a cumulative stack of closed contour bands for laser-cuttable physical models.
+
+    For each elevation band (highest to lowest), we compute the union of this band's polygons
+    with all bands above it. This ensures every slice includes the full area of all upper layers,
+    guaranteeing proper physical support and alignment—critical for real-world assembly.
+
+    We clean geometries aggressively, as SRTM contours may have small self-intersections or artefacts.
+
 
     Strategy
     --------
@@ -396,6 +420,7 @@ def _compute_layer_bands(
     3. Reverse before returning to restore low → high order.
     """
 
+    # Each physical contour must support all layers above it, so we union downward (from top to bottom) to ensure proper stacking support.
     contour_layers: list[dict] = []
     cumulative = None  # union of this and all higher-level layers
 
@@ -409,6 +434,7 @@ def _compute_layer_bands(
             continue
 
         # Expand only by area: if current is fully inside, union won't change shape
+
         cumulative = current if cumulative is None else cumulative.union(current)
         if cumulative.is_empty:
             continue
