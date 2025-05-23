@@ -12,15 +12,6 @@ wheels = [
 ]
 
 [[package]]
-name = "appdirs"
-version = "1.4.4"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/d7/d8/05696357e0311f5b5c316d7b95f46c669dd9c15aaeecbb48c7d0aeb88c40/appdirs-1.4.4.tar.gz", hash = "sha256:7d5d0167b2b1ba821647616af46a749d1c653740dd0d2415100fe26e27afdf41", size = 13470 }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/3b/00/2344469e2084fb287c2e0b57b72910309874c3245463acd6cf5e3db69324/appdirs-1.4.4-py2.py3-none-any.whl", hash = "sha256:a841dacd6b99318a741b166adb07e19ee71a274450e68237b4650ca1055ab128", size = 9566 },
-]
-
-[[package]]
 name = "asgiref"
 version = "3.8.1"
 source = { registry = "https://pypi.org/simple" }
@@ -310,29 +301,6 @@ wheels = [
 ]
 
 [[package]]
-name = "elevation"
-version = "1.1.3"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "appdirs" },
-    { name = "click" },
-    { name = "fasteners" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/de/1c/c69f52e3a5bc6bbab8d66a850e2fc7652d37d44baaa29cfe78245fba78da/elevation-1.1.3.tar.gz", hash = "sha256:be27446562e7964f7d8fa78c4829dbbb8ac43df405ad09be8c49633adb8f4877", size = 27311 }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/17/c1/ee55b817ef71bbb339ec3ad5c7e265b24e27968336468f46b1a7cb821681/elevation-1.1.3-py3-none-any.whl", hash = "sha256:bd66975626b05c1a74332816966ec744ecbe38eddf784b28ed4bb84e42df0bd4", size = 16965 },
-]
-
-[[package]]
-name = "fasteners"
-version = "0.19"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/5f/d4/e834d929be54bfadb1f3e3b931c38e956aaa3b235a46a3c764c26c774902/fasteners-0.19.tar.gz", hash = "sha256:b4f37c3ac52d8a445af3a66bce57b33b5e90b97c696b7b984f530cf8f0ded09c", size = 24832 }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/61/bf/fd60001b3abc5222d8eaa4a204cd8c0ae78e75adc688f33ce4bf25b7fafa/fasteners-0.19-py3-none-any.whl", hash = "sha256:758819cb5d94cdedf4e836988b74de396ceacb8e2794d21f82d131fd9ee77237", size = 18679 },
-]
-
-[[package]]
 name = "filelock"
 version = "3.18.0"
 source = { registry = "https://pypi.org/simple" }
@@ -482,7 +450,6 @@ dependencies = [
     { name = "django-cors-headers" },
     { name = "django-extensions" },
     { name = "djangorestframework" },
-    { name = "elevation" },
     { name = "filelock" },
     { name = "gdal" },
     { name = "geojson" },
@@ -509,7 +476,6 @@ requires-dist = [
     { name = "django-cors-headers", specifier = ">=4.7.0" },
     { name = "django-extensions", specifier = ">=4.1" },
     { name = "djangorestframework", specifier = ">=3.16.0" },
-    { name = "elevation", specifier = ">=1.1.3" },
     { name = "filelock", specifier = ">=3.18.0" },
     { name = "gdal", specifier = ">=3.11.0" },
     { name = "geojson", specifier = ">=3.2.0" },

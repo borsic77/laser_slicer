@@ -12,15 +12,95 @@ Intended for use with laser-cuttable topographic models.
 """
 
 import io
+import math
 import zipfile
 from typing import List, Tuple
 
 import svgwrite
-from shapely.geometry import Polygon, shape
+from shapely.geometry import LineString, MultiLineString, MultiPolygon, Polygon, shape
+
+
+def _iter_polygons(geom):
+    """
+    Yield each polygon in geom (handles both Polygon and MultiPolygon).
+    Args:
+        geom (BaseGeometry): Shapely geometry (Polygon or MultiPolygon).
+    Yields:
+        Polygon: Each polygon in the geometry."""
+    if geom.is_empty:
+        return
+    if isinstance(geom, Polygon):
+        yield geom
+    elif isinstance(geom, MultiPolygon):
+        for poly in geom.geoms:
+            yield poly
+
+
+def linestring_to_svg_path(
+    ls,
+    glob_minx: float,
+    glob_maxx: float,
+    glob_miny: float,
+    glob_maxy: float,
+) -> str:
+    """
+    Convert a LineString or MultiLineString to an SVG path string.
+    Args:
+        ls (LineString or MultiLineString): Shapely LineString or MultiLineString.
+        glob_minx (float): Global minimum X coordinate.
+        glob_maxx (float): Global maximum X coordinate.
+        glob_miny (float): Global minimum Y coordinate.
+        glob_maxy (float): Global maximum Y coordinate.
+    Returns:
+        str: SVG path 'd' attribute string.
+    """
+
+    def _ls_to_cmds(coords):
+        if not coords:
+            return ""
+        cmds = [
+            "M {:.3f} {:.3f}".format(
+                *_to_svg_coords(*coords[0], glob_minx, glob_maxx, glob_miny, glob_maxy)
+            )
+        ]
+        for x, y in coords[1:]:
+            cmds.append(
+                "L {:.3f} {:.3f}".format(
+                    *_to_svg_coords(x, y, glob_minx, glob_maxx, glob_miny, glob_maxy)
+                )
+            )
+        return " ".join(cmds)
+
+    if isinstance(ls, LineString):
+        return _ls_to_cmds(list(ls.coords))
+    elif isinstance(ls, MultiLineString):
+        return " ".join(_ls_to_cmds(list(geom.coords)) for geom in ls.geoms)
+    else:
+        return ""
+
 
 __all__ = [
     "contours_to_svg_zip",
 ]
+
+
+def remove_holes(geom):
+    """
+    Remove holes from a Shapely geometry.
+    Args:
+        geom (BaseGeometry): Shapely geometry (Polygon or MultiPolygon).
+    Returns:
+        BaseGeometry: Geometry with holes removed.
+    """
+    if geom.is_empty:
+        return geom
+    if geom.geom_type == "Polygon":
+        # Keep only the exterior
+        return Polygon(geom.exterior)
+    elif geom.geom_type == "MultiPolygon":
+        return MultiPolygon([Polygon(poly.exterior) for poly in geom.geoms])
+    else:
+        return geom  # Unchanged for other types
 
 
 def _to_svg_coords(
@@ -156,7 +236,8 @@ def contours_to_svg_zip(
     stroke_width_mm: float = 0.1,  # may need to be increased for some lasers
     basename: str = "contours",
 ) -> bytes:
-    """Convert a list of contour *bands* (as returned by
+    """
+    Convert a list of contour *bands* (as returned by
     ``generate_contours`` / ``scale_and_center_contours_to_substrate``)
     into a ZIP archive of individual‑layer SVG files. Bands are assumed to be
     Shapely geometries with a "geometry" key containing the actual geometry
@@ -166,11 +247,16 @@ def contours_to_svg_zip(
     topography at a specific elevation.
     Each layer is represented by a separate SVG file in the ZIP archive.
 
-    Each SVG contains
+    Each SVG contains:
     1. *cut* geometry for the current layer ("stroke_cut" colour).
     2. Outline of the layer **above** it ("stroke_align" colour) for alignment.
-    3. A text label with "<elevation> / #<index>" centred inside the alignment
-       outline (or the cut outline for the top layer).
+    3. For each polygon in the cut geometry, a label of the form "#<layer>_<poly>"
+       is drawn. The label is placed inside the alignment geometry (if the centroid
+       of the cut polygon is covered by any polygon in the alignment geometry),
+       and colored green. If not covered by any alignment polygon, the label is
+       placed in the cut polygon and colored blue. This ensures labels are always
+       visible and indicate whether the cut polygon is covered by the alignment outline.
+       (See inline comments for details.)
 
     Geometry is assumed to be projected in **metres** (UTM).  SVG coordinates
     are expressed in millimetres with the *Y axis flipped*
@@ -185,6 +271,11 @@ def contours_to_svg_zip(
     Returns:
         bytes: The ZIP file content as bytes.
     """
+
+    # Processing steps per layer:
+    # 1. Draw the cut path (material to cut for this layer)
+    # 2. Draw text labels (hidden or visible depending on stacking)
+    # 3. Draw alignment outline (non-overlapping segments only)
 
     if not contours:
         raise ValueError("Contours list must not be empty")
@@ -219,22 +310,24 @@ def contours_to_svg_zip(
             band_above = (
                 shape(contours[idx + 1]["geometry"]) if idx + 1 < n_layers else None
             )
-            band_above_above = (
-                shape(contours[idx + 2]["geometry"]) if idx + 2 < n_layers else None
-            )
 
             # *Cut* geometry: the material for *this* slice only
-            # buffer(0) is used to clean up potential geometry artefacts after difference.
-            cut_geom = (
-                band_i.difference(band_above).buffer(0)
-                if band_above is not None and not band_above.is_empty
-                else band_i
+            cut_geom = remove_holes(band_i)
+
+            # Alignment outline: use band_above
+            align_geom_rough = (
+                remove_holes(band_above) if band_above is not None else None
             )
-            # Alignment geometry: only use the single layer above
-            if band_above and band_above_above:
-                align_geom = band_above.difference(band_above_above).buffer(0)
-            else:
-                align_geom = band_above
+
+            align_geom = align_geom_rough
+
+            # Compute the alignment outline to engrave: only those outline segments
+            # of align_geom that do not coincide with cut_geom's boundary.
+            # Subtracting boundaries ensures we do not engrave alignment lines where the laser will already cut, preventing duplicate scoring.”
+            engrave_outline = None
+            if align_geom is not None and not align_geom.is_empty:
+                # Difference of boundaries: align_geom.boundary - cut_geom.boundary
+                engrave_outline = align_geom.boundary.difference(cut_geom.boundary)
 
             dwg = svgwrite.Drawing(
                 size=(f"{width_mm:.3f}mm", f"{height_mm:.3f}mm"),
@@ -258,54 +351,107 @@ def contours_to_svg_zip(
                 )
 
             # ----------------------------------------------
-            # Alignment outline – secondary colour
+            # Label placement and color logic:
+            # - For each polygon in the cut layer, check if it overlaps any alignment polygon above.
+            # - If so, place label inside the overlap area (hidden after stacking), color green,
+            #   and use the *area of the intersection* to determine label/font size.
+            # - If not, place label in the cut polygon itself (visible after stacking), color blue,
+            #   and use the *area of the cut polygon* for sizing.
+            # - All labels are drawn beneath alignment outlines if possible for assembly guidance.
             # ----------------------------------------------
+            align_polys = []
             if align_geom is not None and not align_geom.is_empty:
-                for path_d in _geom_to_paths(
-                    align_geom,
-                    glob_minx,
-                    glob_maxx,
-                    glob_miny,
-                    glob_maxy,
-                    include_holes=False,
-                ):
-                    dwg.add(
-                        dwg.path(
-                            d=path_d,
-                            stroke=stroke_align,
-                            fill="none",
-                            stroke_width=f"{stroke_width_mm:.3f}mm",
-                        )
-                    )
-            label = f"{layer['elevation']} / #{idx + 1}"
-            # Place a text label ("elevation / #index") inside each polygon for alignment during assembly.
-            # Use representative_point() to guarantee it's inside the polygon.
-            target_geom = align_geom if align_geom is not None else band_i
-            geoms = (
-                [target_geom]
-                if target_geom.geom_type == "Polygon"
-                else list(target_geom.geoms)
-            )
-            for poly in geoms:
-                label_point = poly.representative_point()
+                # Flatten alignment geometry to list of polygons
+                if isinstance(align_geom, Polygon):
+                    align_polys = [align_geom]
+                elif isinstance(align_geom, MultiPolygon):
+                    align_polys = list(align_geom.geoms)
+                else:
+                    # If alignment geometry is other type, ignore for label placement
+                    align_polys = []
+
+            for i, cut_poly in enumerate(_iter_polygons(cut_geom)):
+                area = cut_poly.area
+                if area == 0.0:
+                    continue
+                label_text = f"#{idx + 1}_{i + 1}"
+                label_pt = None
+                label_color = "#0000cc"  # blue: visible in assembled model
+                char_size = math.sqrt(area)
+                # Try to find an intersection with any alignment polygon
+                for ap in align_polys:
+                    intersection = cut_poly.intersection(ap)
+                    if not intersection.is_empty and intersection.area > 0.0:
+                        # Overlap found: use intersection area for sizing
+                        label_pt = intersection.representative_point()
+                        label_color = "#00aa00"  # green: hidden in assembled model
+                        char_size = math.sqrt(intersection.area)
+                        break
+                if label_pt is None:
+                    # No overlap: place label in cut polygon, color blue, use cut_poly area for sizing
+                    label_pt = cut_poly.representative_point()
+                # Font size: scale factor, clamp between 2mm and 10mm
+                font_size = max(2.0, min(0.15 * char_size * 1000, 10.0))  # 1000 to mm
                 lx, ly = _to_svg_coords(
-                    label_point.x,
-                    label_point.y,
-                    glob_minx,
-                    glob_maxx,
-                    glob_miny,
-                    glob_maxy,
+                    label_pt.x, label_pt.y, glob_minx, glob_maxx, glob_miny, glob_maxy
                 )
                 dwg.add(
                     dwg.text(
-                        label,
+                        label_text,
                         insert=(lx, ly),
-                        text_anchor="middle",
-                        alignment_baseline="central",
-                        font_size="8pt",
-                        fill=stroke_align,
+                        fill=label_color,
+                        font_size=f"{font_size:.2f}mm",
+                        style="font-family:monospace;text-anchor:middle;dominant-baseline:middle;",
                     )
                 )
+
+            # ----------------------------------------------
+            # Alignment outline – secondary colour
+            # Only engrave outline segments of align_geom that do not coincide with cut_geom's boundary.
+            # engrave_outline may be empty, a LineString, MultiLineString, or GeometryCollection.
+            # Draw each LineString/MultiLineString segment.
+            # ----------------------------------------------
+            if engrave_outline is not None and not engrave_outline.is_empty:
+                # engrave_outline can be LineString, MultiLineString, or GeometryCollection
+                outlines = []
+                if isinstance(engrave_outline, (LineString, MultiLineString)):
+                    outlines = [engrave_outline]
+                elif hasattr(engrave_outline, "geoms"):
+                    # GeometryCollection or MultiLineString
+                    outlines = [
+                        g
+                        for g in engrave_outline.geoms
+                        if isinstance(g, (LineString, MultiLineString))
+                    ]
+                for outline in outlines:
+                    # Handle MultiLineString or LineString
+                    if isinstance(outline, LineString):
+                        path_d = linestring_to_svg_path(
+                            outline, glob_minx, glob_maxx, glob_miny, glob_maxy
+                        )
+                        if path_d.strip():
+                            dwg.add(
+                                dwg.path(
+                                    d=path_d,
+                                    stroke=stroke_align,
+                                    fill="none",
+                                    stroke_width=f"{stroke_width_mm:.3f}mm",
+                                )
+                            )
+                    elif isinstance(outline, MultiLineString):
+                        for ls in outline.geoms:
+                            path_d = linestring_to_svg_path(
+                                ls, glob_minx, glob_maxx, glob_miny, glob_maxy
+                            )
+                            if path_d.strip():
+                                dwg.add(
+                                    dwg.path(
+                                        d=path_d,
+                                        stroke=stroke_align,
+                                        fill="none",
+                                        stroke_width=f"{stroke_width_mm:.3f}mm",
+                                    )
+                                )
 
             svg_bytes = dwg.tostring().encode()
             # Filename encodes layer order and elevation for traceability in multi-layer jobs.
