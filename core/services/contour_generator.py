@@ -29,6 +29,7 @@ class ContourSlicingJob:
         center: tuple[float, float],
         smoothing: int,
         min_area: float,
+        min_feature_width_mm: float,
     ):
         """Initialize the ContourSlicingJob with parameters.
         Args:
@@ -41,6 +42,7 @@ class ContourSlicingJob:
             center (tuple[float, float]): Center coordinates (lon_center, lat_center).
             smoothing (int): Smoothing factor for contours.
             min_area (float): Minimum area for filtering small features.
+            min_feature_width_mm (float): Minimum feature width in mm.
         """
         self.bounds = bounds
         self.height = height_per_layer
@@ -51,6 +53,7 @@ class ContourSlicingJob:
         self.center = center
         self.smoothing = smoothing
         self.min_area = min_area
+        self.min_feature_width = min_feature_width_mm
 
     def run(self) -> list[dict]:
         """Run the contour slicing job.
@@ -84,7 +87,9 @@ class ContourSlicingJob:
         contours = scale_and_center_contours_to_substrate(
             contours, self.substrate_size, utm_bounds
         )
-        contours = filter_small_features(contours, self.min_area)
+        contours = filter_small_features(
+            contours, self.min_area, self.min_feature_width
+        )
         for contour in contours:
             contour["thickness"] = self.layer_thickness / 1000.0
         return contours

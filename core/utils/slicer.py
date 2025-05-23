@@ -682,7 +682,9 @@ def smooth_geometry(
 # --- Minimum area filtering for projected/scaled contours ---
 
 
-def filter_small_features(contours: List[dict], min_area_cm2: float) -> List[dict]:
+def filter_small_features(
+    contours: List[dict], min_area_cm2: float, min_width_mm: float = 0.0
+) -> List[dict]:
     """
     Filters out polygons smaller than the specified area (in cm²)
     from the already projected and scaled contours.
@@ -690,6 +692,7 @@ def filter_small_features(contours: List[dict], min_area_cm2: float) -> List[dic
     Args:
         contours (List[dict]): List of contour dictionaries with projected and scaled 'geometry'.
         min_area_cm2 (float): Minimum polygon area in cm² to keep.
+        min_width_mm (float): Minimum width in mm for filtering.
 
     Returns:
         List[dict]: Filtered list of contours.

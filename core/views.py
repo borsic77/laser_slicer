@@ -177,6 +177,7 @@ def slice_contours(request):
         center=_compute_center(request.data["bounds"]),
         smoothing=int(request.data.get("smoothing", 0)),
         min_area=float(request.data.get("min_area", 0.0)),
+        min_feature_width_mm=float(request.data.get("min_feature_width", 0.0)),
     )
     layers = job.run()
     return Response(
