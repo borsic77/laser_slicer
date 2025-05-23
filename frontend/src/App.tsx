@@ -117,6 +117,8 @@ useEffect(() => {
   if (!bounds) return;
   const dims = getWidthHeightMeters(bounds);
   setAreaStats(dims);
+  // When bounds change, update lastChanged to 'height' so numLayers is updated from heightPerLayer after elevation stats are fetched
+  lastChanged.current = 'height';
   const controller = new AbortController();
 
   const fetchData = async () => {
