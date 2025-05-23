@@ -1,4 +1,9 @@
+import logging
+from venv import logger
+
+import shapely
 from django.conf import settings
+from shapely.geometry import shape
 
 from core.utils.download_clip_elevation_tiles import download_srtm_tiles_for_bounds
 from core.utils.geocoding import compute_utm_bounds_from_wgs84
@@ -10,6 +15,25 @@ from core.utils.slicer import (
     scale_and_center_contours_to_substrate,
     smooth_geometry,
 )
+
+logger = logging.getLogger(__name__)
+
+
+def _log_contour_info(contours, process_step: str = "Contour Generation"):
+    """Log information about contours.
+    Args:
+        contours (list): List of contour features.
+    """
+    for contour in contours:
+        geom = shape(contour["geometry"])
+        logger.debug(
+            "Contour @ %.1f m, process step %s: geom type = %s, area = %.4f, valid = %s",
+            contour["elevation"],
+            process_step,
+            geom.geom_type,
+            geom.area,
+            geom.is_valid,
+        )
 
 
 class ContourSlicingJob:
@@ -78,18 +102,25 @@ class ContourSlicingJob:
             scale=100,
             bounds=self.bounds,
         )
+        _log_contour_info(contours, "After Contour Generation")
         # Project, smooth, and scale the contours
         contours = project_geometry(contours, cx, cy, simplify_tolerance=self.simplify)
+        _log_contour_info(contours, "After Projection")
         contours = smooth_geometry(contours, self.smoothing)
+        _log_contour_info(contours, "After Smoothing")
         utm_bounds = compute_utm_bounds_from_wgs84(
             lon_min, lat_min, lon_max, lat_max, cx, cy
         )
         contours = scale_and_center_contours_to_substrate(
             contours, self.substrate_size, utm_bounds
         )
+        # Log contour information
+        _log_contour_info(contours, "After Scaling and Centering")
+        # Filter small features and set layer thickness
         contours = filter_small_features(
             contours, self.min_area, self.min_feature_width
         )
+        _log_contour_info(contours, "After Filtering Small Features")
         for contour in contours:
             contour["thickness"] = self.layer_thickness / 1000.0
         return contours

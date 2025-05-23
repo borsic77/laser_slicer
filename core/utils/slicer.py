@@ -71,6 +71,40 @@ def clean_geometry(geom: BaseGeometry) -> BaseGeometry | None:
     return orient(geom)
 
 
+def clean_geometry_strict(geom: BaseGeometry) -> BaseGeometry | None:
+    """Aggressively attempts to produce a valid polygon.
+    Applies make_valid to fix topology issues and
+    removes empty or zero-area geometries.
+    Args:
+        geom (BaseGeometry): A Shapely geometry object.
+    Returns:
+        BaseGeometry | None: A cleaned geometry if valid, otherwise None.
+    """
+    geom = make_valid(geom)
+    if geom.is_empty or geom.area == 0:
+        return None
+    if not geom.is_valid:
+        # Buffer(0) can sometimes repair remaining self-intersections
+        try:
+            geom = geom.buffer(0)
+        except Exception:
+            return None
+    if geom.is_empty or geom.area == 0:
+        return None
+    if not geom.is_valid:
+        return None
+    # Remove GeometryCollections with only lines/points
+    if isinstance(geom, GeometryCollection):
+        polys = [g for g in geom.geoms if isinstance(g, (Polygon, MultiPolygon))]
+        if not polys:
+            return None
+        if len(polys) == 1:
+            geom = polys[0]
+        else:
+            geom = MultiPolygon(polys)
+    return orient(geom)
+
+
 def save_debug_contour_polygon(polygon, level: float, filename: str) -> None:
     """Saves a debug image of a single contour polygon at a given elevation.
 
@@ -369,8 +403,9 @@ def _compute_layer_bands(
         if not polys:
             continue
 
-        current = clean_geometry(unary_union(_flatten_polygons(polys)))
+        current = clean_geometry_strict(unary_union(_flatten_polygons(polys)))
         if current is None:
+            logger.warning(f"Layer {level} produced no valid geometry after cleaning.")
             continue
 
         # Expand only by area: if current is fully inside, union won't change shape
@@ -560,22 +595,32 @@ def project_geometry(
         rotated_geom = shapely.affinity.rotate(
             geom, -rot_angle + 90, origin=center
         )  # adding 90 because everything got rotated by 90 deg cw, and i can't find the bug
+        # Clean geometry strictly after rotation
+        cleaned_geom = clean_geometry_strict(rotated_geom)
+        logger.debug(
+            f"Contour at elevation {contour.get('elevation')} cleaned geometry is "
+            f"{'valid' if cleaned_geom is not None else 'invalid'}"
+        )
+        if cleaned_geom is None:
+            logger.warning(
+                f"Skipping contour at elevation {contour.get('elevation')} after cleaning (invalid geometry)."
+            )
+            continue
+        final_geom = cleaned_geom
         if simplify_tolerance > 0.0:
             logger.debug(
                 f"Simplifying geometry for elevation {contour['elevation']} with tolerance {simplify_tolerance}"
             )
-            rotated_geom = rotated_geom.simplify(
-                simplify_tolerance, preserve_topology=True
-            )
-        contour["geometry"] = mapping(rotated_geom)
+            final_geom = final_geom.simplify(simplify_tolerance, preserve_topology=True)
+        contour["geometry"] = mapping(final_geom)
         projected_contours.append(contour)
 
         # Plot for debug
-        if rotated_geom.geom_type == "Polygon":
-            x, y = rotated_geom.exterior.xy
+        if final_geom.geom_type == "Polygon":
+            x, y = final_geom.exterior.xy
             ax.plot(x, y, linewidth=0.5)
-        elif rotated_geom.geom_type == "LineString":
-            x, y = rotated_geom.xy
+        elif final_geom.geom_type == "LineString":
+            x, y = final_geom.xy
             ax.plot(x, y, linewidth=0.5)
 
     ax.set_title("Projected Contours")
@@ -697,20 +742,37 @@ def filter_small_features(
     Returns:
         List[dict]: Filtered list of contours.
     """
-    if min_area_cm2 <= 0:
-        return contours
+    min_area_m2 = min_area_cm2 / 1e4 if min_area_cm2 > 0 else 0.0  # convert to m²
+    min_width_m = min_width_mm / 1000.0 if min_width_mm > 0 else 0.0
+
     logger.debug(
-        f"Filtering contours smaller than {min_area_cm2} cm² ({min_area_cm2 / 1e4:.4f} m²)"
+        f"Filtering contours: removing features thinner than {min_width_mm} mm and polygons smaller than {min_area_cm2} cm²"
     )
-    min_area_m2 = min_area_cm2 / 1e4  # convert to m²
     filtered = []
 
     for contour in contours:
         geom = shape(contour["geometry"])
+
+        # --- Minimum width filtering (buffer-in/out trick) ---
+        if min_width_m > 0:
+            try:
+                geom = geom.buffer(-min_width_m / 2).buffer(min_width_m / 2)
+                geom = clean_geometry_strict(geom)
+                if geom is None or geom.is_empty:
+                    logger.debug(
+                        f"Contour @ {contour.get('elevation')} filtered away (min width)"
+                    )
+                    continue
+            except Exception as e:
+                logger.warning(f"Buffer trick failed for min width filtering: {e}")
+                continue
+
+        # --- Minimum area filtering ---
         parts = [g for g in _flatten_polygons([geom]) if g.area >= min_area_m2]
         if not parts:
             continue
         geom = MultiPolygon(parts)
+
         contour["geometry"] = mapping(geom)
         filtered.append(contour)
 
