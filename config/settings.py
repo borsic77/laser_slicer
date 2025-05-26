@@ -39,6 +39,10 @@ DEBUG_IMAGE_PATH = os.getenv("DEBUG_IMAGE_PATH", BASE_DIR / "data" / "debug_imag
 SVG_TMP_DIR = os.getenv("SVG_TMP_DIR", BASE_DIR / "tmp" / "svg_tmp")
 NOMINATIM_USER_AGENT = os.getenv("USER_AGENT", "laser-slicer/1.0 (contact@email.com)")
 
+
+MEDIA_URL = "/media/"
+MEDIA_ROOT = BASE_DIR / "media"
+
 if not DEBUG:
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
@@ -99,6 +103,7 @@ INSTALLED_APPS = [
     "core",  # Custom app for core functionality
     "django_extensions",
     "corsheaders",  # CORS headers for cross-origin requests
+    "django_celery_results",
 ]
 
 MIDDLEWARE = [
@@ -146,6 +151,11 @@ DATABASES = {
     }
 }
 
+# CELERY
+CELERY_BROKER_URL = "redis://localhost:6379/0"
+CELERY_RESULT_BACKEND = "django-db"
+CELERY_TASK_TIME_LIMIT = 900  # 15 min safety net
+CELERY_TASK_SOFT_TIME_LIMIT = 840
 
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators

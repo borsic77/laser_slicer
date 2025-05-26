@@ -11,6 +11,21 @@ from pyproj import Transformer
 logger = logging.getLogger(__name__)
 
 
+def _parse_bounds(bounds: dict) -> tuple[float, float, float, float]:
+    """Parse bounding box coordinates from a dictionary.
+    Args:
+        bounds (dict): Dictionary containing 'lon_min', 'lat_min', 'lon_max', 'lat_max'.
+    Returns:
+        tuple[float, float, float, float]: Tuple of (lon_min, lat_min, lon_max, lat_max).
+    """
+    return (
+        float(bounds["lon_min"]),
+        float(bounds["lat_min"]),
+        float(bounds["lon_max"]),
+        float(bounds["lat_max"]),
+    )
+
+
 @lru_cache(maxsize=32)
 def get_transformer_for_coords(center_x: float, center_y: float) -> Transformer:
     """Get a pyproj Transformer for converting WGS84 to UTM coordinates.

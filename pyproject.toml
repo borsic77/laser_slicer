@@ -5,11 +5,15 @@ description = "Download geodata and slice contour maps for laser cutting"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
+    "celery[redis]>=5.5.2",
     "django>=5.2.1",
+    "django-celery-beat>=2.8.1",
+    "django-celery-results>=2.6.0",
     "django-cors-headers>=4.7.0",
     "django-extensions>=4.1",
     "djangorestframework>=3.16.0",
     "filelock>=3.18.0",
+    "flower>=2.0.1",
     "gdal==3.6.2",
     "geojson>=3.2.0",
     "matplotlib>=3.10.3",

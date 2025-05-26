@@ -13,6 +13,8 @@
  */
 
 import { useEffect, useReducer, useState } from 'react';
+// Async job-based workflow state for slicing, elevation, and SVG export
+import { useRef } from 'react';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import './App.css';
@@ -120,6 +122,123 @@ function App() {
   // Controls visibility of the manual/help modal dialog
   const [showManual, setShowManual] = useState(false);
 
+  // Async job handling state
+  const [jobId, setJobId] = useState<string | null>(null);
+  const [jobStatus, setJobStatus] = useState<string | null>(null);
+  const [jobProgress, setJobProgress] = useState<number | null>(null);
+  const [jobLog, setJobLog] = useState<string>('');
+  const [jobResultUrl, setJobResultUrl] = useState<string | null>(null);
+  const pollIntervalRef = useRef<number | null>(null); // For cleanup
+
+  // Separate polling for each job type
+  const elevationPollRef = useRef<number | null>(null);
+  const slicingPollRef = useRef<number | null>(null);
+  const exportPollRef = useRef<number | null>(null);
+  const [elevationJobId, setElevationJobId] = useState<string | null>(null);
+  const [slicingJobId, setSlicingJobId] = useState<string | null>(null);
+  const [exportJobId, setExportJobId] = useState<string | null>(null);
+
+  // Poll elevation job
+  function pollElevationJobStatus(jobId: string) {
+    if (elevationPollRef.current) clearInterval(elevationPollRef.current);
+    elevationPollRef.current = window.setInterval(async () => {
+      try {
+        const res = await fetch(`${API_URL}/api/jobs/${jobId}/`);
+        if (!res.ok) throw new Error('Failed to get elevation job status');
+        const data = await res.json();
+        if (data.status === "SUCCESS") {
+          const result = data.params?.result;
+          console.log("Elevation polling jobId=", jobId, "data=", result);
+          // Only update if jobId matches the latest elevationJobId
+          if (
+            result &&
+            typeof result.min === "number" &&
+            typeof result.max === "number" 
+          ) {
+            console.log("Setting elevationStats to", { min: result.min, max: result.max });
+            setElevationStats({ min: result.min, max: result.max });
+          }
+          clearInterval(elevationPollRef.current!);
+          elevationPollRef.current = null;
+        } else if (data.status === "FAILURE") {
+          clearInterval(elevationPollRef.current!);
+          elevationPollRef.current = null;
+          toast.error("Elevation job failed: " + (data.log || 'Unknown error'));
+        }
+      } catch (err) {
+        clearInterval(elevationPollRef.current!);
+        elevationPollRef.current = null;
+        toast.error("Error polling elevation job status");
+      }
+    }, 2000);
+  }
+
+  // Poll slicing job
+  function pollSlicingJobStatus(jobId: string) {
+    if (slicingPollRef.current) clearInterval(slicingPollRef.current);
+    slicingPollRef.current = window.setInterval(async () => {
+      try {
+        const res = await fetch(`${API_URL}/api/jobs/${jobId}/`);
+        if (!res.ok) throw new Error('Failed to get slicing job status');
+        const data = await res.json();
+        setJobStatus(data.status);
+        setJobProgress(data.progress);
+        setJobLog(data.log || '');
+        setJobResultUrl(data.result_url || null);
+        if (data.status === "SUCCESS") {
+          console.log("Slicing job layers:", data.params?.layers);
+          if (data.params && data.params.layers) {
+            setContourLayers(data.params.layers);
+          }
+          setSliced(true);
+          setSlicing(false);
+          clearInterval(slicingPollRef.current!);
+          slicingPollRef.current = null;
+          toast.success("Slicing done!");
+        } else if (data.status === "FAILURE") {
+          setSlicing(false);
+          clearInterval(slicingPollRef.current!);
+          slicingPollRef.current = null;
+          toast.error("Slicing failed: " + (data.log || 'Unknown error'));
+        }
+      } catch (err) {
+        setSlicing(false);
+        clearInterval(slicingPollRef.current!);
+        slicingPollRef.current = null;
+        toast.error("Error polling slicing job status");
+      }
+    }, 2000);
+  }
+
+  // Poll export job
+  function pollExportJobStatus(jobId: string) {
+    if (exportPollRef.current) clearInterval(exportPollRef.current);
+    exportPollRef.current = window.setInterval(async () => {
+      try {
+        const res = await fetch(`${API_URL}/api/jobs/${jobId}/`);
+        if (!res.ok) throw new Error('Failed to get export job status');
+        const data = await res.json();
+        setJobStatus(data.status);
+        setJobProgress(data.progress);
+        setJobLog(data.log || '');
+        setJobResultUrl(data.result_url || null);
+        if (data.status === "SUCCESS") {
+          clearInterval(exportPollRef.current!);
+          exportPollRef.current = null;
+          toast.success("Export ready! Download ZIP below.");
+        } else if (data.status === "FAILURE") {
+          clearInterval(exportPollRef.current!);
+          exportPollRef.current = null;
+          toast.error("Export job failed: " + (data.log || 'Unknown error'));
+        }
+      } catch (err) {
+        clearInterval(exportPollRef.current!);
+        exportPollRef.current = null;
+        toast.error("Error polling export job status");
+      }
+    }, 2000);
+  }
+
   /**
    * Compute the physical width and height (in meters) of a rectangular area given by bounds.
    * Uses the equirectangular approximation for small areas:
@@ -151,32 +270,32 @@ function App() {
   }
 
   /**
-   * Fetch the minimum and maximum elevation (in meters) for the selected area bounds from the backend.
-   * Makes a POST request to /api/elevation-range/ and updates elevationStats state.
-   * @param bounds - Area bounds as [[latMin, lonMin], [latMax, lonMax]]
-   * @param signal - Optional AbortSignal for cancellation
-   * @returns Promise<void>
-   * @sideeffects Updates elevationStats state on success
-   * @throws Error if the request fails
+   * Submits an elevation job to the backend and polls for min/max results.
+   * Updates elevationStats on success.
    */
   async function fetchElevationRange(bounds: [[number, number], [number, number]], signal?: AbortSignal) {
     const body = {
-      lat_min: bounds[0][0],
-      lon_min: bounds[0][1],
-      lat_max: bounds[1][0],
-      lon_max: bounds[1][1],
-    }
-
+      bounds: {
+        lat_min: bounds[0][0],
+        lon_min: bounds[0][1],
+        lat_max: bounds[1][0],
+        lon_max: bounds[1][1],
+      }
+    };
     const res = await fetch(`${API_URL}/api/elevation-range/`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ bounds: body }),
+      body: JSON.stringify(body),
       signal,
-    })
+    });
+    if (!res.ok) throw new Error("Failed to submit elevation job");
+    const data = await res.json();
+    if (!data.job_id) throw new Error("Invalid job response for elevation");
 
-    if (!res.ok) throw new Error("Failed to get elevation range")
-    const data = await res.json()
-    setElevationStats({ min: data.min, max: data.max })
+    // Ensure elevationJobId is set right before polling
+    pollElevationJobStatus(data.job_id);    
+    setElevationJobId(data.job_id);
+
   }
 
   /**
@@ -263,34 +382,20 @@ function App() {
   }
 
   /**
-   * Handler: Trigger slicing operation for the current area and parameters.
-   * Sequence:
-   *  1. Validates that coordinates and bounds are set.
-   *  2. Sends a POST to /api/slice/ with all relevant parameters.
-   *  3. On success, updates contourLayers and sets sliced=true; disables slicing state.
-   *  4. On error, shows a toast and disables slicing state.
-   * Side effects: Updates preview, enables export, may show error/warning toasts.
+   * Handler: Starts an async contour slicing job and polls for result.
    */
   const handleSlice = async () => {
     if (!coordinates) {
       toast.warn("Please select a location first.");
-      return
+      return;
     }
-    const height = params.heightPerLayer;
-    const layers = params.numLayers;
-
     if (!bounds) {
       toast.warn("Could not read selected bounds.");
       return;
     }
-
-    const controller = new AbortController();
-
     const body = {
-      lat: coordinates[0],
-      lon: coordinates[1],
-      height_per_layer: height,
-      num_layers: layers,
+      height_per_layer: params.heightPerLayer,
+      num_layers: params.numLayers,
       simplify,
       smoothing,
       min_area: minArea,
@@ -303,97 +408,71 @@ function App() {
       },
       substrate_size: params.substrateSize,
       layer_thickness: params.layerThickness,
-    }
-
+    };
     try {
-      setSlicing(true)
+      setSlicing(true);
+      setContourLayers([]); // clear old result
       const res = await fetch(`${API_URL}/api/slice/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
-        signal: controller.signal,
-      })
-
-      if (!res.ok) throw new Error('Failed to slice contour data')
-
-      const data = await res.json()
-      console.log("Received contour layers:", data.layers)
-      const layersWithPoints = (data.layers || []).map((layer: any) => ({
-        ...layer,
-        points: layer.geometry?.coordinates?.[0] ?? [],
-      }))
-      setContourLayers(layersWithPoints)
-      setSliced(true)
-      setSlicing(false)
-      controller.abort();
+      });
+      if (!res.ok) throw new Error('Failed to start slicing job');
+      const data = await res.json();
+      setSlicingJobId(data.job_id);
+      setJobId(data.job_id);
+      setJobStatus('PENDING');
+      setJobProgress(0);
+      setJobLog('');
+      setJobResultUrl(null);
+      pollSlicingJobStatus(data.job_id);
     } catch (error) {
-      setSlicing(false)
-      if (error instanceof Error) {
-        toast.error("Slicing failed: " + error.message);
-      } else {
-        toast.error("Slicing failed: An unknown error occurred.");
-      }
-      controller.abort();
+      setSlicing(false);
+      toast.error("Failed to start slicing job");
     }
-  }
+  };
 
   /**
-   * Handler: Export the current contour layers as SVGs via backend API.
-   * Sequence:
-   *  1. Sends a POST to /api/export/ with all contour and parameter data.
-   *  2. Receives a ZIP file, extracts filename, and triggers download.
-   *  3. Handles errors and aborts gracefully, showing a toast on failure.
-   * Side effects: Initiates file download for user.
+   * Handler: Starts an async SVG export job and polls for ZIP download URL.
    */
   const handleExport = async () => {
-    const controller = new AbortController();
-
+    if (!contourLayers.length) {
+      toast.warn("No contours to export.");
+      return;
+    }
     try {
       const res = await fetch(`${API_URL}/api/export/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          layers: contourLayers ,
+        body: JSON.stringify({
+          layers: contourLayers,
           address,
           coordinates,
-          height_per_layer: params.heightPerLayer,   
-          num_layers: params.numLayers,  
-          min_feature_width: minFeatureWidth,
+          height_per_layer: params.heightPerLayer,
         }),
-        signal: controller.signal,
-      })
-
-      if (!res.ok) throw new Error('Failed to export contours')
-
-      const blob = await res.blob();
-      const disposition = res.headers.get("Content-Disposition");
-      let filename = "contours.zip";
-      const match = disposition?.match(/filename="(.+?)"/);
-      if (match && match[1]) {
-        filename = match[1];
-      }
-      console.log("Exported filename:", filename);
-
-      const file = new File([blob], filename, { type: "application/zip" });
-      const url = URL.createObjectURL(file);
-
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = filename;
-      a.style.display = 'none';
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      controller.abort();
+      });
+      if (!res.ok) throw new Error('Failed to start export job');
+      const data = await res.json();
+      setExportJobId(data.job_id);
+      setJobId(data.job_id);
+      setJobStatus('PENDING');
+      setJobProgress(0);
+      setJobLog('');
+      setJobResultUrl(null);
+      pollExportJobStatus(data.job_id);
     } catch (error) {
-      if (error instanceof Error) {
-        toast.error("Export failed: " + error.message);
-      } else {
-        toast.error("Export failed: An unknown error occurred.");
-      }
-      controller.abort();
+      toast.error("Failed to start export job");
     }
-  }
+  };
+  // Cleanup polling interval on unmount
+  useEffect(() => {
+    return () => {
+      if (elevationPollRef.current) clearInterval(elevationPollRef.current);
+      if (slicingPollRef.current) clearInterval(slicingPollRef.current);
+      if (exportPollRef.current) clearInterval(exportPollRef.current);
+      if (pollIntervalRef.current) clearInterval(pollIntervalRef.current); // legacy cleanup
+    };
+  }, []);
 
   return (
     <div className="container">
@@ -518,10 +597,21 @@ function App() {
               Square output
             </label>
             <button id="slice-button" onClick={handleSlice}>Slice!</button>
-            <button id="export-button" onClick={handleExport} disabled={!sliced}>Export SVGs</button>
-            <a id="download-link" href="#" download style={{ display: 'none' }}>
-              ⬇️ Download ZIP
-            </a>
+            <button id="export-button" onClick={handleExport} disabled={!sliced || slicing}>Export SVGs</button>
+            {jobResultUrl && (
+              <a id="download-link" href={API_URL + jobResultUrl} download>
+                ⬇️ Download ZIP
+              </a>
+            )}
+            {jobStatus && (
+              <div style={{ margin: "0.5em 0" }}>
+                <strong>Status:</strong> {jobStatus}<br />
+                {jobProgress !== null && <progress value={jobProgress} max={100}>{jobProgress}%</progress>}
+                {jobLog && (
+                  <pre style={{ fontSize: 'smaller', maxHeight: 100, overflow: 'auto' }}>{jobLog}</pre>
+                )}
+              </div>
+            )}
           </div>
         </div>
         {/* ─────────────── Main Panel Section ───────────────
@@ -541,6 +631,7 @@ function App() {
             Shows summary info for the selected area: center coordinates,
             width/height (meters), and elevation range (meters).
             Updated as user selects new areas or after slicing. */}
+        {console.log("Rendering sidebar, elevationStats =", elevationStats)}
         <div className="info-sidebar">
           <h2>Area Info</h2>
           <p><strong>Center:</strong> {coordinates ? `${coordinates[0].toFixed(5)}, ${coordinates[1].toFixed(5)}` : 'N/A'}</p>

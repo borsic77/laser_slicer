@@ -1,18 +1,19 @@
-import io
 import logging
 from functools import wraps
 
-from django.conf import settings
-from django.http import FileResponse
+from django.apps import apps
 from django.shortcuts import render
 from django.views.decorators.csrf import csrf_exempt
+from rest_framework import status as drf_status
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 
-from core.services.contour_generator import ContourSlicingJob
-from core.services.elevation_service import ElevationDataError, ElevationRangeJob
-from core.services.svg_zip_generator import generate_svg_layers, zip_svgs
-from core.utils.export_filename import build_export_basename
+from core.models import BaseJob, ContourJob, ElevationJob, SVGJob
+from core.tasks import (  # New: see below
+    run_contour_slicing_job,
+    run_elevation_range_job,
+    run_svg_export_job,
+)
 from core.utils.geocoding import geocode_address
 
 logger = logging.getLogger(__name__)
@@ -42,59 +43,35 @@ def safe_api(view_func):
 @api_view(["POST"])
 @safe_api
 def elevation_range(request) -> Response:
-    """Fetch elevation data for a given bounding box.
+    """
+    Create a job to fetch elevation data for a bounding box.
     Args:
         request (Request): POST request with bounding box coordinates.
     Returns:
-        Response: JSON with elevation data or error message.
+        Response: JSON with job ID or error message.
     """
-    bounds = _parse_bounds(request.data["bounds"])
-    try:
-        result = ElevationRangeJob(bounds).run()
-        return Response(result)
-    except ElevationDataError as e:
-        logger.warning(f"Elevation data error for bounds {bounds}: {e}")
-        return Response({"error": str(e)}, status=400)
+    logger.debug("Received elevation range request with data: %s", request.data)
+    params = {
+        "bounds": request.data["bounds"],
+    }
+    job = ElevationJob.objects.create(params=params, status="PENDING")
+    run_elevation_range_job.delay(str(job.id))
+    return Response({"job_id": str(job.id)}, status=202)
 
 
 @csrf_exempt
 @api_view(["POST"])
 @safe_api
-def export_svgs(request) -> FileResponse | Response:
-    """Generate a ZIP archive of SVG files from provided contour layers.
-
-    Args:
-        request (Request): Django REST Framework request containing layers and metadata.
-
-    Returns:
-        FileResponse | Response: A ZIP file response or error message.
-    """
-    contours = request.data.get("layers")  # front-end sends the list it already has
-    if not contours:
-        return Response({"error": "No layers supplied"}, status=400)
-
-    address = request.data.get("address", "").strip()
-    coords = request.data.get("coordinates", None)
-    height_mm = request.data.get("height_per_layer", "unknown")
-    num_layers = len(contours)
-    logger.debug(
-        f"Exporting {num_layers} layers for address: {address}, coords: {coords}, height: {height_mm}"
-    )
-
-    base_filename = build_export_basename(address, coords, height_mm, num_layers)
-    filename = f"{base_filename}.zip"
-
-    svg_files = generate_svg_layers(contours, basename=base_filename)
-    zip_bytes = zip_svgs(svg_files)  # generate SVGs in memory
-
-    response = FileResponse(
-        io.BytesIO(zip_bytes),
-        content_type="application/zip",
-        as_attachment=True,
-    )
-    response["Content-Disposition"] = f'attachment; filename="{filename}"'
-    response["Access-Control-Expose-Headers"] = "Content-Disposition"
-    return response
+def export_svgs_job(request):
+    params = {
+        "layers": request.data.get("layers"),
+        "address": request.data.get("address", "").strip(),
+        "coordinates": request.data.get("coordinates", None),
+        "height_per_layer": request.data.get("height_per_layer", "unknown"),
+    }
+    job = SVGJob.objects.create(params=params, status="PENDING")
+    run_svg_export_job.delay(str(job.id))
+    return Response({"job_id": str(job.id)}, status=202)
 
 
 @csrf_exempt
@@ -128,21 +105,6 @@ def index(request) -> Response:
     return render(request, "core/index.html")
 
 
-def _parse_bounds(bounds: dict) -> tuple[float, float, float, float]:
-    """Parse bounding box coordinates from a dictionary.
-    Args:
-        bounds (dict): Dictionary containing 'lon_min', 'lat_min', 'lon_max', 'lat_max'.
-    Returns:
-        tuple[float, float, float, float]: Tuple of (lon_min, lat_min, lon_max, lat_max).
-    """
-    return (
-        float(bounds["lon_min"]),
-        float(bounds["lat_min"]),
-        float(bounds["lon_max"]),
-        float(bounds["lat_max"]),
-    )
-
-
 def _compute_center(bounds: dict) -> tuple[float, float]:
     """Compute the center of a bounding box.
     Args:
@@ -161,29 +123,61 @@ def _compute_center(bounds: dict) -> tuple[float, float]:
 @api_view(["POST"])
 @safe_api
 def slice_contours(request):
-    """Slice contours into layers based on provided parameters.
+    """Create a contour slicing job with the provided parameters.
     Args:
         request (Request): POST request with slicing parameters.
     Returns:
-        Response: JSON with slicing status and preview image.
+        Response: JSON with job ID or error message.
     """
-    job = ContourSlicingJob(
-        bounds=_parse_bounds(request.data["bounds"]),
-        height_per_layer=float(request.data["height_per_layer"]),
-        num_layers=int(request.data["num_layers"]),
-        simplify=float(request.data["simplify"]),
-        substrate_size_mm=float(request.data["substrate_size"]),
-        layer_thickness_mm=float(request.data["layer_thickness"]),
-        center=_compute_center(request.data["bounds"]),
-        smoothing=int(request.data.get("smoothing", 0)),
-        min_area=float(request.data.get("min_area", 0.0)),
-        min_feature_width_mm=float(request.data.get("min_feature_width", 0.0)),
-    )
-    layers = job.run()
-    return Response(
-        {
-            "status": "sliced",
-            "preview": str(settings.DEBUG_IMAGE_PATH),
-            "layers": layers,
-        }
-    )
+    params = {
+        "bounds": request.data["bounds"],
+        "height_per_layer": float(request.data["height_per_layer"]),
+        "num_layers": int(request.data["num_layers"]),
+        "simplify": float(request.data["simplify"]),
+        "substrate_size_mm": float(request.data["substrate_size"]),
+        "layer_thickness_mm": float(request.data["layer_thickness"]),
+        "center": _compute_center(request.data["bounds"]),
+        "smoothing": int(request.data.get("smoothing", 0)),
+        "min_area": float(request.data.get("min_area", 0.0)),
+        "min_feature_width_mm": float(request.data.get("min_feature_width", 0.0)),
+    }
+    job = ContourJob.objects.create(params=params, status="PENDING")
+    # Start async task
+    run_contour_slicing_job.delay(str(job.id))
+    return Response({"job_id": str(job.id)}, status=202)
+
+
+def get_all_job_models():
+    """Return all non-abstract models inheriting from BaseJob."""
+    job_models = []
+    for model in apps.get_models():
+        if issubclass(model, BaseJob) and not model._meta.abstract:
+            job_models.append(model)
+    return job_models
+
+
+@api_view(["GET"])
+@safe_api
+def job_status(request, job_id):
+    job = None
+    for model in get_all_job_models():
+        try:
+            job = model.objects.get(pk=job_id)
+            break
+        except model.DoesNotExist:
+            continue
+    if not job:
+        return Response({"error": "Job not found"}, status=404)
+    data = {
+        "status": job.status,
+        "progress": getattr(job, "progress", None),
+        "log": getattr(job, "log", "")[-500:],  # last N chars
+        "created_at": job.created_at,
+        "started_at": getattr(job, "started_at", None),
+        "finished_at": getattr(job, "finished_at", None),
+        "result_url": job.result_file.url
+        if getattr(job, "result_file", None)
+        else None,
+        "params": getattr(job, "params", None),
+    }
+    return Response(data, status=drf_status.HTTP_200_OK)
