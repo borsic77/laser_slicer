@@ -619,7 +619,7 @@ def project_geometry(
 
     for contour, geom in projected_geoms:
         rotated_geom = shapely.affinity.rotate(
-            geom, -rot_angle + 90, origin=center
+            geom, -rot_angle - 90, origin=center
         )  # adding 90 because everything got rotated by 90 deg cw, and i can't find the bug
         # Clean geometry strictly after rotation
         cleaned_geom = clean_geometry_strict(rotated_geom)

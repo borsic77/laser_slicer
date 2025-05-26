@@ -12,7 +12,7 @@
  *  - Coordinates state and cross-component updates for a responsive UX.
  */
 
-import { useEffect, useReducer, useRef, useState } from 'react';
+import { useEffect, useReducer, useState } from 'react';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import './App.css';
@@ -107,8 +107,6 @@ function App() {
 
   // Slicer parameters (substrate, thickness, height/layers, etc) managed via reducer for coupled updates
   const [params, dispatch] = useReducer(slicerReducer, initialSlicerParams);
-  // Tracks which of heightPerLayer or numLayers was changed last, so the other can be auto-updated after elevation stats arrive
-  const lastChanged = useRef<'height' | 'layers' | null>(null);
 
   // Geometry simplification amount (0=no simplification); affects contour detail level
   const [simplify, setSimplify] = useState(0);
@@ -190,8 +188,6 @@ function App() {
     if (!bounds) return;
     const dims = getWidthHeightMeters(bounds);
     setAreaStats(dims);
-    // When bounds change, update lastChanged to 'height' so numLayers is updated from heightPerLayer after elevation stats are fetched
-    lastChanged.current = 'height';
     const controller = new AbortController();
 
     const fetchData = async () => {
@@ -212,28 +208,18 @@ function App() {
   }, [bounds]);
 
   /**
-   * React effect: When elevationStats or relevant params change, synchronize heightPerLayer and numLayers.
-   * Triggers: runs whenever elevationStats, params.heightPerLayer, or params.numLayers change.
-   * Side effects: Updates the coupled parameter (numLayers or heightPerLayer) based on which was changed last.
+   * React effect: When elevationStats or numLayers change, synchronize heightPerLayer.
+   * Triggers: runs whenever elevationStats or params.numLayers change.
+   * Side effects: Updates heightPerLayer based on numLayers and elevationStats.
    */
   useEffect(() => {
     if (!elevationStats) return;
     const range = elevationStats.max - elevationStats.min;
-    const which = lastChanged.current;
-    lastChanged.current = null;
-
-    if (which === 'height') {
-      const newNum = Math.max(1, Math.round(range / params.heightPerLayer));
-      if (newNum !== params.numLayers) {
-        dispatch({ type: 'SET_NUM_LAYERS', value: newNum });
-      }
-    } else if (which === 'layers') {
-      const newHeight = Math.max(10, Math.min(5000, range / params.numLayers));
-      if (newHeight !== params.heightPerLayer) {
-        dispatch({ type: 'SET_HEIGHT_PER_LAYER', value: newHeight });
-      }
+    const newHeight = Math.max(10, Math.min(5000, range / params.numLayers));
+    if (newHeight !== params.heightPerLayer) {
+      dispatch({ type: 'SET_HEIGHT_PER_LAYER', value: newHeight });
     }
-  }, [elevationStats, params.heightPerLayer, params.numLayers]);
+  }, [elevationStats, params.numLayers]);
 
   /**
    * Fetch latitude/longitude coordinates for a given address from the backend geocoding API.
@@ -438,21 +424,6 @@ function App() {
 
           <div className="parameters">
             <label>
-              Height per layer (m):
-              <input
-                type="number"
-                id="layer-height"
-                value={params.heightPerLayer}
-                min={10} // meters per layer
-                max={5000} 
-                onChange={(e) => {
-                  const val = Math.max(10, Math.min(5000, Number(e.target.value)));
-                  lastChanged.current = 'height';
-                  dispatch({ type: 'SET_HEIGHT_PER_LAYER', value: val });
-                }}
-              />
-            </label>
-            <label>
               Number of layers:
               <input
                 type="number"
@@ -461,11 +432,16 @@ function App() {
                 min={1} // At least 1 layer
                 onChange={(e) => {
                   const val = Math.max(1, Math.floor(Number(e.target.value)));
-                  lastChanged.current = 'layers';
                   dispatch({ type: 'SET_NUM_LAYERS', value: val });
                 }}
               />
             </label>
+            <label>
+              Height per layer:
+              <span style={{ marginLeft: '0.5em', fontWeight: 'bold' }}>{params.heightPerLayer.toFixed(1)}</span>
+              m<br />
+              <br />
+            </label>            
             <label title="Reduce geometry complexity by removing small details. 0 = no simplification.">
               Simplify shape:
               <input
