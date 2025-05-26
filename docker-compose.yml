@@ -1,4 +1,16 @@
+
 services:
+  db:
+    image: postgres:16
+    restart: always
+    env_file: .env
+    environment:
+      POSTGRES_HOST: db      
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
   backend:
     build:
       context: .
@@ -6,15 +18,44 @@ services:
     volumes:
       - ./core:/app/core
       - ./pyproject.toml:/app/pyproject.toml
+      - ./media:/app/media
+    env_file: .env
     environment:
-      DJANGO_SECRET_KEY: "testexample"
-      DJANGO_DEBUG: "True"
       DJANGO_ALLOWED_HOSTS: "localhost,127.0.0.1,backend"
       USER_AGENT: "laser-slicer/1.0 (boris.legradic@gmail.com)"
+      CELERY_BROKER_URL: "redis://redis:6379/0"
+      CELERY_RESULT_BACKEND: "redis://redis:6379/0"
     ports:
       - "8000:8000"
     depends_on:
+      - db
       - frontend
+      - redis
+  
+  celeryworker:
+    build:
+      context: .
+      dockerfile: core/Dockerfile
+    command: celery -A core worker -l info
+    volumes:
+      - ./core:/app/core
+      - ./pyproject.toml:/app/pyproject.toml
+      - ./media:/app/media
+    env_file: .env  
+    environment:
+      DJANGO_ALLOWED_HOSTS: "localhost,127.0.0.1,backend"
+      USER_AGENT: "laser-slicer/1.0 (boris.legradic@gmail.com)"
+      CELERY_BROKER_URL: "redis://redis:6379/0"
+      CELERY_RESULT_BACKEND: "redis://redis:6379/0"
+    depends_on:
+      - db
+      - redis
+      - backend
+
+  redis:
+    image: redis:7
+    ports:
+      - "6379:6379"
 
   frontend:
     build:
@@ -25,3 +66,6 @@ services:
     ports:
       - "5173:5173"
     command: npm run dev -- --host
+
+volumes:
+  pgdata:

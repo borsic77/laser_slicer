@@ -143,11 +143,17 @@ WSGI_APPLICATION = "config.wsgi.application"
 
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
-
+POSTGRES_HOST = os.environ.get(
+    "POSTGRES_HOST", "localhost"
+)  # Use localhost outside Docker, 'db' inside
 DATABASES = {
     "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": os.environ.get("POSTGRES_DB", "laserslicer"),
+        "USER": os.environ.get("POSTGRES_USER", "laserslicer"),
+        "PASSWORD": os.environ.get("POSTGRES_PASSWORD", "laserslicer"),
+        "HOST": os.environ.get("POSTGRES_HOST", "db"),
+        "PORT": os.environ.get("POSTGRES_PORT", 5432),
     }
 }
 

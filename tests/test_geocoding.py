@@ -1,10 +1,12 @@
 import pytest
 
-from core.utils.geocoding import geocode_address
+from core.utils.geocoding import Coordinates, geocode_address
 
 
 def test_geocode_yverdon():
-    lat, lon = geocode_address("Yverdon-les-Bains, Switzerland")
+    coords = geocode_address("Yverdon-les-Bains, Switzerland")
+    assert isinstance(coords, Coordinates)
+    lat, lon = coords.lat, coords.lon
     assert isinstance(lat, float)
     assert isinstance(lon, float)
     assert 46 <= lat <= 47
@@ -22,7 +24,9 @@ def test_geocode_empty_address():
 
 
 def test_geocode_special_characters():
-    lat, lon = geocode_address("Café de Flore, Paris, France")
+    coords = geocode_address("Café de Flore, Paris, France")
+    assert isinstance(coords, Coordinates)
+    lat, lon = coords.lat, coords.lon
     assert isinstance(lat, float)
     assert isinstance(lon, float)
     assert 48 <= lat <= 49
@@ -30,9 +34,11 @@ def test_geocode_special_characters():
 
 
 def test_geocode_long_address():
-    lat, lon = geocode_address(
+    coords = geocode_address(
         "1600 Amphitheatre Parkway, Mountain View, CA 94043, United States"
     )
+    assert isinstance(coords, Coordinates)
+    lat, lon = coords.lat, coords.lon
     assert isinstance(lat, float)
     assert isinstance(lon, float)
     assert 37 <= lat <= 38
@@ -40,7 +46,9 @@ def test_geocode_long_address():
 
 
 def test_geocode_address_with_zip():
-    lat, lon = geocode_address("10001, New York, NY, USA")
+    coords = geocode_address("10001, New York, NY, USA")
+    assert isinstance(coords, Coordinates)
+    lat, lon = coords.lat, coords.lon
     assert isinstance(lat, float)
     assert isinstance(lon, float)
     assert 40 <= lat <= 41

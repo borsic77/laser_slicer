@@ -485,7 +485,7 @@ function App() {
             and all slicer/geometry parameters. Changes here update
             state and drive slicing/export logic. */}
         <div className="sidebar">
-          <button onClick={() => setShowManual(true)}>Manual ❓</button>
+          <button onClick={() => setShowManual(true)}>Show Help</button>
           <div className="controls">
             <input
               type="text"

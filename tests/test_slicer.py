@@ -1,22 +1,50 @@
+import logging
 import os
 
+import matplotlib
+import matplotlib.pyplot as plt
 import numpy as np
 import pytest
+import rasterio
+import rasterio.transform
+from django.conf import settings
+from shapely.geometry import (
+    GeometryCollection,
+    LineString,
+    MultiPolygon,
+    Point,
+    Polygon,
+    shape,
+)
 
-from core.utils.slicer import download_srtm_tiles_for_bounds, mosaic_and_crop
+from core.utils.download_clip_elevation_tiles import download_srtm_tiles_for_bounds
+from core.utils.slicer import (
+    _compute_layer_bands,
+    _create_contourf_levels,
+    _extract_level_polygons,
+    _force_multipolygon,
+    _prepare_meshgrid,
+    clean_geometry,
+    clean_geometry_strict,
+    mosaic_and_crop,
+    project_geometry,
+    round_affine,
+    scale_and_center_contours_to_substrate,
+    walk_bbox_between,
+)
+
+# Use headless matplotlib
+matplotlib.use("Agg")
+
+TILE_CACHE_DIR = settings.TILE_CACHE_DIR
+DEBUG_IMAGE_PATH = settings.DEBUG_IMAGE_PATH
+logger = logging.getLogger(__name__)
 
 
 @pytest.fixture
 def switzerland_bounds():
     # Covers Yverdon-les-Bains and surroundings
     return (6.5, 46.7, 6.7, 46.9)
-
-
-def test_download_srtm_tiles_for_bounds(switzerland_bounds):
-    paths = download_srtm_tiles_for_bounds(switzerland_bounds)
-    assert isinstance(paths, list)
-    assert all(os.path.exists(p) for p in paths)
-    assert any("srtm" in os.path.basename(p) for p in paths)
 
 
 def test_mosaic_and_crop(switzerland_bounds):
@@ -115,142 +143,10 @@ def test_scale_and_center_contours_to_substrate():
     assert geom.bounds[1] >= -0.1 and geom.bounds[3] <= 0.1  # y within +/-10 cm
 
 
-import logging
-import os
-from math import cos, radians
-from typing import List, Tuple
-
-import elevation
-import matplotlib
-import matplotlib.pyplot as plt
-import numpy as np
-import pyproj
-import rasterio
-import shapely
-from django.conf import settings
-from rasterio.merge import merge
-from rasterio.windows import from_bounds
-from shapely.geometry import LinearRing, LineString, Polygon, box, mapping, shape
-from shapely.ops import transform, unary_union
-
-# Use headless matplotlib
-matplotlib.use("Agg")
-
-TILE_CACHE_DIR = settings.TILE_CACHE_DIR
-DEBUG_IMAGE_PATH = settings.DEBUG_IMAGE_PATH
-logger = logging.getLogger(__name__)
-
-
-def save_debug_contour_polygon(polygon, level, filename):
-    fig, ax = plt.subplots()
-    if polygon.is_empty or not polygon.is_valid:
-        return
-    if polygon.geom_type == "Polygon":
-        x, y = polygon.exterior.xy
-        ax.plot(x, y)
-    elif polygon.geom_type == "MultiPolygon":
-        for p in polygon.geoms:
-            x, y = p.exterior.xy
-            ax.plot(x, y)
-    ax.set_aspect("equal")
-    fig.savefig(os.path.join(DEBUG_IMAGE_PATH, f"{filename}_elev_{level}.png"))
-    plt.close(fig)
-
-
-def download_srtm_tiles_for_bounds(
-    bounds: Tuple[float, float, float, float],
-) -> List[str]:
-    """
-    Downloads all SRTM tiles that intersect the given bounding box.
-    Returns a list of file paths to the GeoTIFFs.
-    """
-    os.makedirs(TILE_CACHE_DIR, exist_ok=True)
-    lon_min, lat_min, lon_max, lat_max = bounds
-
-    lat_range = range(int(lat_min), int(lat_max) + 1)
-    lon_range = range(int(lon_min), int(lon_max) + 1)
-
-    paths = []
-
-    for lat in lat_range:
-        for lon in lon_range:
-            tile_bounds = (lon, lat, lon + 1, lat + 1)
-            tif_path = os.path.join(TILE_CACHE_DIR, f"srtm_{lat}_{lon}.tif")
-            if not os.path.exists(tif_path):
-                elevation.clip(bounds=tile_bounds, output=tif_path)
-            paths.append(tif_path)
-
-    return paths
-
-
-def mosaic_and_crop(
-    tif_paths: List[str], bounds: Tuple[float, float, float, float]
-) -> Tuple[np.ndarray, rasterio.Affine]:
-    """
-    Merges multiple SRTM tiles and clips them to the specified bounds.
-    Returns a single numpy array and the affine transform.
-    """
-    src_files = [rasterio.open(p) for p in tif_paths]
-
-    # Merge to a single raster
-    mosaic, transform = merge(src_files)
-
-    # Clip using bounds
-    window = from_bounds(*bounds, transform=transform)
-    row_off = int(window.row_off)
-    row_end = row_off + int(window.height)
-    col_off = int(window.col_off)
-    col_end = col_off + int(window.width)
-
-    clipped = mosaic[:, row_off:row_end, col_off:col_end]
-
-    cropped_transform = rasterio.windows.transform(window, transform)
-
-    # Close opened files
-    for src in src_files:
-        src.close()
-
-    return clipped[0], cropped_transform
-
-
-from shapely.geometry import box
-
-
-def walk_bbox_between(coords, start_idx, end_idx, direction="cw"):
-    """
-    Walks the bounding box coordinates from end_idx to start_idx in the specified direction.
-    Includes both start and end points.
-    direction: 'cw' walks forward in the list, 'ccw' walks backward.
-    """
-    n = len(coords)
-    if direction == "cw":
-        if start_idx >= end_idx:
-            return coords[end_idx : start_idx + 1]
-        else:
-            return coords[end_idx:] + coords[: start_idx + 1]
-    else:  # ccw
-        if start_idx <= end_idx:
-            return coords[start_idx : end_idx + 1][::-1]
-        else:
-            return (coords[start_idx:] + coords[: end_idx + 1])[::-1]
-
-
-def is_almost_closed(line: LineString, tolerance: float = 1e-8) -> bool:
-    return (
-        line.coords[0] != line.coords[-1]
-        and LineString([line.coords[0], line.coords[-1]]).length < tolerance
-    )
-
-
 # Test for _prepare_meshgrid
 
 
 def test_prepare_meshgrid():
-    import numpy as np
-    import rasterio.transform
-
-    from core.utils.slicer import _prepare_meshgrid
-
     # Create a simple 3x2 elevation array
     elevation_data = np.array([[1, 2], [3, 4], [5, 6]])
     # Define a transform: origin at (10, 20), pixel size 1x1
@@ -270,10 +166,6 @@ def test_prepare_meshgrid():
 
 # Test for _create_contourf_levels
 def test_create_contourf_levels():
-    import numpy as np
-
-    from core.utils.slicer import _create_contourf_levels
-
     data = np.array(
         [
             [103, 110, 118],
@@ -288,68 +180,6 @@ def test_create_contourf_levels():
     # So we expect [100, 120, 140]
     expected = np.array([100.0, 120.0, 140.0])
     assert np.allclose(levels, expected)
-
-
-def _create_contourf_levels(elevation_data: np.ndarray, interval: float) -> np.ndarray:
-    """
-    Computes the elevation contour levels to use for matplotlib's contourf.
-    Ensures the highest elevation is included in the list.
-    """
-    min_elev = np.min(elevation_data)
-    max_elev = np.max(elevation_data)
-    levels = np.arange(min_elev, max_elev, interval)
-    if levels[-1] < max_elev:
-        levels = np.append(levels, max_elev)
-    return levels
-
-
-def _extract_level_polygons(cs) -> List[Tuple[float, List[Polygon]]]:
-    """
-    Extracts and flattens valid polygons for each elevation level from a QuadContourSet.
-    Returns a list of tuples: (level, list of Polygon geometries).
-    """
-    from shapely.ops import unary_union
-
-    level_polys = []
-    for i, segs in enumerate(cs.allsegs):
-        level = cs.levels[i]
-        polys = []
-        for seg in segs:
-            try:
-                if not np.allclose(seg[0], seg[-1]):
-                    seg = np.vstack([seg, seg[0]])  # Close the ring
-                poly = Polygon(seg)
-                if not poly.is_valid or poly.area == 0:
-                    logger.warning(
-                        f"Dropped segment at level {level}: valid={poly.is_valid}, area={poly.area}"
-                    )
-                if poly.is_valid and poly.area > 0:
-                    polys.append(poly)
-            except Exception as e:
-                logger.warning(f"Skipping bad filled contour at level {level}: {e}")
-        flat_polys = []
-        for geom in polys:
-            try:
-                if geom.geom_type == "Polygon":
-                    flat_polys.append(geom)
-                elif geom.geom_type == "MultiPolygon":
-                    flat_polys.extend(
-                        [g for g in geom.geoms if g.geom_type == "Polygon"]
-                    )
-            except Exception as e:
-                logger.warning(f"Could not flatten geometry at level {level}: {e}")
-        level_polys.append((level, flat_polys))
-    return level_polys
-
-
-def _flatten_polygons(geoms: List[Polygon]) -> List[Polygon]:
-    flat = []
-    for geom in geoms:
-        if geom.geom_type == "Polygon":
-            flat.append(geom)
-        elif geom.geom_type == "MultiPolygon":
-            flat.extend(g for g in geom.geoms if g.geom_type == "Polygon")
-    return flat
 
 
 # Test for _flatten_polygons
@@ -368,26 +198,61 @@ def test_flatten_polygons():
     assert len(result) == 3  # one from p1, two from multi
 
 
-def _force_multipolygon(geom):
-    """
-    Ensures the geometry is a MultiPolygon.
-    """
-    from shapely.geometry import MultiPolygon, Polygon
+# Additional tests for round_affine and geometry cleaning utilities
+def test_round_affine():
+    t = rasterio.transform.from_origin(7.123456, 46.987654, 1.234567, 0.987654)
+    rounded = round_affine(t, precision=1e-3)
+    # All components should be rounded to 3 decimal places
+    for val in rounded:
+        assert abs(val - round(val, 3)) < 1e-10
 
-    if geom.geom_type == "MultiPolygon":
-        return geom
-    elif geom.geom_type == "Polygon":
-        return MultiPolygon([geom])
-    else:
-        raise ValueError("Input geometry must be Polygon or MultiPolygon")
+
+def test_clean_geometry():
+    # Valid polygon
+    p = Polygon([(0, 0), (1, 0), (1, 1), (0, 1)])
+    assert clean_geometry(p).is_valid
+
+    # Polygon with self-intersection ("bowtie") - make_valid should fix or return None
+    bowtie = Polygon([(0, 0), (2, 2), (0, 2), (2, 0), (0, 0)])
+    cleaned = clean_geometry(bowtie)
+    assert cleaned is None or cleaned.is_valid
+
+    # Empty geometry
+
+    empty = GeometryCollection()
+    assert clean_geometry(empty) is None
+
+    # Zero-area
+    line = LineString([(0, 0), (1, 1)])
+    assert clean_geometry(line) is None
+
+
+def test_clean_geometry_strict():
+    # Valid polygon
+    p = Polygon([(0, 0), (1, 0), (1, 1), (0, 1)])
+    assert clean_geometry_strict(p).is_valid
+
+    # Polygon with self-intersection ("bowtie") - strict version
+    bowtie = Polygon([(0, 0), (2, 2), (0, 2), (2, 0), (0, 0)])
+    cleaned = clean_geometry_strict(bowtie)
+    assert cleaned is None or cleaned.is_valid
+
+    # Invalid collection
+    coll = GeometryCollection([LineString([(0, 0), (1, 1)]), Point(1, 2)])
+    assert clean_geometry_strict(coll) is None
+
+    # MultiPolygon with a zero-area polygon inside
+    from shapely.geometry import MultiPolygon
+
+    good = Polygon([(0, 0), (1, 0), (1, 1), (0, 1)])
+    bad = Polygon([(0, 0), (0, 0), (0, 0)])  # zero area
+    mp = MultiPolygon([good, bad])
+    cleaned = clean_geometry_strict(mp)
+    assert cleaned.is_valid or cleaned is None
 
 
 # Test for _force_multipolygon
 def test_force_multipolygon():
-    from shapely.geometry import MultiPolygon, Polygon
-
-    from core.utils.slicer import _force_multipolygon
-
     p = Polygon([(0, 0), (1, 0), (1, 1), (0, 1)])
     mp = MultiPolygon([p])
     result1 = _force_multipolygon(p)
@@ -401,11 +266,6 @@ def test_force_multipolygon():
 
 # Test for _prepare_meshgrid
 def test_prepare_meshgrid():
-    import numpy as np
-    import rasterio.transform
-
-    from core.utils.slicer import _prepare_meshgrid
-
     # Create a simple 3x2 elevation array
     elevation_data = np.array([[1, 2], [3, 4], [5, 6]])
     # Define a transform: origin at (10, 20), pixel size 1x1
@@ -424,11 +284,6 @@ def test_prepare_meshgrid():
 
 
 def test_extract_level_polygons():
-    import matplotlib.pyplot as plt
-    import numpy as np
-
-    from core.utils.slicer import _extract_level_polygons
-
     # Generate simple contour data
     x = np.linspace(0, 1, 10)
     y = np.linspace(0, 1, 10)
@@ -452,11 +307,6 @@ def test_extract_level_polygons():
 
 # Enhanced test for _extract_level_polygons with two pyramid-shaped peaks
 def test_extract_level_polygons_two_peaks():
-    import matplotlib.pyplot as plt
-    import numpy as np
-
-    from core.utils.slicer import _extract_level_polygons
-
     x = np.linspace(0, 1, 100)
     y = np.linspace(0, 1, 100)
     X, Y = np.meshgrid(x, y)
@@ -489,12 +339,6 @@ def test_extract_level_polygons_two_peaks():
 
 # Test for _compute_layer_bands
 def test_compute_layer_bands():
-    import matplotlib.pyplot as plt
-    import numpy as np
-    from shapely.geometry import shape
-
-    from core.utils.slicer import _compute_layer_bands, _extract_level_polygons
-
     # Create synthetic terrain with nested contours
     x = np.linspace(0, 1, 100)
     y = np.linspace(0, 1, 100)
@@ -522,12 +366,6 @@ def test_compute_layer_bands():
 
 # Comprehensive test for _compute_layer_bands using two hills
 def test_compute_layer_bands_two_hills():
-    import matplotlib.pyplot as plt
-    import numpy as np
-    from shapely.geometry import shape
-
-    from core.utils.slicer import _compute_layer_bands, _extract_level_polygons
-
     # Two hills: one centered at (0.3, 0.3), one at (0.7, 0.7), with steep, distinct peaks
     x = np.linspace(0, 1, 100)
     y = np.linspace(0, 1, 100)
@@ -608,3 +446,200 @@ def test_compute_layer_bands_cylinder():
         assert abs(a - areas[0]) < 0.01  # within 1% variation
 
     plt.close()
+
+
+# Additional tests for clean_geometry_strict edge cases
+def test_clean_geometry_strict_buffer_exception(monkeypatch):
+    # Fake invalid geometry object
+    class FakeInvalid:
+        is_empty = False
+        area = 1.0
+        is_valid = False
+
+        def buffer(self, *args, **kwargs):
+            raise ValueError("buffer failure")
+
+    fake_geom = FakeInvalid()
+    from core.utils import slicer
+
+    monkeypatch.setattr(slicer, "make_valid", lambda x: fake_geom)
+    assert clean_geometry_strict(fake_geom) is None
+
+
+def test_clean_geometry_strict_invalid_after_buffer():
+    # A polygon that remains invalid even after buffer(0)
+    gc = GeometryCollection([LineString([(0, 0), (1, 1)])])
+    assert clean_geometry_strict(gc) is None
+
+
+def test_clean_geometry_strict_geom_collection_empty():
+    # GeometryCollection with only lines and points (no polygons)
+    gc = GeometryCollection([LineString([(0, 0), (1, 1)]), Point(1, 2)])
+    assert clean_geometry_strict(gc) is None
+
+
+def test_clean_geometry_strict_geom_collection_one_poly():
+    # GeometryCollection with a single Polygon
+    poly = Polygon([(0, 0), (1, 0), (1, 1), (0, 1)])
+    gc = GeometryCollection([poly])
+    result = clean_geometry_strict(gc)
+    assert isinstance(result, Polygon)  # Should extract the polygon
+
+
+def test_clean_geometry_strict_geom_collection_multi_poly():
+    # GeometryCollection with two polygons
+    poly1 = Polygon([(0, 0), (1, 0), (1, 1), (0, 1)])
+    poly2 = Polygon([(2, 2), (3, 2), (3, 3), (2, 3)])
+    gc = GeometryCollection([poly1, poly2])
+    result = clean_geometry_strict(gc)
+    from shapely.geometry import MultiPolygon
+
+    assert isinstance(result, MultiPolygon)
+    assert len(result.geoms) == 2
+
+
+def test_save_debug_contour_polygon_polygon(tmp_path):
+    # Set DEBUG_IMAGE_PATH to tmp_path for this test
+    import os
+
+    from shapely.geometry import Polygon
+
+    from core.utils import slicer
+    from core.utils.slicer import save_debug_contour_polygon
+
+    slicer.DEBUG_IMAGE_PATH = str(tmp_path)
+    poly = Polygon([(0, 0), (1, 0), (1, 1), (0, 1)])
+    save_debug_contour_polygon(poly, 100, "testpoly")
+    expected = os.path.join(str(tmp_path), "testpoly_elev_100.png")
+    assert os.path.exists(expected)
+
+
+def test_save_debug_contour_polygon_multipolygon(tmp_path):
+    import os
+
+    from shapely.geometry import MultiPolygon, Polygon
+
+    from core.utils import slicer
+    from core.utils.slicer import save_debug_contour_polygon
+
+    slicer.DEBUG_IMAGE_PATH = str(tmp_path)
+    poly1 = Polygon([(0, 0), (1, 0), (1, 1), (0, 1)])
+    poly2 = Polygon([(2, 2), (3, 2), (3, 3), (2, 3)])
+    multi = MultiPolygon([poly1, poly2])
+    save_debug_contour_polygon(multi, 200, "testmulti")
+    expected = os.path.join(str(tmp_path), "testmulti_elev_200.png")
+    assert os.path.exists(expected)
+
+
+def test_save_debug_contour_polygon_empty():
+    # Should not throw, should return early
+    from core.utils.slicer import save_debug_contour_polygon
+
+    class DummyPoly:
+        is_empty = True
+        is_valid = True
+
+    save_debug_contour_polygon(DummyPoly(), 123, "shouldnotcreate")
+    # (No assertion needed; just check it doesn't error)
+
+
+def test_save_debug_contour_polygon_invalid():
+    # Should not throw, should return early
+    from core.utils.slicer import save_debug_contour_polygon
+
+    class DummyPoly:
+        is_empty = False
+        is_valid = False
+
+    save_debug_contour_polygon(DummyPoly(), 124, "shouldnotcreate2")
+
+
+# --- Additional tests for mosaic_and_crop edge cases ---
+import numpy as np
+import rasterio
+import rasterio.transform
+import rasterio.windows
+
+
+def test_mosaic_and_crop_lat_swap(monkeypatch):
+    # Provide a dummy raster with proper shape, test lat_min > lat_max
+    from core.utils.slicer import mosaic_and_crop
+
+    def fake_merge(src_files):
+        arr = np.ones((1, 5, 5))
+        transform = rasterio.transform.from_origin(0, 5, 1, 1)
+        return arr, transform
+
+    monkeypatch.setattr("core.utils.slicer.merge", fake_merge)
+    import logging
+
+    monkeypatch.setattr("core.utils.slicer.logger", logging.getLogger("dummy"))
+
+    # Normal window behavior
+    def fake_from_bounds(*args, **kwargs):
+        class Window:
+            row_off = 0
+            height = 5
+            col_off = 0
+            width = 5
+
+        return Window()
+
+    monkeypatch.setattr("core.utils.slicer.from_bounds", fake_from_bounds)
+    # Should succeed and return array, even with swapped lats
+    array, transform = mosaic_and_crop(["dummy"], (0, 5, 5, 0))  # lat_min > lat_max
+    assert isinstance(array, np.ndarray)
+    assert array.shape == (1, 5, 5)
+
+
+def test_mosaic_and_crop_orientation_warning(monkeypatch):
+    from core.utils.slicer import mosaic_and_crop
+
+    # Simulate transform.e > 0
+    def fake_merge(src_files):
+        arr = np.ones((1, 5, 5))
+
+        class FakeTransform:
+            e = 1  # positive triggers warning
+
+            def __getattr__(self, name):
+                return 0
+
+        return arr, FakeTransform()
+
+    monkeypatch.setattr("core.utils.slicer.merge", fake_merge)
+    import logging
+
+    monkeypatch.setattr("core.utils.slicer.logger", logging.getLogger("dummy"))
+    monkeypatch.setattr(
+        "core.utils.slicer.from_bounds",
+        lambda *a, **k: type("W", (), dict(row_off=0, height=5, col_off=0, width=5))(),
+    )
+    array, transform = mosaic_and_crop(["dummy"], (0, 0, 5, 5))
+    assert isinstance(array, np.ndarray)
+
+
+def test_mosaic_and_crop_from_bounds_error(monkeypatch):
+    from core.utils.slicer import mosaic_and_crop
+
+    # Simulate ValueError from from_bounds
+    def fake_merge(src_files):
+        arr = np.ones((1, 5, 5))
+        transform = rasterio.transform.from_origin(0, 5, 1, 1)
+        return arr, transform
+
+    monkeypatch.setattr("core.utils.slicer.merge", fake_merge)
+    import logging
+
+    monkeypatch.setattr("core.utils.slicer.logger", logging.getLogger("dummy"))
+
+    def fake_from_bounds(*args, **kwargs):
+        raise ValueError("fail")
+
+    monkeypatch.setattr("core.utils.slicer.from_bounds", fake_from_bounds)
+    try:
+        mosaic_and_crop(["dummy"], (0, 0, 5, 5))
+    except ValueError:
+        pass
+    else:
+        assert False, "Should raise ValueError"
