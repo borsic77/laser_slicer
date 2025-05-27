@@ -7,6 +7,11 @@ COPY frontend/package-lock.json ./
 RUN npm ci
 
 COPY frontend/ .
+# ...previous steps
+ARG VITE_API_URL
+ENV VITE_API_URL=$VITE_API_URL
+
+
 RUN npm run build
 
 # Stage 2: Serve static files with a tiny web server

@@ -17,6 +17,7 @@ dependencies = [
     "flower>=2.0.1",
     "gdal==3.6.2",
     "geojson>=3.2.0",
+    "gunicorn>=23.0.0",
     "matplotlib>=3.10.3",
     "numpy>=2.2.5",
     "psycopg2-binary>=2.9.10",

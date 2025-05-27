@@ -1,10 +1,8 @@
-version: "3.9"
-
 services:
   db:
     image: postgres:16
     restart: always
-    env_file: env.docker
+    env_file: .env.docker
     environment:
       POSTGRES_HOST: db
     volumes:
@@ -21,7 +19,7 @@ services:
     build:
       context: .
       dockerfile: core/Dockerfile.prod
-    env_file: env.docker
+    env_file: .env.docker
     environment:
       DJANGO_ALLOWED_HOSTS: "localhost,127.0.0.1,backend"
       USER_AGENT: "laser-slicer/1.0 (boris.legradic@gmail.com)"
@@ -39,7 +37,7 @@ services:
       context: .
       dockerfile: core/Dockerfile.prod
     command: celery -A core worker -l info
-    env_file: env.docker
+    env_file: .env.docker
     environment:
       DJANGO_ALLOWED_HOSTS: "localhost,127.0.0.1,backend"
       USER_AGENT: "laser-slicer/1.0 (boris.legradic@gmail.com)"
@@ -55,6 +53,8 @@ services:
     build:
       context: .
       dockerfile: frontend/Dockerfile.prod
+      args:
+        VITE_API_URL: "http://localhost:8000"      
     environment:
       - VITE_API_URL=http://localhost:8000
     ports:
