@@ -377,6 +377,19 @@ wheels = [
 ]
 
 [[package]]
+name = "dj-database-url"
+version = "2.3.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "django" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/98/9f/fc9905758256af4f68a55da94ab78a13e7775074edfdcaddd757d4921686/dj_database_url-2.3.0.tar.gz", hash = "sha256:ae52e8e634186b57e5a45e445da5dc407a819c2ceed8a53d1fac004cc5288787", size = 10980 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/e5/91/641a4e5c8903ed59f6cbcce571003bba9c5d2f731759c31db0ba83bb0bdb/dj_database_url-2.3.0-py3-none-any.whl", hash = "sha256:bb0d414ba0ac5cd62773ec7f86f8cc378a9dbb00a80884c2fc08cc570452521e", size = 7793 },
+]
+
+[[package]]
 name = "django"
 version = "5.2.1"
 source = { registry = "https://pypi.org/simple" }
@@ -696,6 +709,7 @@ version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
     { name = "celery", extra = ["redis"] },
+    { name = "dj-database-url" },
     { name = "django" },
     { name = "django-celery-beat" },
     { name = "django-celery-results" },
@@ -727,6 +741,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "celery", extras = ["redis"], specifier = ">=5.5.2" },
+    { name = "dj-database-url", specifier = ">=2.3.0" },
     { name = "django", specifier = ">=5.2.1" },
     { name = "django-celery-beat", specifier = ">=2.8.1" },
     { name = "django-celery-results", specifier = ">=2.6.0" },

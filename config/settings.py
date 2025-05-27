@@ -12,6 +12,21 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 
 import os
 from pathlib import Path
+import dj_database_url
+
+
+def get_env(var, default=None):
+    """
+    Get an environment variable, or raise an error if not found.
+    If a default value is provided, return that instead.
+    """
+    val = os.environ.get(var)
+    if val is not None:
+        return val
+    if default is not None:
+        return default
+    raise RuntimeError(f"Missing required env var: {var}")
+
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -42,6 +57,35 @@ NOMINATIM_USER_AGENT = os.getenv("USER_AGENT", "laser-slicer/1.0 (contact@email.
 
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
+
+
+# On Render, prefer DATABASE_URL and REDIS_URL
+if "DATABASE_URL" in os.environ:
+    DATABASES = {"default": dj_database_url.parse(os.environ["DATABASE_URL"])}
+else:
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": os.environ.get("POSTGRES_DB", "laserslicer"),
+            "USER": os.environ.get("POSTGRES_USER", "laserslicer"),
+            "PASSWORD": os.environ.get("POSTGRES_PASSWORD", "laserslicer"),
+            "HOST": os.environ.get("POSTGRES_HOST", "localhost"),
+            "PORT": os.environ.get("POSTGRES_PORT", 5432),
+        }
+    }
+
+
+# Celery
+# Celery/Redis
+CELERY_BROKER_URL = os.environ.get(
+    "CELERY_BROKER_URL", os.environ.get("REDIS_URL", "redis://localhost:6379/0")
+)
+CELERY_RESULT_BACKEND = os.environ.get(
+    "CELERY_RESULT_BACKEND", os.environ.get("REDIS_URL", "redis://localhost:6379/0")
+)
+CELERY_TASK_TIME_LIMIT = 900  # 15 min safety net
+CELERY_TASK_SOFT_TIME_LIMIT = 840
+
 
 if not DEBUG:
     SESSION_COOKIE_SECURE = True
@@ -140,33 +184,6 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "config.wsgi.application"
 
-
-def get_env(var, default=None):
-    val = os.environ.get(var)
-    if val is not None:
-        return val
-    if default is not None:
-        return default
-    raise RuntimeError(f"Missing required env var: {var}")
-
-
-# Database
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.postgresql",
-        "NAME": get_env("POSTGRES_DB", "laserslicer"),
-        "USER": get_env("POSTGRES_USER", "laserslicer"),
-        "PASSWORD": get_env("POSTGRES_PASSWORD", "laserslicer"),
-        "HOST": get_env("POSTGRES_HOST", "localhost"),
-        "PORT": get_env("POSTGRES_PORT", 5432),
-    }
-}
-
-# Celery
-CELERY_BROKER_URL = get_env("CELERY_BROKER_URL", "redis://localhost:6379/0")
-CELERY_RESULT_BACKEND = get_env("CELERY_RESULT_BACKEND", "redis://localhost:6379/0")
-CELERY_TASK_TIME_LIMIT = 900  # 15 min safety net
-CELERY_TASK_SOFT_TIME_LIMIT = 840
 
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators

@@ -624,14 +624,17 @@ function App() {
           </div>
           <div id="preview-3d">
             <h2>3D Preview</h2>
-            { slicing ? <p>⏳ Slicing in progress...</p> : <ContourPreview layers={contourLayers} /> }
+            { slicing ? <p>⏳ Slicing in progress...</p> : (contourLayers.length > 0 ? <ContourPreview layers={contourLayers} /> : <p>No contours available.</p>) }
           </div>
         </div>
         {/* ─────────────── Info Sidebar Section ───────────────
             Shows summary info for the selected area: center coordinates,
             width/height (meters), and elevation range (meters).
             Updated as user selects new areas or after slicing. */}
-        {console.log("Rendering sidebar, elevationStats =", elevationStats)}
+        {(() => {
+          console.log("Rendering sidebar, elevationStats =", elevationStats);
+          return null;
+        })()}
         <div className="info-sidebar">
           <h2>Area Info</h2>
           <p><strong>Center:</strong> {coordinates ? `${coordinates[0].toFixed(5)}, ${coordinates[1].toFixed(5)}` : 'N/A'}</p>

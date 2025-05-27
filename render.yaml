@@ -1,0 +1,60 @@
+# render.yaml
+
+services:
+  - type: web
+    name: laser-slicer-backend
+    env: python
+    buildCommand: |
+      pip install --upgrade pip
+      pip install poetry
+      poetry install
+      # You may also need: python manage.py collectstatic --noinput
+    startCommand: poetry run python manage.py migrate && poetry run gunicorn core.wsgi:application --bind 0.0.0.0:10000
+    envVars:
+      - key: DJANGO_SECRET_KEY
+        generateValue: true
+      - key: DJANGO_DEBUG
+        value: 'False'
+      - key: DATABASE_URL
+        fromDatabase:
+          name: laser-slicer-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: laser-slicer-redis
+          property: connectionString
+      - key: ALLOWED_HOSTS
+        value: laser-slicer.onrender.com,laser_slicer.legradic.ch
+      # Add more as needed (EMAIL_HOST, etc.)
+
+  - type: worker
+    name: laser-slicer-celery
+    env: python
+    buildCommand: |
+      pip install --upgrade pip
+      pip install poetry
+      poetry install
+    startCommand: poetry run celery -A core worker -l info
+    envVars:
+      - key: DJANGO_SECRET_KEY
+        sync: true
+      - key: DJANGO_DEBUG
+        value: 'False'
+      - key: DATABASE_URL
+        fromDatabase:
+          name: laser-slicer-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: laser-slicer-redis
+          property: connectionString
+
+  - type: redis
+    name: laser-slicer-redis
+
+databases:
+  - name: laser-slicer-db
+    databaseName: laserslicer
+    user: laserslicer
