@@ -141,25 +141,30 @@ TEMPLATES = [
 WSGI_APPLICATION = "config.wsgi.application"
 
 
+def get_env(var, default=None):
+    val = os.environ.get(var)
+    if val is not None:
+        return val
+    if default is not None:
+        return default
+    raise RuntimeError(f"Missing required env var: {var}")
+
+
 # Database
-# https://docs.djangoproject.com/en/5.2/ref/settings/#databases
-POSTGRES_HOST = os.environ.get(
-    "POSTGRES_HOST", "localhost"
-)  # Use localhost outside Docker, 'db' inside
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
-        "NAME": os.environ.get("POSTGRES_DB", "laserslicer"),
-        "USER": os.environ.get("POSTGRES_USER", "laserslicer"),
-        "PASSWORD": os.environ.get("POSTGRES_PASSWORD", "laserslicer"),
-        "HOST": os.environ.get("POSTGRES_HOST", "db"),
-        "PORT": os.environ.get("POSTGRES_PORT", 5432),
+        "NAME": get_env("POSTGRES_DB", "laserslicer"),
+        "USER": get_env("POSTGRES_USER", "laserslicer"),
+        "PASSWORD": get_env("POSTGRES_PASSWORD", "laserslicer"),
+        "HOST": get_env("POSTGRES_HOST", "localhost"),
+        "PORT": get_env("POSTGRES_PORT", 5432),
     }
 }
 
-# CELERY
-CELERY_BROKER_URL = "redis://localhost:6379/0"
-CELERY_RESULT_BACKEND = "django-db"
+# Celery
+CELERY_BROKER_URL = get_env("CELERY_BROKER_URL", "redis://localhost:6379/0")
+CELERY_RESULT_BACKEND = get_env("CELERY_RESULT_BACKEND", "redis://localhost:6379/0")
 CELERY_TASK_TIME_LIMIT = 900  # 15 min safety net
 CELERY_TASK_SOFT_TIME_LIMIT = 840
 

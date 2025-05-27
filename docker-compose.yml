@@ -3,7 +3,7 @@ services:
   db:
     image: postgres:16
     restart: always
-    env_file: .env
+    env_file: .env.docker
     environment:
       POSTGRES_HOST: db      
     volumes:
@@ -19,7 +19,7 @@ services:
       - ./core:/app/core
       - ./pyproject.toml:/app/pyproject.toml
       - ./media:/app/media
-    env_file: .env
+    env_file: .env.docker
     environment:
       DJANGO_ALLOWED_HOSTS: "localhost,127.0.0.1,backend"
       USER_AGENT: "laser-slicer/1.0 (boris.legradic@gmail.com)"
@@ -41,7 +41,7 @@ services:
       - ./core:/app/core
       - ./pyproject.toml:/app/pyproject.toml
       - ./media:/app/media
-    env_file: .env  
+    env_file: .env.docker  
     environment:
       DJANGO_ALLOWED_HOSTS: "localhost,127.0.0.1,backend"
       USER_AGENT: "laser-slicer/1.0 (boris.legradic@gmail.com)"

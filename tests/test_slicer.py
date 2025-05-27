@@ -567,8 +567,16 @@ def test_mosaic_and_crop_lat_swap(monkeypatch):
 
     def fake_merge(src_files):
         arr = np.ones((1, 5, 5))
+        # Use a real affine transform (which is a tuple)
         transform = rasterio.transform.from_origin(0, 5, 1, 1)
-        return arr, transform
+
+        # Replace the .e attribute by subclassing
+        class CustomTransform(type(transform)):
+            @property
+            def e(self):
+                return 1
+
+        return arr, CustomTransform(*transform)
 
     monkeypatch.setattr("core.utils.slicer.merge", fake_merge)
     import logging
@@ -596,16 +604,19 @@ def test_mosaic_and_crop_orientation_warning(monkeypatch):
     from core.utils.slicer import mosaic_and_crop
 
     # Simulate transform.e > 0
+
     def fake_merge(src_files):
         arr = np.ones((1, 5, 5))
+        # Use a real affine transform (which is a tuple)
+        transform = rasterio.transform.from_origin(0, 5, 1, 1)
 
-        class FakeTransform:
-            e = 1  # positive triggers warning
+        # Replace the .e attribute by subclassing
+        class CustomTransform(type(transform)):
+            @property
+            def e(self):
+                return 1
 
-            def __getattr__(self, name):
-                return 0
-
-        return arr, FakeTransform()
+        return arr, CustomTransform(*transform)
 
     monkeypatch.setattr("core.utils.slicer.merge", fake_merge)
     import logging
@@ -615,6 +626,13 @@ def test_mosaic_and_crop_orientation_warning(monkeypatch):
         "core.utils.slicer.from_bounds",
         lambda *a, **k: type("W", (), dict(row_off=0, height=5, col_off=0, width=5))(),
     )
+
+    # Patch rasterio.open
+    class DummySrc:
+        pass
+
+    monkeypatch.setattr("rasterio.open", lambda *a, **k: DummySrc())
+
     array, transform = mosaic_and_crop(["dummy"], (0, 0, 5, 5))
     assert isinstance(array, np.ndarray)
 
@@ -622,24 +640,31 @@ def test_mosaic_and_crop_orientation_warning(monkeypatch):
 def test_mosaic_and_crop_from_bounds_error(monkeypatch):
     from core.utils.slicer import mosaic_and_crop
 
-    # Simulate ValueError from from_bounds
+    # Patch rasterio.open to return a dummy object
+    class DummySrc:
+        pass
+
+    monkeypatch.setattr("rasterio.open", lambda *a, **k: DummySrc())
+
+    # Simulate merge to return a valid array and transform
     def fake_merge(src_files):
         arr = np.ones((1, 5, 5))
+        import rasterio.transform
+
         transform = rasterio.transform.from_origin(0, 5, 1, 1)
         return arr, transform
 
     monkeypatch.setattr("core.utils.slicer.merge", fake_merge)
+
     import logging
 
     monkeypatch.setattr("core.utils.slicer.logger", logging.getLogger("dummy"))
 
+    # Raise in from_bounds
     def fake_from_bounds(*args, **kwargs):
         raise ValueError("fail")
 
     monkeypatch.setattr("core.utils.slicer.from_bounds", fake_from_bounds)
-    try:
+
+    with pytest.raises(ValueError):
         mosaic_and_crop(["dummy"], (0, 0, 5, 5))
-    except ValueError:
-        pass
-    else:
-        assert False, "Should raise ValueError"
