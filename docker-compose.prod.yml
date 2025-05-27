@@ -1,0 +1,66 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgres:16
+    restart: always
+    env_file: env.docker
+    environment:
+      POSTGRES_HOST: db
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  redis:
+    image: redis:7
+    ports:
+      - "6379:6379"
+
+  backend:
+    build:
+      context: .
+      dockerfile: core/Dockerfile.prod
+    env_file: env.docker
+    environment:
+      DJANGO_ALLOWED_HOSTS: "localhost,127.0.0.1,backend"
+      USER_AGENT: "laser-slicer/1.0 (boris.legradic@gmail.com)"
+      CELERY_BROKER_URL: "redis://redis:6379/0"
+      CELERY_RESULT_BACKEND: "redis://redis:6379/0"
+    depends_on:
+      - db
+      - redis
+    ports:
+      - "8000:8000"
+    # No volumes in prod; static/media handled by collectstatic, persistent disks, or cloud storage
+
+  celeryworker:
+    build:
+      context: .
+      dockerfile: core/Dockerfile.prod
+    command: celery -A core worker -l info
+    env_file: env.docker
+    environment:
+      DJANGO_ALLOWED_HOSTS: "localhost,127.0.0.1,backend"
+      USER_AGENT: "laser-slicer/1.0 (boris.legradic@gmail.com)"
+      CELERY_BROKER_URL: "redis://redis:6379/0"
+      CELERY_RESULT_BACKEND: "redis://redis:6379/0"
+    depends_on:
+      - db
+      - redis
+      - backend
+    # No volumes in prod
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile.prod
+    environment:
+      - VITE_API_URL=http://localhost:8000
+    ports:
+      - "4173:4173"
+    # No volumes in prod
+    command: ["serve", "-s", "dist", "-l", "4173"]
+
+volumes:
+  pgdata:

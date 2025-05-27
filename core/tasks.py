@@ -1,7 +1,10 @@
 import logging
+import time
 import traceback
+from pathlib import Path
 
 from celery import shared_task
+from django.conf import settings
 from django.core.files.base import ContentFile
 from django.utils import timezone
 
@@ -15,8 +18,30 @@ from core.utils.geocoding import _parse_bounds
 logger = logging.getLogger(__name__)
 
 
+@shared_task
+def cleanup_old_media(hours=1):
+    """
+    Clean up media files older than a specified number of hours.
+    Args:
+        hours (int): The age of files to delete, in hours. Default is 1 hour.
+    """
+    cutoff = time.time() - hours * 3600
+    media_dir = Path(settings.MEDIA_ROOT)
+    for file in media_dir.glob("**/*"):
+        if file.is_file() and file.stat().st_mtime < cutoff:
+            file.unlink()
+
+
 @shared_task(bind=True)
 def run_svg_export_job(self, job_id):
+    """
+    Task to run the SVG export job.
+    This generates SVG files from the contours provided in the job parameters,
+    zips them, and saves the result to the job's result_file.
+    Args:
+        self: The Celery task instance.
+        job_id (str): The ID of the SVGJob to run.
+    """
     job = SVGJob.objects.get(pk=job_id)
     try:
         job.status = "RUNNING"
