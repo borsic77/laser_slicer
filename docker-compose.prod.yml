@@ -59,5 +59,19 @@ services:
       - "4173:4173"
     command: ["serve", "-s", "dist", "-l", "4173"]
 
+  caddy:
+    image: caddy:alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - frontend
+      - backend
 volumes:
   pgdata:
+  caddy_data:
+  caddy_config:
