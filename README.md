@@ -4,6 +4,7 @@ Turn any point on Earth into a **stack of precisely‑aligned SVG layers ready f
 Laser Slicer downloads SRTM elevation data, slices it at the interval you choose, and gives you:
 
 Live site: [laserslicer.legradic.ch](https://laserslicer.legradic.ch)
+![Screenshot of the Laser Slicer interface](screenshot.png)
 
 * A **ZIP archive** of SVG files (one per contour layer)  
 * A **browser 3‑D preview** of the stacked model  
