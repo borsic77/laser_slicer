@@ -3,7 +3,7 @@ laserslicer.legradic.ch {
 	# 1. API
 	reverse_proxy /api/* backend:8000
 
-	# 2. JS assets (exact match and fix response header)
+	# 2. JS MIME fix — match only .js files under /assets
 	handle_path /assets/*.js {
 		reverse_proxy frontend:4173
 		header Content-Type "application/javascript; charset=utf-8" {
@@ -11,6 +11,10 @@ laserslicer.legradic.ch {
 		}
 	}
 
-	# 3. Everything else to frontend
-	reverse_proxy / frontend:4173
+	# 3. Everything else: forward AND preserve upstream headers
+	handle {
+		reverse_proxy frontend:4173 {
+			header_down Content-Type {http.reverse_proxy.header.Content-Type}
+		}
+	}
 }
