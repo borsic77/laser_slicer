@@ -1,7 +1,11 @@
 laserslicer.legradic.ch {
-    reverse_proxy /api/* backend:8000
 
-    reverse_proxy / frontend:4173 {
-        header_down +Content-Type {http.response.header.Content-Type}
-    }
+	# API ­– unchanged
+	reverse_proxy /api/* backend:8000
+
+	# Front-end
+	reverse_proxy / frontend:4173 {
+		# copy Content-Type from upstream to client
+		header_down Content-Type {http.reverse_proxy.header.Content-Type}
+	}
 }
