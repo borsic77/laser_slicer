@@ -1,12 +1,13 @@
 laserslicer.legradic.ch {
 
-	# API
+	# API 
 	reverse_proxy /api/* backend:8000
 
-	# Everything not /api goes to the frontend container
-	reverse_proxy / frontend:4173
-
-	# AFTER the proxy, patch JS responses
-	@js path *.js
-	header @js Content-Type "application/javascript; charset=utf-8"
+	# Front-end – proxy everything else
+	# and fix the missing MIME on JS as it comes back
+	reverse_proxy / frontend:4173 {
+		# for *.js only …
+		@js path_regexp js \.js$
+		header_down @js Content-Type "application/javascript; charset=utf-8"
+	}
 }
