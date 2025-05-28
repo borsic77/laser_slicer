@@ -1,13 +1,12 @@
 laserslicer.legradic.ch {
-    reverse_proxy /api/* http://backend:8000 {
-        header_up Host {host}
-        header_up X-Real-IP {remote_host}
-        header_up X-Forwarded-For {remote_host}
-    }
+    root * /frontend/dist
+    file_server
 
-    reverse_proxy / http://frontend:4173 {
-        header_up Host {host}
-        header_up X-Real-IP {remote_host}
-        header_up X-Forwarded-For {remote_host}
+    handle_path /api/* {
+        reverse_proxy http://backend:8000 {
+            header_up Host {host}
+            header_up X-Real-IP {remote_host}
+            header_up X-Forwarded-For {remote_host}
+        }
     }
 }
