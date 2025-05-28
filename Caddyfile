@@ -11,10 +11,9 @@ laserslicer.legradic.ch {
 		}
 	}
 
-	# 3. Everything else: forward AND preserve upstream headers
+	# 3. Everything else – proxy to frontend with default headers
 	handle {
-		reverse_proxy frontend:4173 {
-			header_down Content-Type {http.reverse_proxy.header.Content-Type}
-		}
+		reverse_proxy frontend:4173
 	}
+	
 }
