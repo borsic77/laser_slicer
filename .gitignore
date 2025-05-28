@@ -33,6 +33,8 @@ output/
 *.zip
 *.svg
 
+doc/
+
 
 # VS Code
 .vscode/*
