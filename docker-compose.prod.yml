@@ -57,7 +57,6 @@ services:
       - VITE_API_URL=https://laserslicer.legradic.ch/api
     ports:
       - "4173:4173"
-    command: ["serve", "-s", "dist", "-l", "4173"]  
 
   caddy:
     image: caddy:alpine
