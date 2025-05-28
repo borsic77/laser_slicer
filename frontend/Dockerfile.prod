@@ -14,14 +14,3 @@ ENV VITE_API_URL=$VITE_API_URL
 
 RUN npm run build
 
-# Stage 2: Serve static files with a tiny web server
-FROM node:20-slim
-
-WORKDIR /app
-RUN npm install -g http-server
-
-# Copy build output from previous stage
-COPY --from=build /app/dist ./dist
-
-EXPOSE 4173
-CMD ["http-server", "dist", "-p", "4173"]
