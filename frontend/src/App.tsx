@@ -654,6 +654,9 @@ function App() {
         pauseOnHover
       />
       {showManual && <ManualModal onClose={() => setShowManual(false)} />}
+      <footer style={{ textAlign: 'center', padding: '1rem', fontSize: '0.9rem', color: '#777' }}>
+        © {new Date().getFullYear()} Boris Legradic · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener noreferrer">MIT License</a>
+      </footer>
     </div>
   )
 }
