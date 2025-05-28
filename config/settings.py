@@ -33,32 +33,90 @@ def get_env(var, default=None):
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
-# Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
+# Core Django settings
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "dev-secret-key")
+SECRET_KEY = get_env("DJANGO_SECRET_KEY", "dev-secret-key")
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.getenv("DJANGO_DEBUG", "False").lower() == "true"
+DEBUG = get_env("DJANGO_DEBUG", "False").lower() == "true"
 
-ALLOWED_HOSTS = os.getenv("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
+ALLOWED_HOSTS = get_env("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
+
+
+# Security settings
+if not DEBUG:
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_HSTS_SECONDS = 3600
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+    SECURE_SSL_REDIRECT = True
+
 
 # Directories for storing elevation files and cache
 
-TILE_CACHE_DIR = (
-    Path(os.environ.get("TILE_CACHE_DIR"))
-    if "TILE_CACHE_DIR" in os.environ
-    else Path(__file__).resolve().parent.parent.parent / "data" / "srtm_cache"
-)
-DEBUG_IMAGE_PATH = os.getenv("DEBUG_IMAGE_PATH", BASE_DIR / "data" / "debug_images")
-SVG_TMP_DIR = os.getenv("SVG_TMP_DIR", BASE_DIR / "tmp" / "svg_tmp")
-NOMINATIM_USER_AGENT = os.getenv("USER_AGENT", "laser-slicer/1.0 (contact@email.com)")
-
+TILE_CACHE_DIR = Path(get_env("TILE_CACHE_DIR", BASE_DIR / "data" / "srtm_cache"))
+DEBUG_IMAGE_PATH = Path(get_env("DEBUG_IMAGE_PATH", BASE_DIR / "data" / "debug_images"))
+SVG_TMP_DIR = Path(get_env("SVG_TMP_DIR", BASE_DIR / "tmp" / "svg_tmp"))
+NOMINATIM_USER_AGENT = get_env("USER_AGENT", "laser-slicer/1.0 (contact@email.com)")
 
 MEDIA_URL = "/media/"
-MEDIA_ROOT = BASE_DIR / "media"
+MEDIA_ROOT = Path(get_env("MEDIA_ROOT", BASE_DIR / "media"))
 
+
+# Application definition
+
+INSTALLED_APPS = [
+    "django.contrib.admin",
+    "django.contrib.auth",
+    "django.contrib.contenttypes",
+    "django.contrib.sessions",
+    "django.contrib.messages",
+    "django.contrib.staticfiles",
+    "rest_framework",  # Django REST framework for API development
+    "core",  # Custom app for core functionality
+    "django_extensions",
+    "corsheaders",  # CORS headers for cross-origin requests
+    "django_celery_results",
+]
+
+MIDDLEWARE = [
+    "corsheaders.middleware.CorsMiddleware",  # CORS middleware
+    "django.middleware.security.SecurityMiddleware",
+    "django.contrib.sessions.middleware.SessionMiddleware",
+    "django.middleware.common.CommonMiddleware",
+    "django.middleware.csrf.CsrfViewMiddleware",
+    "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "django.contrib.messages.middleware.MessageMiddleware",
+    "django.middleware.clickjacking.XFrameOptionsMiddleware",
+]
+
+CORS_ALLOWED_ORIGINS = get_env(
+    "DJANGO_CORS_ALLOWED_ORIGINS", "http://localhost:5173,http://localhost:4173"
+).split(",")
+
+ROOT_URLCONF = "config.urls"
+
+TEMPLATES = [
+    {
+        "BACKEND": "django.template.backends.django.DjangoTemplates",
+        "DIRS": [BASE_DIR / "core" / "templates"],
+        "APP_DIRS": True,
+        "OPTIONS": {
+            "context_processors": [
+                "django.template.context_processors.request",
+                "django.contrib.auth.context_processors.auth",
+                "django.contrib.messages.context_processors.messages",
+            ],
+        },
+    },
+]
+
+WSGI_APPLICATION = "config.wsgi.application"
+
+
+# Database configuration
 
 # On Render, prefer DATABASE_URL and REDIS_URL
 if "DATABASE_URL" in os.environ:
@@ -67,34 +125,30 @@ else:
     DATABASES = {
         "default": {
             "ENGINE": "django.db.backends.postgresql",
-            "NAME": os.environ.get("POSTGRES_DB", "laserslicer"),
-            "USER": os.environ.get("POSTGRES_USER", "laserslicer"),
-            "PASSWORD": os.environ.get("POSTGRES_PASSWORD", "laserslicer"),
-            "HOST": os.environ.get("POSTGRES_HOST", "localhost"),
-            "PORT": os.environ.get("POSTGRES_PORT", 5432),
+            "NAME": get_env("POSTGRES_DB", "laserslicer"),
+            "USER": get_env("POSTGRES_USER", "laserslicer"),
+            "PASSWORD": get_env("POSTGRES_PASSWORD", "laserslicer"),
+            "HOST": get_env("POSTGRES_HOST", "localhost"),
+            "PORT": get_env("POSTGRES_PORT", 5432),
         }
     }
 
 
-# Celery
-# Celery/Redis
-CELERY_BROKER_URL = os.environ.get(
-    "CELERY_BROKER_URL", os.environ.get("REDIS_URL", "redis://localhost:6379/0")
+# Celery configuration
+
+CELERY_BROKER_URL = get_env(
+    "CELERY_BROKER_URL",
+    f"redis://{get_env('REDIS_HOST', 'localhost')}:{get_env('REDIS_PORT', '6379')}/0",
 )
-CELERY_RESULT_BACKEND = os.environ.get(
-    "CELERY_RESULT_BACKEND", os.environ.get("REDIS_URL", "redis://localhost:6379/0")
+CELERY_RESULT_BACKEND = get_env(
+    "CELERY_RESULT_BACKEND",
+    f"redis://{get_env('REDIS_HOST', 'localhost')}:{get_env('REDIS_PORT', '6379')}/0",
 )
 CELERY_TASK_TIME_LIMIT = 900  # 15 min safety net
 CELERY_TASK_SOFT_TIME_LIMIT = 840
 
 
-if not DEBUG:
-    SESSION_COOKIE_SECURE = True
-    CSRF_COOKIE_SECURE = True
-    SECURE_HSTS_SECONDS = 3600
-    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
-    SECURE_HSTS_PRELOAD = True
-    SECURE_SSL_REDIRECT = True
+# Logging configuration
 
 LOGGING = {
     "version": 1,
@@ -135,54 +189,6 @@ LOGGING = {
     },
 }
 
-# Application definition
-
-INSTALLED_APPS = [
-    "django.contrib.admin",
-    "django.contrib.auth",
-    "django.contrib.contenttypes",
-    "django.contrib.sessions",
-    "django.contrib.messages",
-    "django.contrib.staticfiles",
-    "rest_framework",  # Django REST framework for API development
-    "core",  # Custom app for core functionality
-    "django_extensions",
-    "corsheaders",  # CORS headers for cross-origin requests
-    "django_celery_results",
-]
-
-MIDDLEWARE = [
-    "corsheaders.middleware.CorsMiddleware",  # CORS middleware
-    "django.middleware.security.SecurityMiddleware",
-    "django.contrib.sessions.middleware.SessionMiddleware",
-    "django.middleware.common.CommonMiddleware",
-    "django.middleware.csrf.CsrfViewMiddleware",
-    "django.contrib.auth.middleware.AuthenticationMiddleware",
-    "django.contrib.messages.middleware.MessageMiddleware",
-    "django.middleware.clickjacking.XFrameOptionsMiddleware",
-]
-
-CORS_ALLOWED_ORIGINS = ["http://localhost:5173", "http://localhost:4173"]
-
-ROOT_URLCONF = "config.urls"
-
-TEMPLATES = [
-    {
-        "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [BASE_DIR / "core" / "templates"],
-        "APP_DIRS": True,
-        "OPTIONS": {
-            "context_processors": [
-                "django.template.context_processors.request",
-                "django.contrib.auth.context_processors.auth",
-                "django.contrib.messages.context_processors.messages",
-            ],
-        },
-    },
-]
-
-WSGI_APPLICATION = "config.wsgi.application"
-
 
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
@@ -220,6 +226,7 @@ USE_TZ = True
 
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
+
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field

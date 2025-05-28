@@ -20,17 +20,14 @@ services:
       context: .
       dockerfile: core/Dockerfile.prod
     env_file: .env.docker
-    environment:
-      DJANGO_ALLOWED_HOSTS: "localhost,127.0.0.1,backend"
-      USER_AGENT: "laser-slicer/1.0 (boris.legradic@gmail.com)"
-      CELERY_BROKER_URL: "redis://redis:6379/0"
-      CELERY_RESULT_BACKEND: "redis://redis:6379/0"
+    volumes:
+      - ./media:/app/media    
+      - ./data/srtm_cache:/app/data/srtm_cache      
     depends_on:
       - db
       - redis
     ports:
       - "8000:8000"
-    # No volumes in prod; static/media handled by collectstatic, persistent disks, or cloud storage
 
   celeryworker:
     build:
@@ -38,28 +35,24 @@ services:
       dockerfile: core/Dockerfile.prod
     command: celery -A core worker -l info
     env_file: .env.docker
-    environment:
-      DJANGO_ALLOWED_HOSTS: "localhost,127.0.0.1,backend"
-      USER_AGENT: "laser-slicer/1.0 (boris.legradic@gmail.com)"
-      CELERY_BROKER_URL: "redis://redis:6379/0"
-      CELERY_RESULT_BACKEND: "redis://redis:6379/0"
+    volumes:
+      - ./media:/app/media    
+      - ./data/srtm_cache:/app/data/srtm_cache        
     depends_on:
       - db
       - redis
       - backend
-    # No volumes in prod
 
   frontend:
     build:
       context: .
       dockerfile: frontend/Dockerfile.prod
       args:
-        VITE_API_URL: "http://localhost:8000"      
+        VITE_API_URL: "http://192.168.178.20:8000"      
     environment:
-      - VITE_API_URL=http://localhost:8000
+      - VITE_API_URL=http://192.168.178.20:8000
     ports:
       - "4173:4173"
-    # No volumes in prod
     command: ["serve", "-s", "dist", "-l", "4173"]
 
 volumes:
