@@ -47,29 +47,18 @@ services:
       - redis
       - backend
 
-  frontend:
+  # ► NEW multi-stage Caddy image ◄
+  caddy:
     build:
       context: .
-      dockerfile: frontend/Dockerfile.prod
+      dockerfile: caddy/Dockerfile
       args:
-        VITE_API_URL: "https://laserslicer.legradic.ch/api"     
-    environment:
-      - VITE_API_URL=https://laserslicer.legradic.ch/api
-    ports:
-      - "4173:4173"
-
-  caddy:
-    image: caddy:alpine
-    ports:
-      - "80:80"
-      - "443:443"
+        VITE_API_URL: "https://laserslicer.legradic.ch/api"
+    ports: [ "80:80", "443:443" ]
     volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile
       - caddy_data:/data
       - caddy_config:/config
-    depends_on:
-      - frontend
-      - backend
+    depends_on: [ backend ]
 volumes:
   pgdata:
   caddy_data:

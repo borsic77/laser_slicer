@@ -1,19 +1,11 @@
 laserslicer.legradic.ch {
 
-	# 1. API
-	reverse_proxy /api/* backend:8000
+	# serve static React build automatically (Caddy picks MIME)
+	root * /usr/share/caddy
+	file_server
 
-	# 2. JS MIME fix — match only .js files under /assets
-	handle_path /assets/*.js {
-		reverse_proxy frontend:4173
-		header Content-Type "application/javascript; charset=utf-8" {
-			header_response
-		}
+	# API stays proxied to Django
+	handle_path /api/* {
+		reverse_proxy backend:8000
 	}
-
-	# 3. Everything else – proxy to frontend with default headers
-	handle {
-		reverse_proxy frontend:4173
-	}
-	
 }
