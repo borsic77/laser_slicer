@@ -19,6 +19,10 @@ services:
     build:
       context: .
       dockerfile: core/Dockerfile.prod
+    command: >
+      sh -c "./wait-for-db.sh db:5432 -- 
+            python manage.py migrate && 
+            gunicorn config.wsgi:application --bind 0.0.0.0:8000"      
     env_file: .env.docker
     volumes:
       - ./media:/app/media    
