@@ -1,0 +1,4 @@
+laserslicer.legradic.ch {
+    reverse_proxy /api/* http://backend:8000
+    reverse_proxy / http://frontend:4173
+}
