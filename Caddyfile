@@ -1,11 +1,12 @@
 laserslicer.legradic.ch {
 
-	# API ­– unchanged
+	# API
 	reverse_proxy /api/* backend:8000
 
-	# Front-end
-	reverse_proxy / frontend:4173 {
-		# copy Content-Type from upstream to client
-		header_down Content-Type {http.reverse_proxy.header.Content-Type}
-	}
+	# JavaScript assets – force MIME
+	@js path *.js
+	header @js Content-Type "application/javascript; charset=utf-8"
+
+	# Everything else proxied to the frontend container
+	reverse_proxy / frontend:4173
 }
