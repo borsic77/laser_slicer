@@ -3,10 +3,10 @@ laserslicer.legradic.ch {
 	# API
 	reverse_proxy /api/* backend:8000
 
-	# JavaScript assets – force MIME
+	# Everything not /api goes to the frontend container
+	reverse_proxy / frontend:4173
+
+	# AFTER the proxy, patch JS responses
 	@js path *.js
 	header @js Content-Type "application/javascript; charset=utf-8"
-
-	# Everything else proxied to the frontend container
-	reverse_proxy / frontend:4173
 }
