@@ -47,19 +47,24 @@ services:
       - redis
       - backend
 
-  # ► NEW multi-stage Caddy image ◄
-  caddy:
-    build:
-      context: .
-      dockerfile: caddy/Dockerfile
-      args:
-        VITE_API_URL: "https://laserslicer.legradic.ch/api"
-    ports: [ "80:80", "443:443" ]
-    volumes:
-      - caddy_data:/data
-      - caddy_config:/config
-    depends_on: [ backend ]
-volumes:
-  pgdata:
-  caddy_data:
-  caddy_config:
+  # multi-stage Caddy image uncomment or add to your existing reverse proxy setup
+#   caddy:
+#     build:
+#       context: .
+#       dockerfile: caddy/Dockerfile
+#       args:
+#         VITE_API_URL: "https://laserslicer.legradic.ch/api"
+#     ports: [ "80:80", "443:443" ]
+#     volumes:
+#       - caddy_data:/data
+#       - caddy_config:/config
+#     depends_on: [ backend ]
+# volumes:
+#   pgdata:
+#   caddy_data:
+#   caddy_config:
+
+networks:
+  default:
+    external: true
+    name: caddy_net

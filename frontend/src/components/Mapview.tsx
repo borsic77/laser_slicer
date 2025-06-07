@@ -28,6 +28,8 @@ interface MapViewProps {
   coordinates: [number, number] | null
   onBoundsChange?: (bounds: [[number, number], [number, number]]) => void
   squareOutput?: boolean
+  fixMode?: boolean
+  onFixedElevation?: (lat: number, lon: number) => void
 }
 
 /**
@@ -225,15 +227,39 @@ function useSelectionBounds(
  * - coordinates: external coordinates to center and mark on the map
  * - onBoundsChange: callback invoked with adjusted selection bounds when map view changes
  * - squareOutput: whether to enforce square bounding box shape
+ * - fixMode: if true, enables a mode where clicking on the map sets a fixed elevation without moving the marker
+ * - onFixedElevation: callback invoked with lat/lng when fixMode is active and map is clicked
  */
-export default function MapView({ coordinates, onBoundsChange, squareOutput = false }: MapViewProps) {
+export default function MapView({ coordinates, onBoundsChange, squareOutput = false,  fixMode = false, onFixedElevation }: MapViewProps) {
   // Holds current marker/map center position; initialized to coordinates or default location (Yverdon)
   const [position, setPosition] = useState<[number, number]>(
-    coordinates ?? [46.78, 6.64]
+    coordinates ?? [46.83, 6.86]
   );
 
   // Ref to Leaflet map instance for imperative API access
   const mapRef = useRef<L.Map | null>(null);
+
+  // Effect to handle fixMode clicks on the map
+  // If fixMode is enabled, clicking the map will call onFixedElevation with lat/lng
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    if (!fixMode) return;
+
+    // Handler for fixMode click
+    const handleFixClick = (e: L.LeafletMouseEvent) => {
+      if (onFixedElevation) {
+        onFixedElevation(e.latlng.lat, e.latlng.lng);
+      }
+      setFixMode(false)
+    };    
+    map.on('click', handleFixClick);
+
+    // Clean up after one click
+    return () => {
+      map.off('click', handleFixClick);
+    };
+  }, [fixMode, onFixedElevation]);
 
   // Sync internal position state with external coordinates prop changes
   useEffect(() => {
@@ -255,14 +281,15 @@ export default function MapView({ coordinates, onBoundsChange, squareOutput = fa
     useEffect(() => {
       // Bind click event to update marker position on user click
       const handleClick = (e: L.LeafletMouseEvent) => {
-        setPosition([e.latlng.lat, e.latlng.lng]);
+      // Only allow normal marker movement if NOT in fix mode
+        if (!fixMode) setPosition([e.latlng.lat, e.latlng.lng]);
       };
 
       map.on('click', handleClick);
       return () => {
         map.off('click', handleClick);
       };
-    }, [map]);
+    }, [map, fixMode]);
 
     return <Marker position={position} />;
   }

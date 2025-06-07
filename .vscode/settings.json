@@ -13,5 +13,9 @@
     "python.testing.cwd": "${workspaceFolder}/tests",
     "python.testing.pytestPath": "${workspaceFolder}/.venv/bin/pytest",
     "python.testing.autoTestDiscoverOnSaveEnabled": true,
+
+    // Linting settings
+    "eslint.enable": false,
+    "typescript.validate.enable": false,  
+    "tslint.enable": false
 }
-  

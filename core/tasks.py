@@ -7,6 +7,7 @@ from celery import shared_task
 from django.conf import settings
 from django.core.files.base import ContentFile
 from django.utils import timezone
+from numpy import fix
 
 from core.models import ContourJob, ElevationJob, SVGJob
 from core.services.contour_generator import ContourSlicingJob
@@ -143,6 +144,7 @@ def run_contour_slicing_job(self, job_id):
             smoothing=params["smoothing"],
             min_area=params["min_area"],
             min_feature_width_mm=params["min_feature_width_mm"],
+            fixed_elevation=params["fixed_elevation"],
         )
         # Main processing
         layers = csj.run()

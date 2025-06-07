@@ -141,6 +141,24 @@ def save_debug_contour_polygon(polygon, level: float, filename: str) -> None:
     plt.close(fig)
 
 
+def sample_elevation(lat: float, lon: float, dem_path) -> float:
+    """Samples the elevation at a specific latitude and longitude from a DEM file.
+    Args:
+        lat (float): Latitude of the point.
+        lon (float): Longitude of the point.
+        dem_path (str): Path to the DEM file (GeoTIFF or HGT).
+    Returns:
+        float: The elevation at the specified coordinates.
+    """
+    with rasterio.open(f"/vsigzip/{dem_path}") as src:
+        row, col = src.index(lon, lat)
+        arr = src.read(1)
+        logger.debug(
+            f"Sampled elevation at ({lat}, {lon}) -> (row: {row}, col: {col}), value: {arr[row, col]}"
+        )
+        return float(arr[row, col])
+
+
 def mosaic_and_crop(
     tif_paths: List[str], bounds: Tuple[float, float, float, float]
 ) -> Tuple[np.ndarray, rasterio.Affine]:
@@ -160,12 +178,7 @@ def mosaic_and_crop(
 
     # Merge to a single raster
     mosaic, transform = merge(src_files)
-    merged_bounds = rasterio.transform.array_bounds(
-        mosaic.shape[1], mosaic.shape[2], transform
-    )
-    logger.debug(f"Merged raster bounds: {merged_bounds}")
-    logger.debug(f"Requested crop bounds: {bounds}")
-    logger.debug(f"Merged shape: {mosaic.shape}, transform: {transform}")
+
     # Ensure bounds are ordered (south < north), as rasterio expects this order for windows
     # SRTM data (GeoTIFF/HGT) can be in either north-up or south-up order. Rasterio expects bounds as (min, max), regardless of raster orientation.
 
@@ -276,16 +289,40 @@ def _prepare_meshgrid(
     return lon, lat
 
 
-def _create_contourf_levels(elevation_data: np.ndarray, interval: float) -> np.ndarray:
-    """
-    Computes the elevation contour levels aligned with the interval,
-    starting slightly below the minimum and up to above the maximum.
-    Adds a small epsilon to ensure inclusion of the upper bound.
+def _create_contourf_levels(
+    elevation_data: np.ndarray,
+    interval: float,
+    fixed_elevation: float = None,
+    tol: float = 1e-3,
+    margin: float = 30.0,
+) -> np.ndarray:
+    """Creates contour levels for filled contours based on elevation data.
+    Computes the minimum and maximum elevation values, then generates
+    levels at specified intervals. If a fixed elevation is provided,
+    it adds the water band edges with a margin.
+    Args:
+        elevation_data (np.ndarray): 2D array of elevation values.
+        interval (float): Height difference between contour levels.
+        fixed_elevation (float, optional): If provided, adds water band edges
+            at this elevation with a margin.
+        tol (float): Tolerance for rounding contour levels.
+        margin (float): Margin to add around the fixed elevation.
+    Returns:
+        np.ndarray: Array of contour levels.
     """
     min_elev = np.floor(np.min(elevation_data) / interval) * interval
     max_elev = np.ceil(np.max(elevation_data) / interval) * interval
-    levels = np.arange(min_elev, max_elev + 1e-6, interval)
-    return levels
+    levels = np.arange(min_elev, max_elev + tol, interval).tolist()
+
+    if fixed_elevation is not None:
+        # Insert water band edges, with a little margin
+        for v in (fixed_elevation - margin, fixed_elevation + margin):
+            if not any(abs(v - lvl) < margin for lvl in levels):
+                levels.append(v)
+    # Sort and unique
+    levels = sorted(set(round(lvl, 6) for lvl in levels))
+    logger.debug("Contour levels boundaries are: %s", levels)
+    return np.array(levels)
 
 
 def _extract_level_polygons(cs) -> List[Tuple[float, List[Polygon]]]:
@@ -521,6 +558,7 @@ def generate_contours(
     center: tuple[float, float] = (0, 0),
     scale: float = 1.0,
     bounds: tuple[float, float, float, float] = None,
+    fixed_elevation: float = None,
 ) -> List[dict]:
     """Generates stacked contour bands from elevation data.
 
@@ -533,14 +571,15 @@ def generate_contours(
         center (tuple): Center coordinate for UTM zone.
         scale (float): Not currently used.
         bounds (tuple): Optional bounds for clipping (not used).
+        fixed_elevation (float): If provided, starts slicing from this elevation.
 
     Returns:
         list[dict]: Contour band geometries with elevation.
     """
-    logger.debug("generate contours called")
+    logger.debug("generate contours called, fixed_elevation: %s", fixed_elevation)
 
     lon, lat = _prepare_meshgrid(elevation_data, transform)
-    levels = _create_contourf_levels(elevation_data, interval)
+    levels = _create_contourf_levels(elevation_data, interval, fixed_elevation)
 
     fig, ax = plt.subplots()
     cs = ax.contourf(lon, lat, elevation_data, levels=levels)
@@ -564,6 +603,13 @@ def generate_contours(
     _plot_contour_layers(contour_layers, raw_xlim, raw_ylim, debug_image_path)
 
     logger.debug(f"Generated {len(contour_layers)} contour layers")
+    # Filter out empty or invalid geometries
+    filtered = []
+    for layer in contour_layers:
+        geom = shape(layer["geometry"])
+        if not geom.is_empty and geom.area > 1e-8:
+            filtered.append(layer)
+    contour_layers = filtered
 
     return contour_layers
 
@@ -771,9 +817,6 @@ def filter_small_features(
     min_area_m2 = min_area_cm2 / 1e4 if min_area_cm2 > 0 else 0.0  # convert to m²
     min_width_m = min_width_mm / 1000.0 if min_width_mm > 0 else 0.0
 
-    logger.debug(
-        f"Filtering contours: removing features thinner than {min_width_mm} mm and polygons smaller than {min_area_cm2} cm²"
-    )
     filtered = []
 
     for contour in contours:

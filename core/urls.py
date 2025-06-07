@@ -11,6 +11,7 @@ urlpatterns = [
     path("api/elevation-range/", views.elevation_range),
     path("api/export/", views.export_svgs_job),
     path("api/jobs/<uuid:job_id>/", views.job_status, name="job_status"),
+    path("api/elevation", views.get_elevation),
 ]
 
 if settings.DEBUG:

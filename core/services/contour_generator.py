@@ -54,6 +54,7 @@ class ContourSlicingJob:
         smoothing: int,
         min_area: float,
         min_feature_width_mm: float,
+        fixed_elevation: float | None = None,
     ):
         """Initialize the ContourSlicingJob with parameters.
         Args:
@@ -67,6 +68,7 @@ class ContourSlicingJob:
             smoothing (int): Smoothing factor for contours.
             min_area (float): Minimum area for filtering small features.
             min_feature_width_mm (float): Minimum feature width in mm.
+            fixed_elevation (float | None): Need to start slicing from here, if provided.
         """
         self.bounds = bounds
         self.height = height_per_layer
@@ -78,6 +80,7 @@ class ContourSlicingJob:
         self.smoothing = smoothing
         self.min_area = min_area
         self.min_feature_width = min_feature_width_mm
+        self.fixed_elevation = fixed_elevation
 
     def run(self) -> list[dict]:
         """Run the contour slicing job.
@@ -101,13 +104,14 @@ class ContourSlicingJob:
             center=self.center,
             scale=100,
             bounds=self.bounds,
+            fixed_elevation=self.fixed_elevation,
         )
         _log_contour_info(contours, "After Contour Generation")
         # Project, smooth, and scale the contours
         contours = project_geometry(contours, cx, cy, simplify_tolerance=self.simplify)
-        _log_contour_info(contours, "After Projection")
+        # _log_contour_info(contours, "After Projection")
         contours = smooth_geometry(contours, self.smoothing)
-        _log_contour_info(contours, "After Smoothing")
+        # _log_contour_info(contours, "After Smoothing")
         utm_bounds = compute_utm_bounds_from_wgs84(
             lon_min, lat_min, lon_max, lat_max, cx, cy
         )
@@ -115,12 +119,12 @@ class ContourSlicingJob:
             contours, self.substrate_size, utm_bounds
         )
         # Log contour information
-        _log_contour_info(contours, "After Scaling and Centering")
+        # _log_contour_info(contours, "After Scaling and Centering")
         # Filter small features and set layer thickness
         contours = filter_small_features(
             contours, self.min_area, self.min_feature_width
         )
-        _log_contour_info(contours, "After Filtering Small Features")
+        # _log_contour_info(contours, "After Filtering Small Features")
         for contour in contours:
             contour["thickness"] = self.layer_thickness / 1000.0
         return contours

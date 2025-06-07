@@ -92,6 +92,31 @@ function App() {
   const [address, setAddress] = useState('')
   // Selected map center coordinates [latitude, longitude]; shared with MapView and info sidebar
   const [coordinates, setCoordinates] = useState<[number, number] | null>(null)
+
+  // If no coordinates are set, try to get current location via geolocation API
+  // If geolocation fails, fallback to Mont Blanc coordinates
+  // (45.832622, 6.864717) as a default location
+  // This is used to center the map initially and provide a default location
+  // Note: This is only run once on mount, so it won't re-trigger if coordinates change
+  useEffect(() => {
+    if (coordinates === null) {
+      if ("geolocation" in navigator) {
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            setCoordinates([position.coords.latitude, position.coords.longitude]);
+          },
+          (error) => {
+            setCoordinates([45.832622, 6.864717]); // Mont Blanc fallback
+          },
+          { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+        );
+      } else {
+        setCoordinates([45.832622, 6.864717]); // Mont Blanc fallback
+      }
+    }
+    // eslint-disable-next-line
+  }, []);
+
   // True if slicing has been performed and data is available for export
   const [sliced, setSliced] = useState(false)
   // Array of contour layer data (output polygons from backend); used for preview and export
@@ -137,6 +162,12 @@ function App() {
   const [elevationJobId, setElevationJobId] = useState<string | null>(null);
   const [slicingJobId, setSlicingJobId] = useState<string | null>(null);
   const [exportJobId, setExportJobId] = useState<string | null>(null);
+
+  // Fixed-elevation slice controls
+  const [fixMode, setFixMode] = useState(false);               // Armed when button clicked, disables after marker placed
+  const [fixedElevation, setFixedElevation] = useState<number | null>(null);
+  const [fixedElevationEnabled, setFixedElevationEnabled] = useState(false);
+
 
   // Poll elevation job
   function pollElevationJobStatus(jobId: string) {
@@ -408,7 +439,11 @@ function App() {
       },
       substrate_size: params.substrateSize,
       layer_thickness: params.layerThickness,
+  
     };
+    if (fixedElevationEnabled && typeof fixedElevation === 'number') {
+      body.fixedElevation = fixedElevation;  
+    }      
     try {
       setSlicing(true);
       setContourLayers([]); // clear old result
@@ -508,7 +543,7 @@ function App() {
                 type="number"
                 id="num-layers"
                 value={params.numLayers}
-                min={1} // At least 1 layer
+                min={0} // At least 1 layer
                 onChange={(e) => {
                   const val = Math.max(1, Math.floor(Number(e.target.value)));
                   dispatch({ type: 'SET_NUM_LAYERS', value: val });
@@ -520,7 +555,42 @@ function App() {
               <span style={{ marginLeft: '0.5em', fontWeight: 'bold' }}>{params.heightPerLayer.toFixed(1)}</span>
               m<br />
               <br />
-            </label>            
+            </label>  
+
+              <button
+                onClick={() => setFixMode(true)}
+                disabled={fixMode}
+                title="Click, then place a marker on the map to sample elevation."
+                style={{ marginBottom: '0.5em' }}
+              >
+                {fixMode ? "Select on map..." : "Fix Elevation (lake)"}
+              </button>
+
+              <input
+                type="number"
+                min={elevationStats?.min ?? undefined}
+                max={elevationStats?.max ?? undefined}
+                step="10"
+                placeholder="Elevation (m)"
+                value={fixedElevation ?? ''}
+                disabled={!fixedElevationEnabled && !fixMode}
+                onChange={e => {
+                  const v = Number(e.target.value);
+                  setFixedElevation(isNaN(v) ? null : v);
+                  setFixedElevationEnabled(true);
+                }}
+
+              />
+              <label style={{ display: "block" }}>
+                <input
+                  type="checkbox"
+                  checked={fixedElevationEnabled}
+                  onChange={e => setFixedElevationEnabled(e.target.checked)}
+                  disabled={fixedElevation === null}
+                />{" "}
+                Enable fixed elevation
+              </label>              
+                  
             <label title="Reduce geometry complexity by removing small details. 0 = no simplification.">
               Simplify shape:
               <input
@@ -620,7 +690,33 @@ function App() {
             Updates in response to user selection and slicing. */}
         <div className="main-panel">
           <div className="map-container">
-            <MapView coordinates={coordinates} onBoundsChange={setBounds} squareOutput={params.squareOutput} />
+          <MapView
+            coordinates={coordinates}
+            onBoundsChange={setBounds}
+            squareOutput={params.squareOutput}
+            fixMode={fixMode}
+            onFixedElevation={async (lat: number, lon: number) => {
+              setFixMode(false);
+              try {
+                // Make an API call to your elevation endpoint
+                const resp = await fetch(`${API_URL}/api/elevation?lat=${lat}&lon=${lon}`);
+                if (!resp.ok) throw new Error("Failed to fetch elevation");
+                const { elevation } = await resp.json();
+                setFixedElevation(elevation);
+                setFixedElevationEnabled(true);
+
+                // Validate against min/max (if loaded)
+                if (elevationStats && (elevation < elevationStats.min || elevation > elevationStats.max)) {
+                  const msg = `Elevation ${elevation}m is outside area bounds (${elevationStats.min}–${elevationStats.max})`;
+                  toast.error(msg);   
+                }
+              } catch (err: any) {
+                toast.error("Elevation lookup failed"); 
+                setFixedElevation(null);
+                setFixedElevationEnabled(false);
+              }
+            }}
+          />
           </div>
           <div id="preview-3d">
             <h2>3D Preview</h2>

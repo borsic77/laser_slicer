@@ -2,8 +2,10 @@ import logging
 from functools import wraps
 
 from django.apps import apps
+from django.http import JsonResponse
 from django.shortcuts import render
 from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_GET
 from rest_framework import status as drf_status
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
@@ -14,7 +16,9 @@ from core.tasks import (  # New: see below
     run_elevation_range_job,
     run_svg_export_job,
 )
+from core.utils.download_clip_elevation_tiles import ensure_tile_downloaded
 from core.utils.geocoding import geocode_address
+from core.utils.slicer import sample_elevation
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +41,42 @@ def safe_api(view_func):
             return Response({"error": "An unexpected error occurred."}, status=500)
 
     return wrapper
+
+
+@require_GET
+def get_elevation(request):
+    """Fetch elevation data for a specific latitude and longitude.
+    Args:
+        request (HttpRequest): GET request with 'lat' and 'lon' parameters.
+    Returns:
+        JsonResponse: JSON with elevation data or error message.
+    """
+    logger.debug("Received elevation request with params: %s", request.GET)
+    try:
+        lat = float(request.GET["lat"])
+        lon = float(request.GET["lon"])
+    except (KeyError, ValueError):
+        return JsonResponse(
+            {"detail": "Invalid or missing lat/lon", "code": "bad_request"},
+            status=400,
+        )
+
+    # Use your slicer/dem logic: you may need to determine which DEM to open
+    dem_path = ensure_tile_downloaded(lat, lon)
+    if dem_path is None:
+        return JsonResponse(
+            {"detail": "DEM not found for this location", "code": "not_found"},
+            status=404,
+        )
+    try:
+        elevation = sample_elevation(lat, lon, dem_path)
+    except Exception as e:
+        return JsonResponse(
+            {"detail": f"Could not retrieve elevation: {e}", "code": "dem_error"},
+            status=500,
+        )
+    logger.debug("Elevation for (%s, %s): %s", lat, lon, elevation)
+    return JsonResponse({"elevation": round(elevation, 1)})
 
 
 @csrf_exempt
@@ -129,6 +169,7 @@ def slice_contours(request):
     Returns:
         Response: JSON with job ID or error message.
     """
+    fixed_elevation_value = request.data.get("fixedElevation", None)
     params = {
         "bounds": request.data["bounds"],
         "height_per_layer": float(request.data["height_per_layer"]),
@@ -140,7 +181,11 @@ def slice_contours(request):
         "smoothing": int(request.data.get("smoothing", 0)),
         "min_area": float(request.data.get("min_area", 0.0)),
         "min_feature_width_mm": float(request.data.get("min_feature_width", 0.0)),
+        "fixed_elevation": float(fixed_elevation_value)
+        if fixed_elevation_value not in (None, "", "null")
+        else None,
     }
+    logger.debug("Creating contour slicing job with params: %s", params)
     job = ContourJob.objects.create(params=params, status="PENDING")
     # Start async task
     run_contour_slicing_job.delay(str(job.id))

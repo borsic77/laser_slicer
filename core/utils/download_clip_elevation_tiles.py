@@ -87,3 +87,38 @@ def download_srtm_tiles_for_bounds(
         paths2 = download_srtm_tiles_for_bounds((-180.0, lat_min, lon_max, lat_max))
         return paths1 + paths2
     return _download_tiles(bounds)
+
+
+def get_srtm_tile_path(lat: float, lon: float, tile_cache_dir: Path) -> Path:
+    """Get the local path for a specific SRTM tile based on latitude and longitude.
+    Args:
+        lat (float): Latitude of the tile.
+        lon (float): Longitude of the tile.
+        tile_cache_dir (Path): Directory where tiles are cached.
+    Returns:
+        Path: Local path to the SRTM tile file.
+    """
+    ns = "N" if lat >= 0 else "S"
+    ew = "E" if lon >= 0 else "W"
+    lat_int = floor(lat)
+    lon_int = floor(lon)
+    filename = f"{ns}{abs(lat_int):02d}{ew}{abs(lon_int):03d}.hgt.gz"
+    return tile_cache_dir / filename
+
+
+def ensure_tile_downloaded(lat: float, lon: float) -> Path:
+    """Ensure that the SRTM tile for the given latitude and longitude is downloaded.
+    Args:
+        lat (float): Latitude of the point.
+        lon (float): Longitude of the point.
+    Returns:
+        Path: Local path to the downloaded SRTM tile file.
+    """
+    # Use a minimal bounding box that covers only the containing tile
+    lat_int = floor(lat)
+    lon_int = floor(lon)
+    bounds = (lon_int, lat_int, lon_int + 1, lat_int + 1)
+
+    paths = download_srtm_tiles_for_bounds(bounds)
+    # There will be exactly one path in the returned list, matching our point
+    return Path(paths[0])
