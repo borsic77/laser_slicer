@@ -10,40 +10,40 @@ laserslicer.legradic.ch {
 	}
 }
 # LAN-only services -- use Pi-hole or hosts file for DNS
-portainer.local {
+portainer.lan {
     reverse_proxy portainer:9000
 }
-vscode.local {
+vscode.lan {
     reverse_proxy code-server:8080
 }
-pihole.local {
+pihole.lan {
     reverse_proxy pihole:80
 }
-homeassistant.local {
-    reverse_proxy homeassistant:8123
+homeassistant.lan {
+    reverse_proxy 192.168.178.20:8123
 }
-deconz.local {
+deconz.lan {
     reverse_proxy deconz:80
 }
-zwavejs.local {
+zwavejs.lan {
     reverse_proxy zwavejs:8091
 }
-mosquitto.local {
+mosquitto.lan {
     reverse_proxy mosquitto:9001
 }
-influxdb.local {
+influxdb.lan {
     reverse_proxy influxdb:8086
 }
-esphome.local {
-    reverse_proxy esphome:6052
+esphome.lan {
+    reverse_proxy 192.168.178.20:6052
 }
-eufy.local {
+eufy.lan {
     reverse_proxy eufy-security-ws:3000
 }
-weatherflow.local {
-    reverse_proxy weatherflow2mqtt:8080
+weatherflow.lan {
+    reverse_proxy 192.168.178.20:8080
 }
-chronograf.local {
+chronograf.lan {
     reverse_proxy chronograf:8888
 }
 
