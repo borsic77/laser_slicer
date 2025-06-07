@@ -9,3 +9,4 @@ laserslicer.legradic.ch {
 		reverse_proxy backend:8000
 	}
 }
+

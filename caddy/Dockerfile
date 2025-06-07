@@ -17,5 +17,7 @@ FROM caddy:alpine
 # copy frontend files into the default doc-root
 COPY --from=frontend-builder /app/dist /usr/share/caddy
 
-# copy our site config
-COPY Caddyfile /etc/caddy/Caddyfile
+# copy our site config, USE THIS
+# COPY Caddyfile /etc/caddy/Caddyfile
+#  prticular to MY setup
+COPY caddy/Caddyfile /etc/caddy/Caddyfile
