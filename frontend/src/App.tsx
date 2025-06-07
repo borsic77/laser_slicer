@@ -439,6 +439,7 @@ function App() {
       },
       substrate_size: params.substrateSize,
       layer_thickness: params.layerThickness,
+      fixedElevation: fixedElevationEnabled ? fixedElevation : undefined,
   
     };
     if (fixedElevationEnabled && typeof fixedElevation === 'number') {
@@ -695,6 +696,7 @@ function App() {
             onBoundsChange={setBounds}
             squareOutput={params.squareOutput}
             fixMode={fixMode}
+            setFixMode={setFixMode}
             onFixedElevation={async (lat: number, lon: number) => {
               setFixMode(false);
               try {
