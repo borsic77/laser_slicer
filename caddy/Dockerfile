@@ -18,6 +18,6 @@ FROM caddy:alpine
 COPY --from=frontend-builder /app/dist /usr/share/caddy
 
 # copy our site config, USE THIS
-# COPY Caddyfile /etc/caddy/Caddyfile
+COPY Caddyfile /etc/caddy/Caddyfile
 #  prticular to MY setup
-COPY caddy/Caddyfile /etc/caddy/Caddyfile
+# COPY caddy/Caddyfile /etc/caddy/Caddyfile
