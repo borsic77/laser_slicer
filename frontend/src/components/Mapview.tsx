@@ -29,6 +29,7 @@ interface MapViewProps {
   onBoundsChange?: (bounds: [[number, number], [number, number]]) => void
   squareOutput?: boolean
   fixMode?: boolean
+  setFixMode?: (val: boolean) => void;
   onFixedElevation?: (lat: number, lon: number) => void
 }
 
