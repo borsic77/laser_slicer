@@ -59,10 +59,9 @@ services:
 #       - caddy_data:/data
 #       - caddy_config:/config
 #     depends_on: [ backend ]
-# volumes:
-#   pgdata:
-#   caddy_data:
-#   caddy_config:
+volumes:
+  pgdata:
+
 
 networks:
   default:
