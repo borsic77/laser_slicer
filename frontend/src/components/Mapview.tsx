@@ -231,7 +231,7 @@ function useSelectionBounds(
  * - fixMode: if true, enables a mode where clicking on the map sets a fixed elevation without moving the marker
  * - onFixedElevation: callback invoked with lat/lng when fixMode is active and map is clicked
  */
-export default function MapView({ coordinates, onBoundsChange, squareOutput = false,  fixMode = false, onFixedElevation }: MapViewProps) {
+export default function MapView({ coordinates, onBoundsChange, squareOutput = false, fixMode = false, setFixMode, onFixedElevation }: MapViewProps) {
   // Holds current marker/map center position; initialized to coordinates or default location (Yverdon)
   const [position, setPosition] = useState<[number, number]>(
     coordinates ?? [46.83, 6.86]
@@ -252,7 +252,7 @@ export default function MapView({ coordinates, onBoundsChange, squareOutput = fa
       if (onFixedElevation) {
         onFixedElevation(e.latlng.lat, e.latlng.lng);
       }
-      setFixMode(false)
+      setFixMode?.(false)
     };    
     map.on('click', handleFixClick);
 
