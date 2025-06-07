@@ -1,3 +1,6 @@
+test.lan {
+    respond "Hello from Caddy!"
+}
 laserslicer.legradic.ch {
 
 	# serve static React build automatically (Caddy picks MIME)
