@@ -1,0 +1,49 @@
+laserslicer.legradic.ch {
+
+	# serve static React build automatically (Caddy picks MIME)
+	root * /usr/share/caddy
+	file_server
+
+	# API stays proxied to Django
+	handle_path /api/* {
+		reverse_proxy backend:8000
+	}
+}
+# LAN-only services -- use Pi-hole or hosts file for DNS
+portainer.local {
+    reverse_proxy portainer:9000
+}
+vscode.local {
+    reverse_proxy code-server:8080
+}
+pihole.local {
+    reverse_proxy pihole:80
+}
+homeassistant.local {
+    reverse_proxy homeassistant:8123
+}
+deconz.local {
+    reverse_proxy deconz:80
+}
+zwavejs.local {
+    reverse_proxy zwavejs:8091
+}
+mosquitto.local {
+    reverse_proxy mosquitto:9001
+}
+influxdb.local {
+    reverse_proxy influxdb:8086
+}
+esphome.local {
+    reverse_proxy esphome:6052
+}
+eufy.local {
+    reverse_proxy eufy-security-ws:3000
+}
+weatherflow.local {
+    reverse_proxy weatherflow2mqtt:8080
+}
+chronograf.local {
+    reverse_proxy chronograf:8888
+}
+
