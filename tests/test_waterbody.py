@@ -69,3 +69,23 @@ def test_generate_contours_with_water_polygon(tmp_path):
     elevations = [l["elevation"] for l in layers]
     assert 50.0 in elevations
 
+
+def test_water_polygon_clipped_to_bounds(tmp_path):
+    from core.utils import slicer
+    slicer.DEBUG_IMAGE_PATH = str(tmp_path)
+    elev = np.array([[0, 0], [100, 100]], dtype=float)
+    transform = rasterio.transform.from_origin(0, 2, 1, 1)
+    big_water = Polygon([(-0.5, 2.5), (2.5, 2.5), (2.5, -0.5), (-0.5, -0.5)])
+    layers = generate_contours(
+        elev,
+        transform,
+        interval=100,
+        fixed_elevation=50,
+        water_polygon=big_water,
+        debug_image_path=str(tmp_path),
+    )
+    from shapely.geometry import box, shape
+    bbox = box(0, 0, 2, 2)
+    water_geom = shape(next(l["geometry"] for l in layers if l["elevation"] == 50.0))
+    assert water_geom.equals(big_water.intersection(bbox))
+

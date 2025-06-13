@@ -31,6 +31,7 @@ from shapely.geometry import (
     LineString,
     MultiPolygon,
     Polygon,
+    box,
     mapping,
     shape,
 )
@@ -611,8 +612,27 @@ def generate_contours(
 
     level_polys = _extract_level_polygons(cs)
     if water_polygon is not None and fixed_elevation is not None:
-        level_polys.append((float(fixed_elevation), [water_polygon]))
-        level_polys.sort(key=lambda x: x[0])
+        bbox = None
+        if bounds is not None:
+            bbox = box(bounds[0], bounds[1], bounds[2], bounds[3])
+        else:
+            from rasterio.transform import array_bounds
+
+            minx, miny, maxx, maxy = array_bounds(
+                elevation_data.shape[0], elevation_data.shape[1], transform
+            )
+            bbox = box(minx, miny, maxx, maxy)
+
+        clipped = water_polygon.intersection(bbox)
+        if not clipped.is_empty:
+            polys = []
+            if clipped.geom_type == "Polygon":
+                polys = [clipped]
+            elif clipped.geom_type == "MultiPolygon":
+                polys = [p for p in clipped.geoms if p.geom_type == "Polygon"]
+            if polys:
+                level_polys.append((float(fixed_elevation), polys))
+                level_polys.sort(key=lambda x: x[0])
 
     plt.close(fig)
     contour_layers = _compute_layer_bands(level_polys, transform)
