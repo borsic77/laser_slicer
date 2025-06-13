@@ -54,6 +54,7 @@ class ContourSlicingJob:
         min_area: float,
         min_feature_width_mm: float,
         fixed_elevation: float | None = None,
+        water_polygon: dict | None = None,
     ):
         """Initialize the ContourSlicingJob with parameters.
         Args:
@@ -80,6 +81,7 @@ class ContourSlicingJob:
         self.min_area = min_area
         self.min_feature_width = min_feature_width_mm
         self.fixed_elevation = fixed_elevation
+        self.water_polygon = shape(water_polygon) if water_polygon else None
 
     def run(self) -> list[dict]:
         """Run the contour slicing job.
@@ -105,6 +107,7 @@ class ContourSlicingJob:
             bounds=self.bounds,
             fixed_elevation=self.fixed_elevation,
             num_layers=self.num_layers,
+            water_polygon=self.water_polygon,
         )
         _log_contour_info(contours, "After Contour Generation")
         # Project, smooth, and scale the contours

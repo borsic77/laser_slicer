@@ -12,6 +12,7 @@ urlpatterns = [
     path("api/export/", views.export_svgs_job),
     path("api/jobs/<uuid:job_id>/", views.job_status, name="job_status"),
     path("api/elevation", views.get_elevation),
+    path("api/waterbody/", views.waterbody),
 ]
 
 if settings.DEBUG:

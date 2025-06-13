@@ -567,6 +567,7 @@ def generate_contours(
     bounds: tuple[float, float, float, float] = None,
     fixed_elevation: float = None,
     num_layers: int | None = None,
+    water_polygon: Polygon | None = None,
 ) -> List[dict]:
     """Generates stacked contour bands from elevation data.
 
@@ -582,6 +583,8 @@ def generate_contours(
         fixed_elevation (float): If provided, starts slicing from this elevation.
         num_layers (int | None): If provided, overrides ``interval`` and
             generates exactly this many layers between the min and max
+            elevation.
+        water_polygon (Polygon | None): Optional polygon to merge at the fixed
             elevation.
 
     Returns:
@@ -607,6 +610,9 @@ def generate_contours(
         plt.savefig(os.path.join(debug_image_path, "contours.png"))
 
     level_polys = _extract_level_polygons(cs)
+    if water_polygon is not None and fixed_elevation is not None:
+        level_polys.append((float(fixed_elevation), [water_polygon]))
+        level_polys.sort(key=lambda x: x[0])
 
     plt.close(fig)
     contour_layers = _compute_layer_bands(level_polys, transform)

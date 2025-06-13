@@ -167,6 +167,7 @@ function App() {
   const [fixMode, setFixMode] = useState(false);               // Armed when button clicked, disables after marker placed
   const [fixedElevation, setFixedElevation] = useState<number | null>(null);
   const [fixedElevationEnabled, setFixedElevationEnabled] = useState(false);
+  const [waterPolygon, setWaterPolygon] = useState<any | null>(null);
 
 
   // Poll elevation job
@@ -440,7 +441,8 @@ function App() {
       substrate_size: params.substrateSize,
       layer_thickness: params.layerThickness,
       fixedElevation: fixedElevationEnabled ? fixedElevation : undefined,
-  
+      water_polygon: waterPolygon ?? undefined,
+
     };
     if (fixedElevationEnabled && typeof fixedElevation === 'number') {
       body.fixedElevation = fixedElevation;  
@@ -700,12 +702,23 @@ function App() {
             onFixedElevation={async (lat: number, lon: number) => {
               setFixMode(false);
               try {
-                // Make an API call to your elevation endpoint
+                let water = null;
+                try {
+                  const wres = await fetch(`${API_URL}/api/waterbody/?lat=${lat}&lon=${lon}`);
+                  if (wres.ok) {
+                    water = await wres.json();
+                  }
+                } catch {}
                 const resp = await fetch(`${API_URL}/api/elevation?lat=${lat}&lon=${lon}`);
                 if (!resp.ok) throw new Error("Failed to fetch elevation");
                 const { elevation } = await resp.json();
                 setFixedElevation(elevation);
                 setFixedElevationEnabled(true);
+                if (water && water.in_water) {
+                  setWaterPolygon(water.polygon);
+                } else {
+                  setWaterPolygon(null);
+                }
 
                 // Validate against min/max (if loaded)
                 if (elevationStats && (elevation < elevationStats.min || elevation > elevationStats.max)) {

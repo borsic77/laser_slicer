@@ -19,6 +19,8 @@ from core.tasks import (  # New: see below
 from core.utils.download_clip_elevation_tiles import ensure_tile_downloaded
 from core.utils.geocoding import geocode_address
 from core.utils.slicer import sample_elevation
+from core.utils.waterbody import fetch_waterbody_polygon
+from shapely.geometry import mapping
 
 logger = logging.getLogger(__name__)
 
@@ -77,6 +79,21 @@ def get_elevation(request):
         )
     logger.debug("Elevation for (%s, %s): %s", lat, lon, elevation)
     return JsonResponse({"elevation": round(elevation, 1)})
+
+
+@require_GET
+def waterbody(request):
+    """Return the waterbody polygon containing a point if any."""
+    try:
+        lat = float(request.GET["lat"])
+        lon = float(request.GET["lon"])
+    except (KeyError, ValueError):
+        return JsonResponse({"detail": "Invalid or missing lat/lon"}, status=400)
+
+    polygon = fetch_waterbody_polygon(lat, lon)
+    if polygon is not None:
+        return JsonResponse({"in_water": True, "polygon": mapping(polygon)})
+    return JsonResponse({"in_water": False, "polygon": None})
 
 
 @csrf_exempt
@@ -184,6 +201,7 @@ def slice_contours(request):
         "fixed_elevation": float(fixed_elevation_value)
         if fixed_elevation_value not in (None, "", "null")
         else None,
+        "water_polygon": request.data.get("water_polygon"),
     }
     logger.debug("Creating contour slicing job with params: %s", params)
     job = ContourJob.objects.create(params=params, status="PENDING")
