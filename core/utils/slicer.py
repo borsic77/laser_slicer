@@ -589,9 +589,10 @@ def generate_contours(
         raw_xlim = ax.get_xlim()
         raw_ylim = ax.get_ylim()
         plt.savefig(os.path.join(debug_image_path, "contours.png"))
-        plt.close(fig)
 
     level_polys = _extract_level_polygons(cs)
+
+    plt.close(fig)
     contour_layers = _compute_layer_bands(level_polys, transform)
 
     if DEBUG:
