@@ -93,6 +93,7 @@ def test_walk_bbox_between():
 def test_project_geometry(tmp_path):
     from shapely.geometry import Polygon, mapping
 
+    from core.utils import slicer
     from core.utils.slicer import project_geometry
 
     # Create a square polygon near Yverdon-les-Bains
@@ -101,6 +102,7 @@ def test_project_geometry(tmp_path):
     )
     contour = {"geometry": mapping(poly), "elevation": 500}
 
+    slicer.DEBUG_IMAGE_PATH = str(tmp_path)
     result = project_geometry([contour], center_lon=6.6, center_lat=46.8)
     assert isinstance(result, list)
     assert "geometry" in result[0]
@@ -180,6 +182,10 @@ def test_create_contourf_levels():
     # So we expect [100, 120, 140]
     expected = np.array([100.0, 120.0, 140.0])
     assert np.allclose(levels, expected)
+
+    # Using num_layers should produce the same result
+    levels_num = _create_contourf_levels(data, interval, num_layers=2)
+    assert np.allclose(levels_num, expected)
 
 
 # Test for _flatten_polygons
@@ -585,19 +591,18 @@ def test_mosaic_and_crop_lat_swap(monkeypatch):
 
     # Normal window behavior
     def fake_from_bounds(*args, **kwargs):
-        class Window:
-            row_off = 0
-            height = 5
-            col_off = 0
-            width = 5
-
-        return Window()
+        return rasterio.windows.Window(0, 0, 5, 5)
 
     monkeypatch.setattr("core.utils.slicer.from_bounds", fake_from_bounds)
+    class DummySrc:
+        def close(self):
+            pass
+
+    monkeypatch.setattr("rasterio.open", lambda *a, **k: DummySrc())
     # Should succeed and return array, even with swapped lats
     array, transform = mosaic_and_crop(["dummy"], (0, 5, 5, 0))  # lat_min > lat_max
     assert isinstance(array, np.ndarray)
-    assert array.shape == (1, 5, 5)
+    assert array.shape == (5, 5)
 
 
 def test_mosaic_and_crop_orientation_warning(monkeypatch):
@@ -624,12 +629,13 @@ def test_mosaic_and_crop_orientation_warning(monkeypatch):
     monkeypatch.setattr("core.utils.slicer.logger", logging.getLogger("dummy"))
     monkeypatch.setattr(
         "core.utils.slicer.from_bounds",
-        lambda *a, **k: type("W", (), dict(row_off=0, height=5, col_off=0, width=5))(),
+        lambda *a, **k: rasterio.windows.Window(0, 0, 5, 5),
     )
 
     # Patch rasterio.open
     class DummySrc:
-        pass
+        def close(self):
+            pass
 
     monkeypatch.setattr("rasterio.open", lambda *a, **k: DummySrc())
 

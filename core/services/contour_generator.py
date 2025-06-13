@@ -105,6 +105,7 @@ class ContourSlicingJob:
             scale=100,
             bounds=self.bounds,
             fixed_elevation=self.fixed_elevation,
+            num_layers=self.num_layers,
         )
         _log_contour_info(contours, "After Contour Generation")
         # Project, smooth, and scale the contours

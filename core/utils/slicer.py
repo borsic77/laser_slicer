@@ -295,6 +295,7 @@ def _create_contourf_levels(
     fixed_elevation: float = None,
     tol: float = 1e-3,
     margin: float = 30.0,
+    num_layers: int | None = None,
 ) -> np.ndarray:
     """Creates contour levels for filled contours based on elevation data.
     Computes the minimum and maximum elevation values, then generates
@@ -307,12 +308,18 @@ def _create_contourf_levels(
             at this elevation with a margin.
         tol (float): Tolerance for rounding contour levels.
         margin (float): Margin to add around the fixed elevation.
+        num_layers (int | None): If provided, override ``interval`` and
+            generate exactly this many layers between the min and max
+            elevation.
     Returns:
         np.ndarray: Array of contour levels.
     """
     min_elev = np.floor(np.min(elevation_data) / interval) * interval
     max_elev = np.ceil(np.max(elevation_data) / interval) * interval
-    levels = np.arange(min_elev, max_elev + tol, interval).tolist()
+    if num_layers is not None:
+        levels = np.linspace(min_elev, max_elev, num_layers + 1).tolist()
+    else:
+        levels = np.arange(min_elev, max_elev + tol, interval).tolist()
 
     if fixed_elevation is not None:
         # Insert water band edges, with a little margin
@@ -559,6 +566,7 @@ def generate_contours(
     scale: float = 1.0,
     bounds: tuple[float, float, float, float] = None,
     fixed_elevation: float = None,
+    num_layers: int | None = None,
 ) -> List[dict]:
     """Generates stacked contour bands from elevation data.
 
@@ -572,6 +580,9 @@ def generate_contours(
         scale (float): Not currently used.
         bounds (tuple): Optional bounds for clipping (not used).
         fixed_elevation (float): If provided, starts slicing from this elevation.
+        num_layers (int | None): If provided, overrides ``interval`` and
+            generates exactly this many layers between the min and max
+            elevation.
 
     Returns:
         list[dict]: Contour band geometries with elevation.
@@ -579,7 +590,12 @@ def generate_contours(
     logger.debug("generate contours called, fixed_elevation: %s", fixed_elevation)
 
     lon, lat = _prepare_meshgrid(elevation_data, transform)
-    levels = _create_contourf_levels(elevation_data, interval, fixed_elevation)
+    levels = _create_contourf_levels(
+        elevation_data,
+        interval,
+        fixed_elevation,
+        num_layers=num_layers,
+    )
 
     fig, ax = plt.subplots()
     cs = ax.contourf(lon, lat, elevation_data, levels=levels)
