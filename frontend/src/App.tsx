@@ -167,6 +167,7 @@ function App() {
   const [fixMode, setFixMode] = useState(false);               // Armed when button clicked, disables after marker placed
   const [fixedElevation, setFixedElevation] = useState<number | null>(null);
   const [fixedElevationEnabled, setFixedElevationEnabled] = useState(false);
+  const [waterPolygon, setWaterPolygon] = useState<any | null>(null);
 
 
   // Poll elevation job
@@ -440,7 +441,9 @@ function App() {
       substrate_size: params.substrateSize,
       layer_thickness: params.layerThickness,
       fixedElevation: fixedElevationEnabled ? fixedElevation : undefined,
-  
+      waterPolygon: waterPolygon ?? undefined,
+      waterElevation: fixedElevationEnabled ? fixedElevation ?? undefined : undefined,
+
     };
     if (fixedElevationEnabled && typeof fixedElevation === 'number') {
       body.fixedElevation = fixedElevation;  
@@ -700,20 +703,19 @@ function App() {
             onFixedElevation={async (lat: number, lon: number) => {
               setFixMode(false);
               try {
-                // Make an API call to your elevation endpoint
-                const resp = await fetch(`${API_URL}/api/elevation?lat=${lat}&lon=${lon}`);
-                if (!resp.ok) throw new Error("Failed to fetch elevation");
-                const { elevation } = await resp.json();
-                setFixedElevation(elevation);
+                const resp = await fetch(`${API_URL}/api/water-info/?lat=${lat}&lon=${lon}`);
+                if (!resp.ok) throw new Error("Failed to fetch water info");
+                const data = await resp.json();
+                setFixedElevation(data.elevation);
+                setWaterPolygon(data.geometry);
                 setFixedElevationEnabled(true);
 
-                // Validate against min/max (if loaded)
-                if (elevationStats && (elevation < elevationStats.min || elevation > elevationStats.max)) {
-                  const msg = `Elevation ${elevation}m is outside area bounds (${elevationStats.min}–${elevationStats.max})`;
-                  toast.error(msg);   
+                if (elevationStats && (data.elevation < elevationStats.min || data.elevation > elevationStats.max)) {
+                  const msg = `Elevation ${data.elevation}m is outside area bounds (${elevationStats.min}–${elevationStats.max})`;
+                  toast.error(msg);
                 }
               } catch (err: any) {
-                toast.error("Elevation lookup failed"); 
+                toast.error("Elevation lookup failed");
                 setFixedElevation(null);
                 setFixedElevationEnabled(false);
               }

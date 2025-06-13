@@ -1,9 +1,7 @@
 import logging
-from venv import logger
 
-import shapely
 from django.conf import settings
-from shapely.geometry import shape
+from shapely.geometry import shape, mapping
 
 from core.utils.download_clip_elevation_tiles import download_srtm_tiles_for_bounds
 from core.utils.geocoding import compute_utm_bounds_from_wgs84
@@ -55,6 +53,8 @@ class ContourSlicingJob:
         min_area: float,
         min_feature_width_mm: float,
         fixed_elevation: float | None = None,
+        water_polygon: dict | None = None,
+        water_elevation: float | None = None,
     ):
         """Initialize the ContourSlicingJob with parameters.
         Args:
@@ -81,6 +81,8 @@ class ContourSlicingJob:
         self.min_area = min_area
         self.min_feature_width = min_feature_width_mm
         self.fixed_elevation = fixed_elevation
+        self.water_polygon = water_polygon
+        self.water_elevation = water_elevation
 
     def run(self) -> list[dict]:
         """Run the contour slicing job.
@@ -106,6 +108,19 @@ class ContourSlicingJob:
             bounds=self.bounds,
             fixed_elevation=self.fixed_elevation,
         )
+        if self.water_polygon and self.water_elevation is not None:
+            try:
+                poly = shape(self.water_polygon)
+                if not poly.is_empty:
+                    contours.append(
+                        {
+                            "geometry": mapping(poly),
+                            "elevation": float(self.water_elevation),
+                            "closed": True,
+                        }
+                    )
+            except Exception as exc:
+                logger.warning("Invalid water polygon supplied: %s", exc)
         _log_contour_info(contours, "After Contour Generation")
         # Project, smooth, and scale the contours
         contours = project_geometry(contours, cx, cy, simplify_tolerance=self.simplify)

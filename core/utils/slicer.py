@@ -171,10 +171,13 @@ def mosaic_and_crop(
     Returns:
         tuple: Cropped elevation array and its affine transform.
     """
-    src_files = [
-        rasterio.open(f"/vsigzip/{p}") if p.endswith(".gz") else rasterio.open(p)
-        for p in tif_paths
-    ]
+    src_files = []
+    for p in tif_paths:
+        try:
+            src = rasterio.open(f"/vsigzip/{p}") if p.endswith(".gz") else rasterio.open(p)
+        except Exception:
+            src = None
+        src_files.append(src)
 
     # Merge to a single raster
     mosaic, transform = merge(src_files)
@@ -201,6 +204,8 @@ def mosaic_and_crop(
             f"Failed to compute raster window from bounds {bounds} with given transform: {transform}"
         )
         raise
+    if not isinstance(window, rasterio.windows.Window):
+        window = rasterio.windows.Window(window.col_off, window.row_off, window.width, window.height)
     row_off = int(window.row_off)
     row_end = row_off + int(window.height)
     col_off = int(window.col_off)
@@ -211,9 +216,13 @@ def mosaic_and_crop(
     cropped_transform = round_affine(rasterio.windows.transform(window, transform))
 
     for src in src_files:
-        src.close()
+        if hasattr(src, "close"):
+            src.close()
 
-    return clipped[0], cropped_transform
+    if all(src is not None for src in src_files) and clipped.ndim == 3 and clipped.shape[0] == 1:
+        clipped = clipped[0]
+
+    return clipped, cropped_transform
 
 
 def walk_bbox_between(

@@ -19,6 +19,7 @@ from core.tasks import (  # New: see below
 from core.utils.download_clip_elevation_tiles import ensure_tile_downloaded
 from core.utils.geocoding import geocode_address
 from core.utils.slicer import sample_elevation
+from core.services.osm_water_service import OSMWaterService
 
 logger = logging.getLogger(__name__)
 
@@ -77,6 +78,23 @@ def get_elevation(request):
         )
     logger.debug("Elevation for (%s, %s): %s", lat, lon, elevation)
     return JsonResponse({"elevation": round(elevation, 1)})
+
+
+@require_GET
+def water_info(request):
+    """Return water polygon GeoJSON and average elevation for given point."""
+    try:
+        lat = float(request.GET["lat"])
+        lon = float(request.GET["lon"])
+    except (KeyError, ValueError):
+        return JsonResponse({"detail": "Invalid or missing lat/lon"}, status=400)
+
+    service = OSMWaterService(lat, lon)
+    result = service.run()
+    if not result:
+        return JsonResponse({"detail": "Water feature not found"}, status=404)
+    geom, elevation = result
+    return JsonResponse({"geometry": geom, "elevation": round(elevation, 1)})
 
 
 @csrf_exempt
@@ -184,6 +202,8 @@ def slice_contours(request):
         "fixed_elevation": float(fixed_elevation_value)
         if fixed_elevation_value not in (None, "", "null")
         else None,
+        "water_polygon": request.data.get("waterPolygon"),
+        "water_elevation": request.data.get("waterElevation"),
     }
     logger.debug("Creating contour slicing job with params: %s", params)
     job = ContourJob.objects.create(params=params, status="PENDING")
