@@ -1,5 +1,4 @@
 import logging
-from venv import logger
 
 import shapely
 from django.conf import settings
