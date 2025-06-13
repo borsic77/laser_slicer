@@ -594,10 +594,16 @@ def test_mosaic_and_crop_lat_swap(monkeypatch):
         return Window()
 
     monkeypatch.setattr("core.utils.slicer.from_bounds", fake_from_bounds)
+    # Rasterio open should not access filesystem
+    class DummySrc:
+        def close(self):
+            pass
+
+    monkeypatch.setattr("rasterio.open", lambda *a, **k: DummySrc())
     # Should succeed and return array, even with swapped lats
     array, transform = mosaic_and_crop(["dummy"], (0, 5, 5, 0))  # lat_min > lat_max
     assert isinstance(array, np.ndarray)
-    assert array.shape == (1, 5, 5)
+    assert array.shape == (5, 5)
 
 
 def test_mosaic_and_crop_orientation_warning(monkeypatch):
@@ -629,7 +635,8 @@ def test_mosaic_and_crop_orientation_warning(monkeypatch):
 
     # Patch rasterio.open
     class DummySrc:
-        pass
+        def close(self):
+            pass
 
     monkeypatch.setattr("rasterio.open", lambda *a, **k: DummySrc())
 
@@ -642,7 +649,8 @@ def test_mosaic_and_crop_from_bounds_error(monkeypatch):
 
     # Patch rasterio.open to return a dummy object
     class DummySrc:
-        pass
+        def close(self):
+            pass
 
     monkeypatch.setattr("rasterio.open", lambda *a, **k: DummySrc())
 

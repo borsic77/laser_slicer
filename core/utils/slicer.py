@@ -201,6 +201,10 @@ def mosaic_and_crop(
             f"Failed to compute raster window from bounds {bounds} with given transform: {transform}"
         )
         raise
+    if not isinstance(window, rasterio.windows.Window):
+        window = rasterio.windows.Window(
+            window.col_off, window.row_off, window.width, window.height
+        )
     row_off = int(window.row_off)
     row_end = row_off + int(window.height)
     col_off = int(window.col_off)

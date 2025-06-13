@@ -19,6 +19,7 @@ from core.tasks import (  # New: see below
 from core.utils.download_clip_elevation_tiles import ensure_tile_downloaded
 from core.utils.geocoding import geocode_address
 from core.utils.slicer import sample_elevation
+from core.services.osm_water_service import OSMWaterService
 
 logger = logging.getLogger(__name__)
 
@@ -226,3 +227,38 @@ def job_status(request, job_id):
         "params": getattr(job, "params", None),
     }
     return Response(data, status=drf_status.HTTP_200_OK)
+
+
+@require_GET
+@safe_api
+def water_info(request) -> Response:
+    """Return water polygon covering the given coordinates, if any."""
+    try:
+        lat = float(request.GET["lat"])
+        lon = float(request.GET["lon"])
+    except (KeyError, ValueError):
+        return Response({"error": "Invalid or missing lat/lon"}, status=400)
+
+    radii_param = request.GET.get("radius")
+    max_radius = request.GET.get("max_radius")
+    radii = None
+    if radii_param:
+        try:
+            radii = [int(r) for r in radii_param.split(",") if r]
+        except ValueError:
+            return Response({"error": "Invalid radius"}, status=400)
+    if max_radius:
+        try:
+            max_radius = int(max_radius)
+        except ValueError:
+            return Response({"error": "Invalid max_radius"}, status=400)
+    else:
+        max_radius = None
+
+    service = OSMWaterService(radii=radii, max_radius=max_radius)
+    polygon = service.fetch_water_polygon(lat, lon)
+    if polygon is None:
+        return Response({"polygon": None})
+    from shapely.geometry import mapping
+
+    return Response({"polygon": mapping(polygon)})
