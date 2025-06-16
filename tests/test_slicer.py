@@ -183,9 +183,10 @@ def test_create_contourf_levels():
     expected = np.array([100.0, 120.0, 140.0])
     assert np.allclose(levels, expected)
 
-    # Using num_layers should produce the same result
+    # Using num_layers should use the min and max directly
     levels_num = _create_contourf_levels(data, interval, num_layers=2)
-    assert np.allclose(levels_num, expected)
+    expected_num = np.array([103.0, 121.5, 140.0])
+    assert np.allclose(levels_num, expected_num)
 
 
 # Test for _flatten_polygons
