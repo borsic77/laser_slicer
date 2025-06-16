@@ -358,6 +358,14 @@ function App() {
     };
   }, [bounds]);
 
+  // Reset fixed elevation when bounds change to avoid out-of-bounds slices
+  useEffect(() => {
+    if (!bounds) return;
+    setFixedElevation(null);
+    setFixedElevationEnabled(false);
+    setWaterPolygon(null);
+  }, [bounds]);
+
   /**
    * React effect: When elevationStats or numLayers change, synchronize heightPerLayer.
    * Triggers: runs whenever elevationStats or params.numLayers change.
