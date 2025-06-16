@@ -1,5 +1,4 @@
 import logging
-import math
 from typing import Optional
 
 import requests
@@ -46,28 +45,27 @@ def _element_to_polygon(element) -> Optional[Polygon]:
 
 
 def fetch_waterbody_polygon(lat: float, lon: float, radius_km: float = 5) -> Optional[Polygon]:
-    """Return the water polygon containing the point if any."""
+    """Return the water polygon containing the point if any.
+
+    The ``radius_km`` parameter is accepted for backward compatibility but is
+    not currently used in the query.
+    """
     try:
         lat = float(lat)
         lon = float(lon)
     except (TypeError, ValueError):
         return None
 
-    lat_radius = radius_km / 111.0
-    lon_radius = radius_km / (111.32 * math.cos(math.radians(lat)) or 1)
-    south = lat - lat_radius
-    north = lat + lat_radius
-    west = lon - lon_radius
-    east = lon + lon_radius
-
     query = f"""
     [out:json][timeout:25];
+    is_in({lat},{lon})->.a;
     (
-      way["natural"="water"]({south},{west},{north},{east});
-      relation["natural"="water"]({south},{west},{north},{east});
-      way["waterway"="riverbank"]({south},{west},{north},{east});
-      relation["waterway"="riverbank"]({south},{west},{north},{east});
+      way(pivot.a)["natural"="water"];
+      relation(pivot.a)["natural"="water"];
+      way(pivot.a)["waterway"="riverbank"];
+      relation(pivot.a)["waterway"="riverbank"];
     );
+    (._;>;);
     out geom;
     """
     try:
