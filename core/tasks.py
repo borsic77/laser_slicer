@@ -7,7 +7,6 @@ from celery import shared_task
 from django.conf import settings
 from django.core.files.base import ContentFile
 from django.utils import timezone
-from numpy import fix
 
 from core.models import ContourJob, ElevationJob, SVGJob
 from core.services.contour_generator import ContourSlicingJob
