@@ -615,16 +615,12 @@ def generate_contours(
 
     level_polys = _extract_level_polygons(cs)
     if water_polygon is not None and fixed_elevation is not None:
-        bbox = None
-        if bounds is not None:
-            bbox = box(bounds[0], bounds[1], bounds[2], bounds[3])
-        else:
-            from rasterio.transform import array_bounds
+        from rasterio.transform import array_bounds
 
-            minx, miny, maxx, maxy = array_bounds(
-                elevation_data.shape[0], elevation_data.shape[1], transform
-            )
-            bbox = box(minx, miny, maxx, maxy)
+        minx, miny, maxx, maxy = array_bounds(
+            elevation_data.shape[0], elevation_data.shape[1], transform
+        )
+        bbox = box(minx, miny, maxx, maxy)
 
         clipped = water_polygon.intersection(bbox)
         if not clipped.is_empty:
