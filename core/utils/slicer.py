@@ -614,6 +614,10 @@ def generate_contours(
         plt.savefig(os.path.join(debug_image_path, "contours.png"))
 
     level_polys = _extract_level_polygons(cs)
+
+    plt.close(fig)
+    contour_layers = _compute_layer_bands(level_polys, transform)
+
     if water_polygon is not None and fixed_elevation is not None:
         from rasterio.transform import array_bounds
 
@@ -624,17 +628,26 @@ def generate_contours(
 
         clipped = water_polygon.intersection(bbox)
         if not clipped.is_empty:
-            polys = []
-            if clipped.geom_type == "Polygon":
-                polys = [clipped]
-            elif clipped.geom_type == "MultiPolygon":
-                polys = [p for p in clipped.geoms if p.geom_type == "Polygon"]
-            if polys:
-                level_polys.append((float(fixed_elevation), polys))
-                level_polys.sort(key=lambda x: x[0])
-
-    plt.close(fig)
-    contour_layers = _compute_layer_bands(level_polys, transform)
+            if clipped.geom_type not in ("Polygon", "MultiPolygon") and hasattr(
+                clipped, "geoms"
+            ):
+                clipped = unary_union(
+                    [g for g in clipped.geoms if g.geom_type == "Polygon"]
+                )
+            if not clipped.is_empty:
+                band_geom = orient(_force_multipolygon(clipped))
+                insert_at = 0
+                for i, layer in enumerate(contour_layers):
+                    if layer["elevation"] <= float(fixed_elevation):
+                        insert_at = i + 1
+                contour_layers.insert(
+                    insert_at,
+                    {
+                        "elevation": float(fixed_elevation),
+                        "geometry": mapping(band_geom),
+                        "closed": True,
+                    },
+                )
 
     if DEBUG:
         os.makedirs(DEBUG_IMAGE_PATH, exist_ok=True)

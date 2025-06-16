@@ -55,19 +55,22 @@ def test_fetch_waterbody_polygon_none(monkeypatch):
 def test_generate_contours_with_water_polygon(tmp_path):
     from core.utils import slicer
     slicer.DEBUG_IMAGE_PATH = str(tmp_path)
-    elevation = np.array([[0, 0], [100, 100]], dtype=float)
-    transform = rasterio.transform.from_origin(0, 2, 1, 1)
-    water_poly = Polygon([(0.25, 1.75), (0.75, 1.75), (0.75, 1.25), (0.25, 1.25)])
+    elevation = np.array(
+        [[0, 100, 200], [0, 100, 200], [0, 100, 200]], dtype=float
+    )
+    transform = rasterio.transform.from_origin(0, 3, 1, 1)
+    water_poly = Polygon([(1.1, 1.9), (1.9, 1.9), (1.9, 1.1), (1.1, 1.1)])
     layers = generate_contours(
         elevation,
         transform,
         interval=100,
-        fixed_elevation=50,
+        num_layers=2,
+        fixed_elevation=100,
         water_polygon=water_poly,
         debug_image_path=str(tmp_path),
     )
     elevations = [l["elevation"] for l in layers]
-    assert 50.0 in elevations
+    assert elevations.count(100.0) == 2
 
 
 def test_water_polygon_clipped_to_bounds(tmp_path):
