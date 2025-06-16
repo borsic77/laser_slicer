@@ -318,7 +318,11 @@ def _create_contourf_levels(
     min_elev = np.floor(np.min(elevation_data) / interval) * interval
     max_elev = np.ceil(np.max(elevation_data) / interval) * interval
     if num_layers is not None:
-        levels = np.linspace(min_elev, max_elev, num_layers + 1).tolist()
+        levels = (
+            np.linspace(
+                np.min(elevation_data), np.max(elevation_data), num_layers + 1
+            ).tolist()
+        )  # use min and max directly, since num_layers is calculated in the frontend
     else:
         levels = np.arange(min_elev, max_elev + tol, interval).tolist()
 
