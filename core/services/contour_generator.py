@@ -1,5 +1,6 @@
 import logging
 
+import numpy as np
 import shapely
 from django.conf import settings
 from shapely.geometry import box, shape
@@ -7,11 +8,13 @@ from shapely.geometry import box, shape
 from core.utils.download_clip_elevation_tiles import download_srtm_tiles_for_bounds
 from core.utils.geocoding import compute_utm_bounds_from_wgs84
 from core.utils.slicer import (
+    clean_srtm_dem,
     clip_contours_to_bbox,
     filter_small_features,
     generate_contours,
     mosaic_and_crop,
     project_geometry,
+    robust_local_outlier_mask,
     scale_and_center_contours_to_substrate,
     smooth_geometry,
 )
@@ -113,8 +116,23 @@ class ContourSlicingJob:
         # Download elevation tiles and generate contours
         tile_paths = download_srtm_tiles_for_bounds(self.bounds)
         elevation, transform = mosaic_and_crop(tile_paths, self.bounds)
+        # Clean the elevation data
+        elevation = clean_srtm_dem(elevation)
+        elevation = robust_local_outlier_mask(elevation)
+        logger.debug("Elevation max, min: %.2f, %.2f", elevation.max(), elevation.min())
+        masked_elevation = np.ma.masked_where(
+            ~np.isfinite(elevation) | (elevation <= -32768), elevation
+        )
+        if np.all(np.isnan(elevation)):
+            logger.error(
+                "All DEM values are NaN after cleaning. Region is likely open water or SRTM is missing/corrupt."
+            )
+            raise ValueError(
+                "All DEM values are NaN after cleaning. Region is likely open water or SRTM is missing/corrupt."
+            )
+            return []
         contours = generate_contours(
-            elevation,
+            masked_elevation,
             transform,
             self.height,
             self.simplify,

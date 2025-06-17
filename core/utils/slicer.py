@@ -23,6 +23,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pyproj
 import rasterio
+import scipy.ndimage
 import shapely
 from django.conf import settings
 from rasterio.merge import merge
@@ -50,6 +51,43 @@ DEBUG = settings.DEBUG
 if DEBUG:
     os.makedirs(DEBUG_IMAGE_PATH, exist_ok=True)
 logger = logging.getLogger(__name__)
+
+
+def clean_srtm_dem(
+    dem: np.ndarray, min_valid: float = -500, max_valid: float = 9000
+) -> np.ndarray:
+    """
+    Cleans a SRTM DEM array by replacing outliers with np.nan.
+    Args:
+        dem (np.ndarray): The DEM array to clean.
+        min_valid (float): Minimum valid elevation value.
+        max_valid (float): Maximum valid elevation value.
+    Returns:
+        np.ndarray: Cleaned DEM array with outliers replaced by np.nan.
+    """
+    arr = np.where((dem == -32768) | (dem < min_valid) | (dem > max_valid), np.nan, dem)
+    return arr
+
+
+def robust_local_outlier_mask(arr, window=5, thresh=5.0):
+    """
+    Applies a robust local outlier mask to a 2D array.
+    Uses a median filter to compute the median and median absolute deviation,
+    then masks values that are more than `thresh` times the MAD away from the median.
+    Args:
+        arr (np.ndarray): 2D array to process.
+        window (int): Size of the median filter window.
+        thresh (float): Threshold for outlier detection, in terms of MAD.
+    Returns:
+        np.ndarray: Array with outliers replaced by np.nan."""
+    med = scipy.ndimage.median_filter(arr, size=window, mode="reflect")
+    diff = np.abs(arr - med)
+    mad = scipy.ndimage.median_filter(
+        diff, size=window, mode="reflect"
+    )  # median absolute deviation
+    mask = diff > thresh * (mad + 1e-6)
+    arr = np.where(mask, np.nan, arr)
+    return arr
 
 
 def round_affine(
@@ -632,7 +670,9 @@ def generate_contours(
 
     # --- Generate raw filled contours
     fig, ax = plt.subplots()
-    cs = ax.contourf(lon, lat, elevation_data, levels=levels)
+    # Before contourf, mask invalids
+    elevation_data_masked = np.ma.masked_invalid(elevation_data)
+    cs = ax.contourf(lon, lat, elevation_data_masked, levels=levels)
 
     # --- Optional: Save debug plot of raw contours
     if debug_image_path:

@@ -3,7 +3,7 @@ import logging
 import numpy as np
 
 from core.utils.download_clip_elevation_tiles import download_srtm_tiles_for_bounds
-from core.utils.slicer import mosaic_and_crop
+from core.utils.slicer import clean_srtm_dem, mosaic_and_crop, robust_local_outlier_mask
 
 logger = logging.getLogger(__name__)
 
@@ -35,12 +35,10 @@ class ElevationRangeJob:
         Returns:
             A dictionary with 'min' and 'max' elevation values.
         """
-        lon_min, lat_min, lon_max, lat_max = self.bounds
-        tile_paths = download_srtm_tiles_for_bounds(
-            (lon_min, lat_min, lon_max, lat_max)
-        )
-        elevation, _ = mosaic_and_crop(tile_paths, (lon_min, lat_min, lon_max, lat_max))
-
+        tile_paths = download_srtm_tiles_for_bounds(self.bounds)
+        elevation, _ = mosaic_and_crop(tile_paths, self.bounds)
+        elevation = clean_srtm_dem(elevation)
+        elevation = robust_local_outlier_mask(elevation)
         if elevation.size == 0 or not np.isfinite(elevation).any():
             logger.warning(f"Elevation data empty or invalid for bounds: {self.bounds}")
             raise ElevationDataError(
