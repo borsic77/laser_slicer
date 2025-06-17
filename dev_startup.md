@@ -16,7 +16,7 @@ Prerequisites
 
 ⸻
 
-1. Start PostgreSQL
+## 1. Start PostgreSQL
 
 Start the service:
 	•	macOS (Homebrew):
@@ -38,7 +38,7 @@ GRANT ALL PRIVILEGES ON DATABASE laserslicer TO laserslicer;
 
 ⸻
 
-2. Start Redis
+## 2. Start Redis
 
 Option 1: Foreground
 redis-server
@@ -53,7 +53,7 @@ Should output: PONG
 
 ⸻
 
-3. Start Django Backend
+## 3. Start Django Backend
 
 cd ~/laser_slicer
 uv venv .venv
@@ -66,7 +66,7 @@ python manage.py runserver
 
 ⸻
 
-4. Start Celery Worker
+## 4. Start Celery Worker
 
 (Open a new terminal, activate your virtual environment again)
 
@@ -76,7 +76,7 @@ celery -A config worker -l info
 
 ⸻
 
-5. Start Frontend (React + Vite)
+## 5. Start Frontend (React + Vite)
 
 (Open another terminal)
 
@@ -87,14 +87,15 @@ npm run dev
 
 ⸻
 
-Summary Table
+## Summary Table
 
-Component	Command	Default URL
-PostgreSQL	brew services start postgresql	localhost:5432
-Redis	redis-server or brew services start redis	localhost:6379
-Django backend	python manage.py runserver	http://localhost:8000
-Celery worker	celery -A core worker -l info	—
-Frontend (Vite)	npm run dev – –host	http://localhost:5173
+|Component|	Command|	Default URL|
+|--------|----------------------------------|-----------------------------------|
+|PostgreSQL|	brew services start postgresql|	localhost:5432|
+|Redis|	redis-server or brew services start redis|	localhost:6379|
+|Django backend|	python manage.py runserver|	http://localhost:8000|
+|Celery worker|	celery -A core worker -l info|	—|
+|Frontend (Vite)|	npm run dev – –host	|http://localhost:5173|
 
 
 ⸻
