@@ -7,6 +7,7 @@ from shapely.geometry import shape
 from core.utils.download_clip_elevation_tiles import download_srtm_tiles_for_bounds
 from core.utils.geocoding import compute_utm_bounds_from_wgs84
 from core.utils.slicer import (
+    clip_contours_to_bbox,
     filter_small_features,
     generate_contours,
     mosaic_and_crop,
@@ -118,9 +119,13 @@ class ContourSlicingJob:
         utm_bounds = compute_utm_bounds_from_wgs84(
             lon_min, lat_min, lon_max, lat_max, cx, cy
         )
+        # clip to make sure an fixed elevation water body does not violate the bounding box
+        contours = clip_contours_to_bbox(contours, utm_bounds)
+
         contours = scale_and_center_contours_to_substrate(
             contours, self.substrate_size, utm_bounds
         )
+
         # Log contour information
         # _log_contour_info(contours, "After Scaling and Centering")
         # Filter small features and set layer thickness

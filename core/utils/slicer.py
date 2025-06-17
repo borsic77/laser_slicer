@@ -15,6 +15,7 @@ import logging
 import math
 import os
 from collections import defaultdict
+from operator import le
 from typing import List, Tuple
 
 import matplotlib
@@ -315,24 +316,40 @@ def _create_contourf_levels(
     Returns:
         np.ndarray: Array of contour levels.
     """
-    min_elev = np.floor(np.min(elevation_data) / interval) * interval
-    max_elev = np.ceil(np.max(elevation_data) / interval) * interval
+    # min_elev = np.floor(np.min(elevation_data) / interval) * interval
+    # max_elev = np.ceil(np.max(elevation_data) / interval) * interval
+    min_elev = np.min(elevation_data)
+    max_elev = np.max(elevation_data)
     if num_layers is not None:
         levels = (
-            np.linspace(np.min(elevation_data), np.max(elevation_data), num_layers + 1)
-            .tolist()
+            np.linspace(
+                np.min(elevation_data), np.max(elevation_data), num_layers + 1
+            ).tolist()
         )  # use min and max directly, since num_layers is calculated in the frontend
     else:
         levels = np.arange(min_elev, max_elev + tol, interval).tolist()
 
+    # Water band edge handling change (lake gap bug fix):
+    # If fixed_elevation is provided, insert water band edges with a small offset (0.01)
+    # Only insert fixed_elevation - 0.01 if there is a level below fixed_elevation
+    # Only insert fixed_elevation + 0.01 if there is a level above fixed_elevation
     if fixed_elevation is not None:
-        # Insert water band edges, with a little margin
-        for v in (fixed_elevation - margin, fixed_elevation + margin):
-            if not any(abs(v - lvl) < margin for lvl in levels):
+        if min(levels) < fixed_elevation:
+            v = fixed_elevation - 3.1
+            if not any(abs(v - lvl) < 1e-4 for lvl in levels):
+                levels.append(v)
+        if max(levels) > fixed_elevation:
+            v = fixed_elevation + 3.1
+            if not any(abs(v - lvl) < 1e-4 for lvl in levels):
                 levels.append(v)
     # Sort and unique
     levels = sorted(set(round(lvl, 6) for lvl in levels))
-    logger.debug("Contour levels boundaries are: %s", levels)
+    logger.debug(
+        "Elevation data ranges from %s, %s \nContour levels boundaries are: %s",
+        np.min(elevation_data),
+        np.max(elevation_data),
+        levels,
+    )
     return np.array(levels)
 
 
@@ -574,28 +591,26 @@ def generate_contours(
     water_polygon: Polygon | None = None,
 ) -> List[dict]:
     """Generates stacked contour bands from elevation data.
-
+    Handles noisy SRTM lakes by injecting a user-supplied water polygon at the fixed elevation,
+    ensures the land band above does not overlap the lake, and cleans up all geometries.
     Args:
-        elevation_data (ndarray): 2D elevation array.
-        transform (Affine): Affine transform for spatial coordinates.
-        interval (float): Height difference between layers.
-        simplify (float): Optional simplification factor (not used here).
-        debug_image_path (str): Path for saving debug images.
-        center (tuple): Center coordinate for UTM zone.
-        scale (float): Not currently used.
-        bounds (tuple): Optional bounds for clipping (not used).
-        fixed_elevation (float): If provided, starts slicing from this elevation.
-        num_layers (int | None): If provided, overrides ``interval`` and
-            generates exactly this many layers between the min and max
-            elevation.
-        water_polygon (Polygon | None): Optional polygon to merge at the fixed
-            elevation.
-
+        elevation_data (np.ndarray): 2D array of elevation values.
+        transform (rasterio.Affine): Affine transformation for the raster.
+        interval (float): Height difference between contour levels.
+        simplify (float): Simplification tolerance for contours.
+        debug_image_path (str): Path to save debug images.
+        center (tuple[float, float]): Center coordinates for the area of interest.
+        scale (float): Scale factor for the coordinates.
+        bounds (tuple[float, float, float, float]): Bounding box coordinates (lon_min, lat_min, lon_max, lat_max).
+        fixed_elevation (float | None): If provided, adds a water band at this elevation.
+        num_layers (int | None): If provided, overrides interval and generates exactly this many layers.
+        water_polygon (Polygon | None): Optional water polygon to insert at fixed elevation.
     Returns:
-        list[dict]: Contour band geometries with elevation.
+        List[dict]: List of contour layers, each with 'elevation' and 'geometry'.
     """
     logger.debug("generate contours called, fixed_elevation: %s", fixed_elevation)
 
+    # --- Generate meshgrid and determine contour levels
     lon, lat = _prepare_meshgrid(elevation_data, transform)
     levels = _create_contourf_levels(
         elevation_data,
@@ -604,51 +619,90 @@ def generate_contours(
         num_layers=num_layers,
     )
 
+    # --- Generate raw filled contours
     fig, ax = plt.subplots()
     cs = ax.contourf(lon, lat, elevation_data, levels=levels)
 
+    # --- Optional: Save debug plot of raw contours
     if debug_image_path:
         ax.set_title("Generated Contours")
         raw_xlim = ax.get_xlim()
         raw_ylim = ax.get_ylim()
         plt.savefig(os.path.join(debug_image_path, "contours.png"))
 
+    # --- Extract filled contour polygons for each band
     level_polys = _extract_level_polygons(cs)
-
     plt.close(fig)
+
+    # Robustly carve the waterband out of all higher contour layers to ensure clean shorelines even in noisy SRTM data.
+    if water_polygon is not None and fixed_elevation is not None:
+        water_band = orient(_force_multipolygon(water_polygon))
+        new_level_polys = []
+        inserted = False
+
+        for i, (level, polys) in enumerate(level_polys):
+            # If current level is BELOW the water, just append
+            if level < fixed_elevation - 3:
+                new_level_polys.append((level, polys))
+            # If current level is WITHIN the waterband, skip (removes SRTM water)
+            elif abs(level - fixed_elevation) <= 3:
+                continue
+            # If current level is just ABOVE waterband, insert waterband and subtract from this and all higher bands
+            elif not inserted and level > fixed_elevation + 3:
+                # Insert waterband just before this level
+                new_level_polys.append((fixed_elevation, [water_band]))
+                inserted = True
+                # Prepare cleaned water geometry for robust differencing
+                from shapely.ops import unary_union
+
+                cleaned_water = clean_geometry_strict(water_band)
+                # Optionally buffer for robust carving
+                robust_water = (
+                    cleaned_water.buffer(-0.01) if cleaned_water is not None else None
+                )
+                robust_water = (
+                    clean_geometry_strict(robust_water)
+                    if robust_water is not None
+                    else None
+                )
+                # Now subtract water band from ALL bands above
+                above_bands = level_polys[i:]
+                for above_level, above_polys in above_bands:
+                    cleaned_land = [
+                        clean_geometry_strict(p)
+                        for p in above_polys
+                        if p and not p.is_empty
+                    ]
+                    cleaned_land = [
+                        p for p in cleaned_land if p is not None and not p.is_empty
+                    ]
+                    if (
+                        cleaned_land
+                        and robust_water is not None
+                        and not robust_water.is_empty
+                    ):
+                        carved = [p.difference(robust_water) for p in cleaned_land]
+                        carved_clean = [
+                            clean_geometry_strict(p)
+                            for p in carved
+                            if p and not p.is_empty and clean_geometry_strict(p)
+                        ]
+                        new_level_polys.append((above_level, carved_clean))
+                    else:
+                        new_level_polys.append((above_level, cleaned_land))
+                break  # All further levels have been handled, so exit the loop
+            else:
+                new_level_polys.append((level, polys))
+
+        # If waterband is higher than any existing band, append at the end
+        if not inserted:
+            new_level_polys.append((fixed_elevation, [water_band]))
+
+        level_polys = new_level_polys
+    # --- Build cumulative, stackable bands (each band supports those above)
     contour_layers = _compute_layer_bands(level_polys, transform)
 
-    if water_polygon is not None and fixed_elevation is not None:
-        from rasterio.transform import array_bounds
-
-        minx, miny, maxx, maxy = array_bounds(
-            elevation_data.shape[0], elevation_data.shape[1], transform
-        )
-        bbox = box(minx, miny, maxx, maxy)
-
-        clipped = water_polygon.intersection(bbox)
-        if not clipped.is_empty:
-            if clipped.geom_type not in ("Polygon", "MultiPolygon") and hasattr(
-                clipped, "geoms"
-            ):
-                clipped = unary_union(
-                    [g for g in clipped.geoms if g.geom_type == "Polygon"]
-                )
-            if not clipped.is_empty:
-                band_geom = orient(_force_multipolygon(clipped))
-                insert_at = 0
-                for i, layer in enumerate(contour_layers):
-                    if layer["elevation"] <= float(fixed_elevation):
-                        insert_at = i + 1
-                contour_layers.insert(
-                    insert_at,
-                    {
-                        "elevation": float(fixed_elevation),
-                        "geometry": mapping(band_geom),
-                        "closed": True,
-                    },
-                )
-
+    # --- DEBUG: Save debug polygons and plot final stackable layers
     if DEBUG:
         os.makedirs(DEBUG_IMAGE_PATH, exist_ok=True)
         for layer in contour_layers:
@@ -658,7 +712,8 @@ def generate_contours(
     _plot_contour_layers(contour_layers, raw_xlim, raw_ylim, debug_image_path)
 
     logger.debug(f"Generated {len(contour_layers)} contour layers")
-    # Filter out empty or invalid geometries
+
+    # --- Filter out empty or invalid geometries ---
     filtered = []
     for layer in contour_layers:
         geom = shape(layer["geometry"])
@@ -719,9 +774,10 @@ def project_geometry(
     fig, ax = plt.subplots()
 
     for contour, geom in projected_geoms:
+        # Rotation cleanup: remove the unnecessary -90 deg offset, rotate only by -rot_angle
         rotated_geom = shapely.affinity.rotate(
-            geom, -rot_angle - 90, origin=center
-        )  # adding 90 because everything got rotated by 90 deg cw, and i can't find the bug
+            geom, -rot_angle, origin=center
+        )  # Clean up: only rotate by -rot_angle
         # Clean geometry strictly after rotation
         cleaned_geom = clean_geometry_strict(rotated_geom)
         logger.debug(
@@ -754,6 +810,30 @@ def project_geometry(
     plt.savefig(os.path.join(DEBUG_IMAGE_PATH, "projected_contours.png"))
 
     return projected_contours
+
+
+def clip_contours_to_bbox(
+    contours: list[dict], bbox: tuple[float, float, float, float]
+) -> list[dict]:
+    """
+    Clips each projected contour geometry to the provided bounding box.
+    Args:
+        contours (list): List of contour dicts with projected geometries.
+        bbox (tuple): (minx, miny, maxx, maxy) in projected coordinates.
+    Returns:
+        list: List of contours with geometries clipped to bbox.
+    """
+    bbox_poly = box(*bbox)
+    clipped = []
+    for contour in contours:
+        geom = shape(contour["geometry"])
+        clipped_geom = geom.intersection(bbox_poly)
+        cleaned = clean_geometry_strict(clipped_geom)
+        if cleaned is not None and not cleaned.is_empty:
+            contour_clipped = contour.copy()
+            contour_clipped["geometry"] = mapping(cleaned)
+            clipped.append(contour_clipped)
+    return clipped
 
 
 def scale_and_center_contours_to_substrate(

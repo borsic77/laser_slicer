@@ -574,7 +574,7 @@ function App() {
                 title="Click, then place a marker on the map to sample elevation."
                 style={{ marginBottom: '0.5em' }}
               >
-                {fixMode ? "Select on map..." : "Fix Elevation (lake)"}
+                {fixMode ? "Select on map..." : "Fix Elevation (water body)"}
               </button>
 
               <input
