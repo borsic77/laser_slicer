@@ -7,8 +7,10 @@ Live site: [laserslicer.legradic.ch](https://laserslicer.legradic.ch)
 ![Screenshot of the Laser Slicer interface](screenshot.png)
 
 * A **ZIP archive** of SVG files (one per contour layer)  
-* A **browser 3‑D preview** of the stacked model  
+* A **browser 3‑D preview** of the stacked model
 * A **Dockerised, reproducible workflow** that runs the heavy lifting in Celery workers
+* **Fixed elevation** tool for clean coastlines and lakes
+* **SRTM noise filtering** for troublesome areas (e.g. Boston)
 
 
 
@@ -19,7 +21,9 @@ Live site: [laserslicer.legradic.ch](https://laserslicer.legradic.ch)
 | Front‑end (Vite + React)                | Back‑end (Django 5 + Celery)          |
 |-----------------------------------------|---------------------------------------|
 | **Leaflet map** – pick any address or drop a pin | **Geocoding** through Nominatim |
+| Auto geolocation start | `/api/elevation` single‑point query |
 | Parameter panel – slice height, base height, simplification | Fetch & clip **SRTM 30 m** DEM |
+| Minimum area/width filters & optional fixed elevation (lake) | Robust SRTM cleaning & outlier filtering |
 | **Slice** button launches background job | Contour generation with GDAL / Matplotlib |
 | Live **Three.js** 3‑D preview of layers | Optional simplification with Shapely |
 | **Download SVGs** – packaged as a ZIP | SVG export via `svgwrite` |
@@ -109,6 +113,7 @@ npm run dev
 | `GET`  | `/api/contours/<uuid>/`         | Check status and result of a task |
 | `GET`  | `/api/contours/<uuid>/download/`| Download resulting ZIP file       |
 | `GET`  | `/api/elevation-range/`         | Get min/max elevation for a given bounding box |
+| `GET`  | `/api/elevation`                | Sample elevation at a lat/lon |
 | `GET`  | `/api/status/`                  | Basic health check/status         |
 
 
