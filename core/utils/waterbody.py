@@ -16,6 +16,39 @@ logger = logging.getLogger(__name__)
 OVERPASS_URL = "https://overpass-api.de/api/interpreter"
 
 
+def _is_relation_bbox_too_large(rel_id, max_deg=2.0):
+    """Check if the relation bounding box is larger than allowed.
+    Args:
+        rel_id (int): The OSM relation ID to check.
+        max_deg (float): Maximum allowed bounding box size in degrees.
+    Returns:
+        bool: True if the bounding box is too large, False otherwise."""
+    overpass_url = "https://overpass-api.de/api/interpreter"
+    query = f"""
+    [out:json][timeout:25];
+    relation({rel_id});
+    out bb;
+    """
+    try:
+        resp = requests.post(overpass_url, data={"data": query}, timeout=30)
+        resp.raise_for_status()
+        data = resp.json()
+        if data["elements"]:
+            bounds = data["elements"][0].get("bounds")
+            if bounds:
+                dlat = bounds["maxlat"] - bounds["minlat"]
+                dlon = bounds["maxlon"] - bounds["minlon"]
+                if dlat > max_deg or dlon > max_deg:
+                    logger.warning(
+                        f"Relation {rel_id} bounding box too large: "
+                        f"{dlat:.2f}° lat, {dlon:.2f}° lon. Skipping detailed geometry."
+                    )
+                    return True
+    except Exception as exc:
+        logger.warning("Failed to get water relation bounding box: %s", exc)
+    return False
+
+
 def plot_fetched_water_polygon(
     water_polygon, debug_image_path, filename="fetched_water_polygon.png"
 ):
@@ -158,12 +191,17 @@ def fetch_waterbody_polygon(
     rel_id = water_rel_ids[0]
     logger.debug("Using water relation ID: %d", rel_id)
 
-    # Step 2: Try osmnx first (handles multipolygons robustly)
-    poly = fetch_waterbody_polygon_osmnx(rel_id)
-    if poly is not None:
-        plot_fetched_water_polygon(poly, settings.DEBUG_IMAGE_PATH)
-        logger.debug("Fetched water polygon using osmnx")
-        return poly
+    # Step 2: Only fetch osmnx geometry if bbox is not too large
+    if not _is_relation_bbox_too_large(rel_id, max_deg=2.0):
+        poly = fetch_waterbody_polygon_osmnx(rel_id)
+        if poly is not None:
+            plot_fetched_water_polygon(poly, settings.DEBUG_IMAGE_PATH)
+            logger.debug("Fetched water polygon using osmnx")
+            return poly
+    else:
+        logger.warning(
+            f"Skipping osmnx fetch for relation {rel_id} due to large bbox; falling back."
+        )
 
     # --- fallback: manual Overpass element parsing (legacy) ---
     query_geom = f"""
