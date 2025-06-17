@@ -42,8 +42,11 @@ cp env.example .env   # edit DB credentials, secret key …
 docker compose up --build
 ```
 
-Visit **http://localhost:5173** in your browser.  
+Visit **http://localhost:5173** in your browser.
 The front‑end talks to the Django API at **http://localhost:8000**.
+The API enforces CSRF protection. Ensure your `.env` defines matching
+`DJANGO_CORS_ALLOWED_ORIGINS` and `DJANGO_CSRF_TRUSTED_ORIGINS`
+so the browser can send the `csrftoken` cookie with each request.
 
 ### Production
 

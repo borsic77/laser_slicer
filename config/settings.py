@@ -93,7 +93,14 @@ MIDDLEWARE = [
 ]
 
 CORS_ALLOWED_ORIGINS = get_env(
-    "DJANGO_CORS_ALLOWED_ORIGINS", "http://localhost:5173,http://localhost:4173"
+    "DJANGO_CORS_ALLOWED_ORIGINS",
+    "http://localhost:5173,http://localhost:4173,https://laserslicer.legradic.ch",
+).split(",")
+CORS_ALLOW_CREDENTIALS = True
+
+CSRF_TRUSTED_ORIGINS = get_env(
+    "DJANGO_CSRF_TRUSTED_ORIGINS",
+    "http://localhost:5173,http://localhost:4173,https://laserslicer.legradic.ch",
 ).split(",")
 
 ROOT_URLCONF = "config.urls"

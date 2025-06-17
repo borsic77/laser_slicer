@@ -4,7 +4,6 @@ from functools import wraps
 from django.apps import apps
 from django.http import JsonResponse
 from django.shortcuts import render
-from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET
 from rest_framework import status as drf_status
 from rest_framework.decorators import api_view
@@ -96,7 +95,6 @@ def waterbody(request):
     return JsonResponse({"in_water": False, "polygon": None})
 
 
-@csrf_exempt
 @api_view(["POST"])
 @safe_api
 def elevation_range(request) -> Response:
@@ -116,7 +114,6 @@ def elevation_range(request) -> Response:
     return Response({"job_id": str(job.id)}, status=202)
 
 
-@csrf_exempt
 @api_view(["POST"])
 @safe_api
 def export_svgs_job(request):
@@ -131,7 +128,6 @@ def export_svgs_job(request):
     return Response({"job_id": str(job.id)}, status=202)
 
 
-@csrf_exempt
 @api_view(["POST"])
 @safe_api
 def geocode(request) -> Response:
@@ -176,7 +172,6 @@ def _compute_center(bounds: dict) -> tuple[float, float]:
     return ((lon_min + lon_max) / 2, (lat_min + lat_max) / 2)
 
 
-@csrf_exempt
 @api_view(["POST"])
 @safe_api
 def slice_contours(request):
