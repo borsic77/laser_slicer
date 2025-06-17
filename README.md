@@ -69,25 +69,8 @@ Caddy terminates TLS on ports 80/443 and proxies `/api` to Django ``backend:800
 | Redis       | 7       |
 | GDAL        | 3.6 +   |
 
-```bash
-# Back‑end
-python -m venv .venv && source .venv/bin/activate
-pip install -e ".[dev]"
-cp .env.example .env          # configure DB, secret key …
-python manage.py migrate
-python manage.py runserver 0.0.0.0:8000
+See [Developer Startup Guide](dev_startup.md) for setup instructions.
 
-# Celery worker (in another shell)
-celery -A config worker -l info
-
-#redis (yet another shell)
-redis-server
-
-# Front‑end
-cd frontend
-npm install
-npm run dev 
-```
 
 ---
 
