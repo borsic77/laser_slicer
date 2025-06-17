@@ -9,6 +9,7 @@ from django.views.decorators.http import require_GET
 from rest_framework import status as drf_status
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
+from shapely.geometry import mapping
 
 from core.models import BaseJob, ContourJob, ElevationJob, SVGJob
 from core.tasks import (  # New: see below
@@ -20,7 +21,6 @@ from core.utils.download_clip_elevation_tiles import ensure_tile_downloaded
 from core.utils.geocoding import geocode_address
 from core.utils.slicer import sample_elevation
 from core.utils.waterbody import fetch_waterbody_polygon
-from shapely.geometry import mapping
 
 logger = logging.getLogger(__name__)
 
@@ -203,7 +203,7 @@ def slice_contours(request):
         else None,
         "water_polygon": request.data.get("water_polygon"),
     }
-    logger.debug("Creating contour slicing job with params: %s", params)
+    # logger.debug("Creating contour slicing job with params: %s", params)
     job = ContourJob.objects.create(params=params, status="PENDING")
     # Start async task
     run_contour_slicing_job.delay(str(job.id))

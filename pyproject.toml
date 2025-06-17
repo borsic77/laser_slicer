@@ -20,6 +20,7 @@ dependencies = [
     "gunicorn>=23.0.0",
     "matplotlib>=3.10.3",
     "numpy>=2.2.5",
+    "osmnx>=2.0.4",
     "psycopg2-binary>=2.9.10",
     "pyproj>=3.7.1",
     "python-dotenv>=1.1.0",

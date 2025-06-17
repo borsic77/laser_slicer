@@ -1,13 +1,55 @@
 import logging
+import os
+import tempfile
 from typing import Optional
 
+import geopandas as gpd
+import matplotlib.pyplot as plt
+import osmnx as ox
 import requests
-from shapely.geometry import MultiPolygon, Polygon, Point
+from django.conf import settings
+from shapely.geometry import MultiPolygon, Point, Polygon
 from shapely.ops import unary_union
 
 logger = logging.getLogger(__name__)
 
 OVERPASS_URL = "https://overpass-api.de/api/interpreter"
+
+
+def plot_fetched_water_polygon(
+    water_polygon, debug_image_path, filename="fetched_water_polygon.png"
+):
+    """
+    Plots the fetched (raw) water polygon in lon/lat coordinates.
+    """
+    if water_polygon is None:
+        print("No water polygon to plot.")
+        return
+
+    fig, ax = plt.subplots()
+    # Plot water polygon, handling both Polygon and MultiPolygon
+    if water_polygon.geom_type == "Polygon":
+        x, y = water_polygon.exterior.xy
+        ax.plot(x, y, color="blue")
+        for interior in water_polygon.interiors:
+            xi, yi = interior.xy
+            ax.plot(xi, yi, color="blue", linestyle="--")
+    elif water_polygon.geom_type == "MultiPolygon":
+        for poly in water_polygon.geoms:
+            x, y = poly.exterior.xy
+            ax.plot(x, y, color="blue")
+            for interior in poly.interiors:
+                xi, yi = interior.xy
+                ax.plot(xi, yi, color="blue", linestyle="--")
+    ax.set_title("Fetched Water Polygon (raw, lon/lat)")
+    ax.set_xlabel("Longitude")
+    ax.set_ylabel("Latitude")
+    ax.axis("equal")
+    os.makedirs(debug_image_path, exist_ok=True)
+    outpath = os.path.join(debug_image_path, filename)
+    plt.savefig(outpath, dpi=150)
+    plt.close(fig)
+    print(f"Saved water polygon plot to {outpath}")
 
 
 def _element_to_polygon(element) -> Optional[Polygon]:
@@ -44,11 +86,41 @@ def _element_to_polygon(element) -> Optional[Polygon]:
     return None
 
 
-def fetch_waterbody_polygon(lat: float, lon: float, radius_km: float = 5) -> Optional[Polygon]:
-    """Return the water polygon containing the point if any.
+def fetch_waterbody_polygon_osmnx(rel_id):
+    """Fetch and return the full water multipolygon as GeoDataFrame using osmnx.
+    Args:
+        rel_id (int): The OSM relation ID for the water body.
+    Returns:
+        Optional[Polygon]: The largest water body polygon if found, otherwise None.
+    """
+    try:
+        # Download the relation as OSM XML
+        url = f"https://www.openstreetmap.org/api/0.6/relation/{rel_id}/full"
+        response = requests.get(url)
+        response.raise_for_status()
+        osm_xml = response.content
+        # Write the XML to a temporary file
+        with tempfile.NamedTemporaryFile(suffix=".osm", delete=False) as tmpfile:
+            tmpfile.write(osm_xml)
+            tmpfile_path = tmpfile.name
+        # Parse the XML into a GeoDataFrame
+        gdf = ox.features_from_xml(tmpfile_path)
+        polys = gdf[gdf.geometry.type.isin(["Polygon", "MultiPolygon"])].geometry
+        if polys.empty:
+            return None
+        largest = polys.iloc[polys.area.argmax()]
+        return largest
+    except Exception as exc:
+        logger.warning("osmnx fetch failed: %s", exc)
+        return None
 
-    The ``radius_km`` parameter is accepted for backward compatibility but is
-    not currently used in the query.
+
+def fetch_waterbody_polygon(
+    lat: float, lon: float, radius_km: float = 5
+) -> Optional[Polygon]:
+    """Return the water polygon containing the point if any.
+    Tries to use osmnx (which reconstructs complex multipolygons properly).
+    Falls back to manual Overpass assembly if osmnx fails.
     """
     try:
         lat = float(lat)
@@ -56,30 +128,74 @@ def fetch_waterbody_polygon(lat: float, lon: float, radius_km: float = 5) -> Opt
     except (TypeError, ValueError):
         return None
 
-    query = f"""
+    OVERPASS_URL = "https://overpass-api.de/api/interpreter"
+
+    # Step 1: Find the largest water relation containing this point
+    query_ids = f"""
     [out:json][timeout:25];
     is_in({lat},{lon})->.a;
-    (
-      way(pivot.a)["natural"="water"];
-      relation(pivot.a)["natural"="water"];
-      way(pivot.a)["waterway"="riverbank"];
-      relation(pivot.a)["waterway"="riverbank"];
-    );
+    relation(pivot.a)["natural"="water"];
+    out ids;
+    """
+    try:
+        resp_ids = requests.post(OVERPASS_URL, data={"data": query_ids}, timeout=30)
+        resp_ids.raise_for_status()
+        data_ids = resp_ids.json()
+    except Exception as exc:
+        logger.warning("Overpass request for water relation IDs failed: %s", exc)
+        return None
+
+    water_rel_ids = [
+        el["id"] for el in data_ids.get("elements", []) if el["type"] == "relation"
+    ]
+    logger.debug(
+        "Found %d water relations near point (%.6f, %.6f)", len(water_rel_ids), lon, lat
+    )
+    if not water_rel_ids:
+        return None
+
+    # Use the first relation (can be improved to choose largest later)
+    rel_id = water_rel_ids[0]
+    logger.debug("Using water relation ID: %d", rel_id)
+
+    # Step 2: Try osmnx first (handles multipolygons robustly)
+    poly = fetch_waterbody_polygon_osmnx(rel_id)
+    if poly is not None:
+        plot_fetched_water_polygon(poly, settings.DEBUG_IMAGE_PATH)
+        logger.debug("Fetched water polygon using osmnx")
+        return poly
+
+    # --- fallback: manual Overpass element parsing (legacy) ---
+    query_geom = f"""
+    [out:json][timeout:60];
+    relation({rel_id});
     (._;>;);
     out geom;
     """
     try:
-        resp = requests.post(OVERPASS_URL, data={"data": query}, timeout=30)
-        resp.raise_for_status()
-        data = resp.json()
+        resp_geom = requests.post(OVERPASS_URL, data={"data": query_geom}, timeout=60)
+        resp_geom.raise_for_status()
+        data_geom = resp_geom.json()
     except Exception as exc:
-        logger.warning("Overpass request failed: %s", exc)
+        logger.warning("Overpass request for water geometry failed: %s", exc)
         return None
 
     pt = Point(lon, lat)
-    for element in data.get("elements", []):
+    polys = []
+    for element in data_geom.get("elements", []):
         poly = _element_to_polygon(element)
         if poly and poly.contains(pt):
-            return poly
+            polys.append(poly)
+    if polys:
+        merged = unary_union(polys)
+        plot_fetched_water_polygon(merged, settings.DEBUG_IMAGE_PATH)
+        if merged.geom_type == "Polygon":
+            logger.debug("Fetched water polygon (manual Overpass fallback)")
+            return merged
+        if merged.geom_type == "MultiPolygon":
+            logger.debug(
+                "Fetched MultiPolygon water body with %d parts (manual Overpass fallback)",
+                len(merged.geoms),
+            )
+            return max(merged.geoms, key=lambda p: p.area)
     return None
-

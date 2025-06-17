@@ -2,7 +2,7 @@ import logging
 
 import shapely
 from django.conf import settings
-from shapely.geometry import shape
+from shapely.geometry import box, shape
 
 from core.utils.download_clip_elevation_tiles import download_srtm_tiles_for_bounds
 from core.utils.geocoding import compute_utm_bounds_from_wgs84
@@ -83,6 +83,22 @@ class ContourSlicingJob:
         self.min_feature_width = min_feature_width_mm
         self.fixed_elevation = fixed_elevation
         self.water_polygon = shape(water_polygon) if water_polygon else None
+        if water_polygon:
+            # Intersect with area of interest in lon/lat before anything else
+
+            lon_min, lat_min, lon_max, lat_max = bounds
+            epsilon = 0.004  # Small epsilon to avoid precision issues
+            wgs_bbox = box(
+                lon_min - epsilon,
+                lat_min - epsilon,
+                lon_max + epsilon,
+                lat_max + epsilon,
+            )
+            poly = shape(water_polygon)
+            cropped = poly.intersection(wgs_bbox)
+            self.water_polygon = cropped if not cropped.is_empty else None
+        else:
+            self.water_polygon = None
 
     def run(self) -> list[dict]:
         """Run the contour slicing job.
@@ -113,21 +129,22 @@ class ContourSlicingJob:
         _log_contour_info(contours, "After Contour Generation")
         # Project, smooth, and scale the contours
         contours = project_geometry(contours, cx, cy, simplify_tolerance=self.simplify)
-        # _log_contour_info(contours, "After Projection")
+        _log_contour_info(contours, "After Projection")
         contours = smooth_geometry(contours, self.smoothing)
-        # _log_contour_info(contours, "After Smoothing")
+        _log_contour_info(contours, "After Smoothing")
         utm_bounds = compute_utm_bounds_from_wgs84(
             lon_min, lat_min, lon_max, lat_max, cx, cy
         )
         # clip to make sure an fixed elevation water body does not violate the bounding box
         contours = clip_contours_to_bbox(contours, utm_bounds)
+        _log_contour_info(contours, "After Clipping to Bounding Box")
 
         contours = scale_and_center_contours_to_substrate(
             contours, self.substrate_size, utm_bounds
         )
 
         # Log contour information
-        # _log_contour_info(contours, "After Scaling and Centering")
+        _log_contour_info(contours, "After Scaling and Centering")
         # Filter small features and set layer thickness
         contours = filter_small_features(
             contours, self.min_area, self.min_feature_width
