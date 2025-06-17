@@ -1,8 +1,11 @@
-import os
-
 import pytest
 
-from core.utils.download_clip_elevation_tiles import download_srtm_tiles_for_bounds
+from core.utils.download_clip_elevation_tiles import (
+    download_srtm_tiles_for_bounds,
+    ensure_tile_downloaded,
+    get_srtm_tile_path,
+    is_antimeridian_crossing,
+)
 
 
 @pytest.fixture
@@ -61,3 +64,44 @@ def test_download_srtm_tiles_for_antimeridian(monkeypatch, antimeridian_bounds):
     assert len(paths) == 2
     assert all(p.startswith("/fake/path/srtm_") for p in paths)
     assert len(calls) == 2
+
+
+@pytest.mark.parametrize(
+    "bounds,expected",
+    [
+        ((0.0, 0.0, 10.0, 10.0), False),
+        ((170.0, -10.0, -170.0, 10.0), True),
+        ((-180.0, -10.0, 179.0, 10.0), False),
+    ],
+)
+def test_is_antimeridian_crossing(bounds, expected):
+    assert is_antimeridian_crossing(bounds) is expected
+
+
+def test_get_srtm_tile_path(tmp_path):
+    path1 = get_srtm_tile_path(46.8, 6.6, tmp_path)
+    assert path1 == tmp_path / "N46E006.hgt.gz"
+
+    path2 = get_srtm_tile_path(-16.2, -179.9, tmp_path)
+    assert path2 == tmp_path / "S17W180.hgt.gz"
+
+
+@pytest.mark.parametrize(
+    "lat,lon,expected_bounds,filename",
+    [
+        (46.8, 6.6, (6, 46, 7, 47), "N46E006.hgt.gz"),
+        (-16.2, -179.9, (-180, -17, -179, -16), "S17W180.hgt.gz"),
+    ],
+)
+def test_ensure_tile_downloaded(monkeypatch, tmp_path, lat, lon, expected_bounds, filename):
+    def fake_download(bounds):
+        assert bounds == expected_bounds
+        return [str(tmp_path / filename)]
+
+    monkeypatch.setattr(
+        "core.utils.download_clip_elevation_tiles.download_srtm_tiles_for_bounds",
+        fake_download,
+    )
+
+    result = ensure_tile_downloaded(lat, lon)
+    assert result == tmp_path / filename
