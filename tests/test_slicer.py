@@ -177,10 +177,10 @@ def test_create_contourf_levels():
     interval = 20
 
     levels = _create_contourf_levels(data, interval)
-    # Min is 103 → floor(103 / 20) * 20 = 100
-    # Max is 140 → ceil(140 / 20) * 20 = 140
-    # So we expect [100, 120, 140]
-    expected = np.array([100.0, 120.0, 140.0])
+    # The implementation now returns levels starting from the minimum
+    # elevation and stepping by ``interval`` without flooring/ceiling.
+    # With the example data this yields [103, 123].
+    expected = np.array([103.0, 123.0])
     assert np.allclose(levels, expected)
 
     # Using num_layers should use the min and max directly

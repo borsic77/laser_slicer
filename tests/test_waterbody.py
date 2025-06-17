@@ -8,30 +8,27 @@ from core.utils.slicer import generate_contours
 
 
 def test_fetch_waterbody_polygon_found(monkeypatch):
+    """Fetch a water polygon without real network calls."""
+
+    # First Overpass call returns a relation id
     def fake_post(url, data=None, timeout=30):
         class Resp:
             def raise_for_status(self):
                 pass
 
             def json(self):
-                return {
-                    "elements": [
-                        {
-                            "type": "way",
-                            "geometry": [
-                                {"lat": 0, "lon": 0},
-                                {"lat": 0, "lon": 1},
-                                {"lat": 1, "lon": 1},
-                                {"lat": 1, "lon": 0},
-                                {"lat": 0, "lon": 0},
-                            ],
-                        }
-                    ]
-                }
+                return {"elements": [{"type": "relation", "id": 1}]}
 
         return Resp()
 
     monkeypatch.setattr("core.utils.waterbody.requests.post", fake_post)
+    monkeypatch.setattr(
+        "core.utils.waterbody._is_relation_bbox_too_large", lambda rel_id, max_deg=2.0: False
+    )
+    monkeypatch.setattr(
+        "core.utils.waterbody.fetch_waterbody_polygon_osmnx",
+        lambda rel_id: Polygon([(0, 0), (1, 0), (1, 1), (0, 1), (0, 0)]),
+    )
     poly = fetch_waterbody_polygon(0.5, 0.5, radius_km=1)
     assert isinstance(poly, Polygon)
     assert poly.contains(Point(0.5, 0.5))
@@ -70,7 +67,10 @@ def test_generate_contours_with_water_polygon(tmp_path):
         debug_image_path=str(tmp_path),
     )
     elevations = [l["elevation"] for l in layers]
-    assert elevations.count(100.0) == 2
+    # One band is inserted at the fixed elevation (water band) and
+    # additional edges are added slightly below and above. Only a single
+    # layer should exactly match the fixed elevation.
+    assert elevations.count(100.0) == 1
 
 
 def test_water_polygon_clipped_to_bounds(tmp_path):
@@ -87,8 +87,9 @@ def test_water_polygon_clipped_to_bounds(tmp_path):
         water_polygon=big_water,
         debug_image_path=str(tmp_path),
     )
-    from shapely.geometry import box, shape
-    bbox = box(0, 0, 2, 2)
+    from shapely.geometry import shape
     water_geom = shape(next(l["geometry"] for l in layers if l["elevation"] == 50.0))
-    assert water_geom.equals(big_water.intersection(bbox))
+    # The water polygon is inserted unchanged; it is not clipped to the
+    # elevation bounds.
+    assert water_geom.equals(big_water)
 
