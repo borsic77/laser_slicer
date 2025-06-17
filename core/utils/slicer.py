@@ -518,8 +518,9 @@ def _grid_convergence_angle_from_geometry(projected_geoms: list) -> float:
     Computes the angle (in degrees) to rotate the projected geometries
     so that the bounding box aligns with the Cartesian axes.
     Uses the orientation of the minimum rotated rectangle of the union.
+    Ensures North (UTM Y) remains up and never left/right.
     Args:
-        projected_geoms (list): List of projected geometries.
+        projected_geoms (list): List of projected geometries (Polygons or MultiPolygons).
     Returns:
         float: Angle in degrees to rotate the geometries.
     """
@@ -544,6 +545,16 @@ def _grid_convergence_angle_from_geometry(projected_geoms: list) -> float:
             max_len = length
             angle_deg = math.degrees(math.atan2(dy, dx))
 
+    # --- Angle correction to prevent N/S flip ---
+
+    # Clamp to [-180, 180]
+    while angle_deg > 180:
+        angle_deg -= 360
+    while angle_deg < -180:
+        angle_deg += 360
+    # Now force "mostly up" (abs(angle) <= 45)
+    if abs(angle_deg) > 45:
+        angle_deg -= 90 * np.sign(angle_deg)
     return angle_deg
 
 
