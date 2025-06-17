@@ -10,6 +10,7 @@ from core.utils.geocoding import compute_utm_bounds_from_wgs84
 from core.utils.slicer import (
     clean_srtm_dem,
     clip_contours_to_bbox,
+    fill_nans_in_dem,
     filter_small_features,
     generate_contours,
     mosaic_and_crop,
@@ -118,20 +119,15 @@ class ContourSlicingJob:
         elevation, transform = mosaic_and_crop(tile_paths, self.bounds)
         # Clean the elevation data
         elevation = clean_srtm_dem(elevation)
-        elevation = robust_local_outlier_mask(elevation)
+        # elevation = robust_local_outlier_mask(elevation)
         logger.debug("Elevation max, min: %.2f, %.2f", elevation.max(), elevation.min())
         masked_elevation = np.ma.masked_where(
             ~np.isfinite(elevation) | (elevation <= -32768), elevation
         )
-        if np.all(np.isnan(elevation)):
-            logger.error(
-                "All DEM values are NaN after cleaning. Region is likely open water or SRTM is missing/corrupt."
-            )
-            raise ValueError(
-                "All DEM values are NaN after cleaning. Region is likely open water or SRTM is missing/corrupt."
-            )
-            return []
+        masked_elevation = fill_nans_in_dem(masked_elevation)
+
         contours = generate_contours(
+            elevation,
             masked_elevation,
             transform,
             self.height,

@@ -90,6 +90,24 @@ def robust_local_outlier_mask(arr, window=5, thresh=5.0):
     return arr
 
 
+def fill_nans_in_dem(arr, max_iter=20):
+    """
+    Iteratively fill NaNs in DEM using nearest non-NaN value (morphological inpainting).
+    Args:
+        arr (np.ndarray): 2D array with NaNs to fill.
+        max_iter (int): Maximum number of iterations to fill NaNs.
+    Returns:
+        np.ndarray: Array with NaNs filled."""
+    arr = arr.copy()
+    for _ in range(max_iter):
+        if not np.isnan(arr).any():
+            break
+        mask = np.isnan(arr)
+        filled = scipy.ndimage.generic_filter(arr, np.nanmean, size=5, mode="nearest")
+        arr[mask] = filled[mask]
+    return arr
+
+
 def round_affine(
     transform: rasterio.Affine, precision: float = 1e-4
 ) -> rasterio.Affine:
@@ -627,6 +645,7 @@ def _plot_contour_layers(
 
 
 def generate_contours(
+    masked_elevation_data: np.ndarray,
     elevation_data: np.ndarray,
     transform: rasterio.Affine,
     interval: float,
@@ -643,6 +662,7 @@ def generate_contours(
     Handles noisy SRTM lakes by injecting a user-supplied water polygon at the fixed elevation,
     ensures the land band above does not overlap the lake, and cleans up all geometries.
     Args:
+        masked_elevation_data (np.ndarray): 2D array of elevation values with NaNs masked.
         elevation_data (np.ndarray): 2D array of elevation values.
         transform (rasterio.Affine): Affine transformation for the raster.
         interval (float): Height difference between contour levels.
@@ -662,7 +682,7 @@ def generate_contours(
     # --- Generate meshgrid and determine contour levels
     lon, lat = _prepare_meshgrid(elevation_data, transform)
     levels = _create_contourf_levels(
-        elevation_data,
+        masked_elevation_data,
         interval,
         fixed_elevation,
         num_layers=num_layers,
@@ -670,9 +690,8 @@ def generate_contours(
 
     # --- Generate raw filled contours
     fig, ax = plt.subplots()
-    # Before contourf, mask invalids
-    elevation_data_masked = np.ma.masked_invalid(elevation_data)
-    cs = ax.contourf(lon, lat, elevation_data_masked, levels=levels)
+
+    cs = ax.contourf(lon, lat, elevation_data, levels=levels)
 
     # --- Optional: Save debug plot of raw contours
     if debug_image_path:

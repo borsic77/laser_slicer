@@ -38,7 +38,7 @@ class ElevationRangeJob:
         tile_paths = download_srtm_tiles_for_bounds(self.bounds)
         elevation, _ = mosaic_and_crop(tile_paths, self.bounds)
         elevation = clean_srtm_dem(elevation)
-        elevation = robust_local_outlier_mask(elevation)
+        # elevation = robust_local_outlier_mask(elevation)
         if elevation.size == 0 or not np.isfinite(elevation).any():
             logger.warning(f"Elevation data empty or invalid for bounds: {self.bounds}")
             raise ElevationDataError(
