@@ -10,6 +10,7 @@ function ManualModal({ onClose }: { onClose: () => void }) {
         <p style={{ textAlign: 'left' }}><strong>Step 1:</strong> Enter a location and click "Locate on Map".</p>
         <p style={{ textAlign: 'left' }}><strong>Step 2:</strong> Adjust slicing parameters to match your project.</p>
         <p style={{ textAlign: 'left' }}><strong>Step 2a (optional):</strong> Set the <strong>Number of Layers</strong>.</p>
+        <p style={{ textAlign: 'left' }}><strong>Step 2b (optional):</strong> If your location contains a lake or sea, you can use the <strong>Fix Elevation (water body)</strong> button to automatically set the contour slicing base to the surface elevation of the detected water body. This helps ensure accurate shoreline representation and cleaner water contours, especially when the SRTM elevation data is noisy. You can also adjust the fixed elevation manually if needed.</p>
         <p style={{ textAlign: 'left' }}><strong>Step 3:</strong> Click "Slice!" and wait for the preview.</p>
         <p style={{ textAlign: 'left' }}><strong>Step 4:</strong> Click "Export SVGs" to download a ZIP for laser cutting.</p>
         <p style={{ textAlign: 'left' }}><strong>Advanced Options:</strong></p>
@@ -17,6 +18,7 @@ function ManualModal({ onClose }: { onClose: () => void }) {
         <p style={{ textAlign: 'left' }}><strong>Smoothing:</strong> Applies a smoothing filter to the elevation data to reduce sharp edges or noise in the contours. Useful for irregular terrain.</p>
         <p style={{ textAlign: 'left' }}><strong>Minimum Area:</strong> Filters out small polygons below a given area threshold, helping to clean up tiny fragments that might not be meaningful or cuttable.</p>
         <p style={{ textAlign: 'left' }}><strong>Minimum Feature Width:</strong> Removes narrow bridges, protrusions, or gaps below the set width (in mm) from all layers. This helps ensure your exported shapes are robust enough for laser cutting and avoids fragile or uncuttable details. Increasing this value makes sure every cuttable piece is at least as wide as the minimum width.</p>
+        <p style={{ textAlign: 'left' }}><strong>Fix Elevation (water body):</strong> Click on the button, then the map to designate a waterbody (lake/sea) in your selected region. This will insert a slice with the exact contours of said body. This uses OpenStreetMap and SRTM data for robust water detection, reducing artifacts from noisy elevation data over water.</p>
         <h3 style={{ marginTop: '2em' }}>SVG Color Legend</h3>
         <ul style={{ textAlign: 'left', listStyleType: 'disc', paddingLeft: '1.5em' }}>
           <li>
