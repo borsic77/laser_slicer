@@ -24,6 +24,19 @@ import MapView from './components/Mapview';
 
 const API_URL = import.meta.env.VITE_API_URL;
 
+function getCookie(name: string): string {
+  const match = document.cookie.match('(^|;)\\s*' + name + '=([^;]*)');
+  return match ? decodeURIComponent(match[2]) : '';
+}
+
+function fetchWithCsrf(input: RequestInfo | URL, init: RequestInit = {}) {
+  const headers = {
+    'X-CSRFToken': getCookie('csrftoken'),
+    ...(init.headers || {})
+  } as HeadersInit;
+  return fetch(input, { ...init, credentials: 'include', headers });
+}
+
 // ──────────────────────────────────────────────────────────
 /**
  * SlicerParams
@@ -314,7 +327,7 @@ function App() {
         lon_max: bounds[1][1],
       }
     };
-    const res = await fetch(`${API_URL}/api/elevation-range/`, {
+    const res = await fetchWithCsrf(`${API_URL}/api/elevation-range/`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
@@ -388,7 +401,7 @@ function App() {
    * @throws Error if geocoding fails or returns an error
    */
   async function fetchCoordinates(address: string, signal?: AbortSignal): Promise<[number, number]> {
-    const res = await fetch(`${API_URL}/api/geocode/`, {
+    const res = await fetchWithCsrf(`${API_URL}/api/geocode/`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ address }),
@@ -458,7 +471,7 @@ function App() {
     try {
       setSlicing(true);
       setContourLayers([]); // clear old result
-      const res = await fetch(`${API_URL}/api/slice/`, {
+      const res = await fetchWithCsrf(`${API_URL}/api/slice/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
@@ -487,7 +500,7 @@ function App() {
       return;
     }
     try {
-      const res = await fetch(`${API_URL}/api/export/`, {
+      const res = await fetchWithCsrf(`${API_URL}/api/export/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
