@@ -17,6 +17,8 @@ def generate_svg_layers(
     basename: str = "contours",
     stroke_cut: str = "#000000",
     stroke_align: str = "#ff0000",
+    stroke_road: str = "#0000ff",
+    stroke_building: str = "#880000",
     stroke_width_mm: float = 0.1,
 ) -> list[tuple[str, bytes]]:
     """
@@ -43,6 +45,8 @@ def generate_svg_layers(
         stroke_cut=stroke_cut,
         stroke_align=stroke_align,
         stroke_width_mm=stroke_width_mm,
+        stroke_road=stroke_road,
+        stroke_building=stroke_building,
     )
 
     with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:

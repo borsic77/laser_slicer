@@ -17,7 +17,7 @@
 
 import { OrbitControls } from '@react-three/drei';
 import { Canvas, useThree } from '@react-three/fiber';
-import type { MultiPolygon } from 'geojson';
+import type { MultiPolygon, MultiLineString } from 'geojson';
 import { useMemo } from 'react';
 import * as THREE from 'three';
 
@@ -33,7 +33,7 @@ import * as THREE from 'three';
  * The centroid is computed as the average of all valid coordinate points across all polygons,
  * ensuring the camera focuses on the geometric center of the combined contours.
  */
-function CameraController({ layers }: { layers: { geometry: MultiPolygon; elevation: number; thickness?: number }[] }) {
+function CameraController({ layers }: { layers: ContourLayer[] }) {
   const { camera } = useThree();
 
   // Compute the centroid (average position) of all points in all layers to center the camera target.
@@ -64,8 +64,16 @@ function CameraController({ layers }: { layers: { geometry: MultiPolygon; elevat
   return <OrbitControls target={target.toArray()} />;
 }
 
+interface ContourLayer {
+  geometry: MultiPolygon
+  elevation: number
+  thickness?: number
+  roads?: MultiLineString
+  buildings?: MultiPolygon
+}
+
 interface ContourPreviewProps {
-  layers: { geometry: MultiPolygon; elevation: number; thickness?: number }[]
+  layers: ContourLayer[]
 }
 
 /**
@@ -96,6 +104,7 @@ function PolygonLayer({
   positionY,
   thickness,
   index,
+  color: colorProp,
 }: {
   geometry: MultiPolygon
   elevation: number
@@ -104,6 +113,7 @@ function PolygonLayer({
   positionY: number
   thickness: number
   index: number
+  color?: string
 }) {
   const debug = false
 
@@ -205,7 +215,7 @@ function PolygonLayer({
   }
 
   // Color chosen via HSL hue cycling based on elevation to visually differentiate layers.
-  const color = new THREE.Color(`hsl(${(index * 50) % 360}, 100%, 50%)`);
+  const color = new THREE.Color(colorProp ?? `hsl(${(index * 50) % 360}, 100%, 50%)`);
 
   let geom: THREE.ExtrudeGeometry;
   try {
@@ -229,6 +239,25 @@ function PolygonLayer({
         />
       </mesh>
     </group>
+  )
+}
+
+function RoadLines({ geometry, z }: { geometry: MultiLineString; z: number }) {
+  if (!geometry || !Array.isArray(geometry.coordinates)) return null
+  return (
+    <group>
+      {geometry.coordinates.map((coords, i) => {
+        const pts = coords.map(([x, y]) => new THREE.Vector3(x, y, z))
+        const geo = new THREE.BufferGeometry().setFromPoints(pts)
+        return <line key={i} geometry={geo} material={new THREE.LineBasicMaterial({ color: '#666' })} />
+      })}
+    </group>
+  )
+}
+
+function BuildingLayer({ geometry, z }: { geometry: MultiPolygon; z: number }) {
+  return (
+    <PolygonLayer geometry={geometry} elevation={0} cx={0} cy={0} positionY={z} thickness={0.001} index={0} color="#888" />
   )
 }
 
@@ -335,6 +364,16 @@ export default function ContourPreview({ layers }: ContourPreviewProps) {
                 positionY={positionY}
                 thickness={layer.thickness ?? 0.003}
               />
+            )
+          })}
+
+          {layers.map((layer, idx) => {
+            const z = cumulativeHeights[idx]
+            return (
+              <group key={`extras-${idx}`}> 
+                {layer.roads && <RoadLines geometry={layer.roads} z={z + (layer.thickness ?? 0.003) * 0.5} />}
+                {layer.buildings && <BuildingLayer geometry={layer.buildings} z={z + (layer.thickness ?? 0.003) * 0.02} />}
+              </group>
             )
           })}
 

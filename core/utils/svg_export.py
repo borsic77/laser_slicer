@@ -233,6 +233,8 @@ def contours_to_svg_zip(
     contours: List[dict],
     stroke_cut: str = "#000000",
     stroke_align: str = "#ff0000",
+    stroke_road: str = "#0000ff",
+    stroke_building: str = "#880000",
     stroke_width_mm: float = 0.1,  # may need to be increased for some lasers
     basename: str = "contours",
 ) -> bytes:
@@ -266,6 +268,8 @@ def contours_to_svg_zip(
         contours (List[dict]): List of contour geometries with elevation, assumed to be in UTM metres.
         stroke_cut (str): Stroke color for the cut geometry (default: black).
         stroke_align (str): Stroke color for the alignment geometry (default: red).
+        stroke_road (str): Stroke color for road geometries.
+        stroke_building (str): Stroke color for building outlines.
         stroke_width_mm (float): Width of strokes in millimeters (default: 0.1 mm).
         basename (str): Base filename used for SVG layers in the ZIP.
     Returns:
@@ -424,7 +428,6 @@ def contours_to_svg_zip(
                         if isinstance(g, (LineString, MultiLineString))
                     ]
                 for outline in outlines:
-                    # Handle MultiLineString or LineString
                     if isinstance(outline, LineString):
                         path_d = linestring_to_svg_path(
                             outline, glob_minx, glob_maxx, glob_miny, glob_maxy
@@ -452,6 +455,39 @@ def contours_to_svg_zip(
                                         stroke_width=f"{stroke_width_mm:.3f}mm",
                                     )
                                 )
+
+            # ----------------------------------------------
+            # Optional road and building geometries
+            # ----------------------------------------------
+            if layer.get("roads") is not None:
+                road_geom = shape(layer["roads"])
+                if not road_geom.is_empty:
+                    segments = [road_geom] if isinstance(road_geom, LineString) else getattr(road_geom, "geoms", [road_geom])
+                    for seg in segments:
+                        path_d = linestring_to_svg_path(seg, glob_minx, glob_maxx, glob_miny, glob_maxy)
+                        if path_d.strip():
+                            dwg.add(
+                                dwg.path(
+                                    d=path_d,
+                                    stroke=stroke_road,
+                                    fill="none",
+                                    stroke_width=f"{stroke_width_mm:.3f}mm",
+                                )
+                            )
+            if layer.get("buildings") is not None:
+                build_geom = shape(layer["buildings"])
+                if not build_geom.is_empty:
+                    for path_d in _geom_to_paths(
+                        build_geom, glob_minx, glob_maxx, glob_miny, glob_maxy, include_holes=False
+                    ):
+                        dwg.add(
+                            dwg.path(
+                                d=path_d,
+                                stroke=stroke_building,
+                                fill="none",
+                                stroke_width=f"{stroke_width_mm:.3f}mm",
+                            )
+                        )
 
             svg_bytes = dwg.tostring().encode()
             # Filename encodes layer order and elevation for traceability in multi-layer jobs.

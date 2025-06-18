@@ -3,10 +3,11 @@ import logging
 import numpy as np
 import shapely
 from django.conf import settings
-from shapely.geometry import box, shape
+from shapely.geometry import box, shape, mapping
 
 from core.utils.download_clip_elevation_tiles import download_srtm_tiles_for_bounds
 from core.utils.geocoding import compute_utm_bounds_from_wgs84
+from core.utils.osm_features import fetch_roads, fetch_buildings
 from core.utils.slicer import (
     clean_srtm_dem,
     clip_contours_to_bbox,
@@ -60,6 +61,8 @@ class ContourSlicingJob:
         min_feature_width_mm: float,
         fixed_elevation: float | None = None,
         water_polygon: dict | None = None,
+        include_roads: bool = False,
+        include_buildings: bool = False,
     ):
         """Initialize the ContourSlicingJob with parameters.
         Args:
@@ -103,6 +106,8 @@ class ContourSlicingJob:
             self.water_polygon = cropped if not cropped.is_empty else None
         else:
             self.water_polygon = None
+        self.include_roads = include_roads
+        self.include_buildings = include_buildings
 
     def run(self) -> list[dict]:
         """Run the contour slicing job.
@@ -159,11 +164,64 @@ class ContourSlicingJob:
 
         # Log contour information
         _log_contour_info(contours, "After Scaling and Centering")
+        # Prepare optional OSM features
+        substrate_m = self.substrate_size / 1000.0
+        minx, miny, maxx, maxy = utm_bounds
+        width = maxx - minx
+        height = maxy - miny
+        center_x = (minx + maxx) / 2
+        center_y = (miny + maxy) / 2
+        scale_factor = substrate_m / max(width, height)
+        roads_geom = None
+        buildings_geom = None
+        if self.include_roads:
+            try:
+                r = fetch_roads(self.bounds)
+                r_feat = project_geometry([
+                    {"geometry": mapping(r), "elevation": 0}
+                ], cx, cy)[0]
+                geom = shape(r_feat["geometry"])
+                geom = shapely.affinity.translate(geom, xoff=-center_x, yoff=-center_y)
+                roads_geom = shapely.affinity.scale(
+                    geom, xfact=scale_factor, yfact=scale_factor, origin=(0, 0)
+                )
+            except Exception as e:
+                logger.warning("Failed to fetch roads: %s", e)
+                roads_geom = None
+        if self.include_buildings:
+            try:
+                b = fetch_buildings(self.bounds)
+                b_feat = project_geometry([
+                    {"geometry": mapping(b), "elevation": 0}
+                ], cx, cy)[0]
+                geom = shape(b_feat["geometry"])
+                geom = shapely.affinity.translate(geom, xoff=-center_x, yoff=-center_y)
+                buildings_geom = shapely.affinity.scale(
+                    geom, xfact=scale_factor, yfact=scale_factor, origin=(0, 0)
+                )
+            except Exception as e:
+                logger.warning("Failed to fetch buildings: %s", e)
+                buildings_geom = None
         # Filter small features and set layer thickness
         contours = filter_small_features(
             contours, self.min_area, self.min_feature_width
         )
         # _log_contour_info(contours, "After Filtering Small Features")
-        for contour in contours:
+        n_layers = len(contours)
+        for idx, contour in enumerate(contours):
+            band_i = shape(contour["geometry"])
+            band_above = (
+                shape(contours[idx + 1]["geometry"]) if idx + 1 < n_layers else None
+            )
+            visible_area = band_i if band_above is None else band_i.difference(band_above)
+
+            if self.include_roads and roads_geom is not None:
+                clipped = roads_geom.intersection(visible_area)
+                contour["roads"] = mapping(clipped) if not clipped.is_empty else None
+            if self.include_buildings and buildings_geom is not None:
+                clipped = buildings_geom.intersection(visible_area)
+                contour["buildings"] = mapping(clipped) if not clipped.is_empty else None
+
             contour["thickness"] = self.layer_thickness / 1000.0
+
         return contours

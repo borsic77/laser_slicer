@@ -24,6 +24,7 @@ Live site: [laserslicer.legradic.ch](https://laserslicer.legradic.ch)
 | Auto geolocation start | `/api/elevation` single‑point query |
 | Parameter panel – slice height, base height, simplification | Fetch & clip **SRTM 30 m** DEM |
 | Minimum area/width filters & optional fixed elevation (lake) | Robust SRTM cleaning & outlier filtering |
+| Toggle roads/buildings overlay | Fetch OSM roads & buildings |
 | **Slice** button launches background job | Contour generation with GDAL / Matplotlib |
 | Live **Three.js** 3‑D preview of layers | Optional simplification with Shapely |
 | **Download SVGs** – packaged as a ZIP | SVG export via `svgwrite` |
@@ -110,7 +111,7 @@ See [Developer Startup Guide](dev_startup.md) for setup instructions.
 
 ## Roadmap
 
-- [ ] Introduce roads and houses as extra layer 
+- [x] Introduce roads and houses as extra layer
 - [ ] Export STL for 3‑D printing  
 - [ ] CI/CD (workflow dispatch to Docker Hub)
 
