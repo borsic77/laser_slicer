@@ -298,8 +298,8 @@ def contours_to_svg_zip(
     glob_minx, glob_maxx = min(xs), max(xs)
     glob_miny, glob_maxy = min(ys), max(ys)
 
-    width_mm = glob_maxx - glob_minx
-    height_mm = glob_maxy - glob_miny
+    width_mm = (glob_maxx - glob_minx) * 1000.0
+    height_mm = (glob_maxy - glob_miny) * 1000.0
 
     # ---------------------------------------------------------------
     # Build the ZIP in‑memory

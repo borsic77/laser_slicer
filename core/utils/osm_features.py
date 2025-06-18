@@ -18,7 +18,7 @@ def _bounds_polygon(bounds: tuple[float, float, float, float]) -> Polygon:
 def fetch_roads(bounds: tuple[float, float, float, float]) -> MultiLineString:
     """Fetch road geometries within bounds from OSM."""
     poly = _bounds_polygon(bounds)
-    gdf = ox.features.features_from_polygon(poly, tags={"highway": True})
+    gdf = ox.geometries_from_polygon(poly, tags={"highway": True})
     lines = []
     for geom in gdf.geometry:
         if geom.is_empty:
@@ -55,7 +55,7 @@ def fetch_roads(bounds: tuple[float, float, float, float]) -> MultiLineString:
 def fetch_buildings(bounds: tuple[float, float, float, float]) -> MultiPolygon:
     """Fetch building footprints within bounds from OSM."""
     poly = _bounds_polygon(bounds)
-    gdf = ox.features.features_from_polygon(poly, tags={"building": True})
+    gdf = ox.geometries_from_polygon(poly, tags={"building": True})
     polys = []
     for geom in gdf.geometry:
         if geom.is_empty:
