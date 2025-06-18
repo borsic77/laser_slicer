@@ -50,3 +50,5 @@ frontend/.vite/
 # System
 .DS_Store
 Thumbs.db
+
+dump.rdb
