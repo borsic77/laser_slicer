@@ -3,6 +3,23 @@ import pytest
 import rasterio.transform
 import shapely.geometry
 from shapely.geometry import Polygon, mapping
+from pathlib import Path
+import types
+import sys
+
+# Provide dummy 'django.conf' with a settings object used by contour_generator
+django_conf = types.ModuleType("django.conf")
+django_conf.settings = types.SimpleNamespace(
+    DEBUG_IMAGE_PATH=None,
+    TILE_CACHE_DIR=Path("/tmp"),
+    DEBUG=False,
+    MEDIA_ROOT="/tmp",
+    NOMINATIM_USER_AGENT="test-agent"
+)
+sys.modules.setdefault("django.conf", django_conf)
+cache_module = types.ModuleType("django.core.cache")
+cache_module.cache = types.SimpleNamespace(set=lambda *a, **k: None, get=lambda *a, **k: None)
+sys.modules.setdefault("django.core.cache", cache_module)
 
 from core.services.contour_generator import ContourSlicingJob
 from core.services.elevation_service import ElevationRangeJob, ElevationDataError
