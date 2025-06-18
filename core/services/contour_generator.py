@@ -177,28 +177,36 @@ class ContourSlicingJob:
         if self.include_roads:
             try:
                 r = fetch_roads(self.bounds)
-                r_feat = project_geometry([
-                    {"geometry": mapping(r), "elevation": 0}
-                ], cx, cy)[0]
-                geom = shape(r_feat["geometry"])
-                geom = shapely.affinity.translate(geom, xoff=-center_x, yoff=-center_y)
-                roads_geom = shapely.affinity.scale(
-                    geom, xfact=scale_factor, yfact=scale_factor, origin=(0, 0)
-                )
+                if not r.is_empty:
+                    projected = project_geometry(
+                        [{"geometry": mapping(r), "elevation": 0}], cx, cy
+                    )
+                    if projected:
+                        geom = shape(projected[0]["geometry"])
+                        geom = shapely.affinity.translate(
+                            geom, xoff=-center_x, yoff=-center_y
+                        )
+                        roads_geom = shapely.affinity.scale(
+                            geom, xfact=scale_factor, yfact=scale_factor, origin=(0, 0)
+                        )
             except Exception as e:
                 logger.warning("Failed to fetch roads: %s", e)
                 roads_geom = None
         if self.include_buildings:
             try:
                 b = fetch_buildings(self.bounds)
-                b_feat = project_geometry([
-                    {"geometry": mapping(b), "elevation": 0}
-                ], cx, cy)[0]
-                geom = shape(b_feat["geometry"])
-                geom = shapely.affinity.translate(geom, xoff=-center_x, yoff=-center_y)
-                buildings_geom = shapely.affinity.scale(
-                    geom, xfact=scale_factor, yfact=scale_factor, origin=(0, 0)
-                )
+                if not b.is_empty:
+                    projected = project_geometry(
+                        [{"geometry": mapping(b), "elevation": 0}], cx, cy
+                    )
+                    if projected:
+                        geom = shape(projected[0]["geometry"])
+                        geom = shapely.affinity.translate(
+                            geom, xoff=-center_x, yoff=-center_y
+                        )
+                        buildings_geom = shapely.affinity.scale(
+                            geom, xfact=scale_factor, yfact=scale_factor, origin=(0, 0)
+                        )
             except Exception as e:
                 logger.warning("Failed to fetch buildings: %s", e)
                 buildings_geom = None
