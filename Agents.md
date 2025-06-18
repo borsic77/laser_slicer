@@ -1,19 +1,17 @@
-# AGENTS.md – laserslicer - Development Guidelines
+# AGENTS.md – Laser Slicer Development Guide
 
-
-
-> Guidance for autonomous coding agents (OpenAI Codex CLI, Copilot Agent Mode, Cursor, etc.).
+> Guidance for autonomous coding agents (OpenAI Codex CLI, Copilot Agent Mode, Cursor, etc.)
 > Read this before writing, editing, or executing anything in this repo.
 
 ---
 
 ## 1 Preferred operating mode
 
-| Tool               | Default approval mode | Notes                                               |
-|--------------------|-----------------------|-----------------------------------------------------|
-| OpenAI Codex CLI   | `suggest`             | Ask before **any** shell command other than `pytest`, `uv`, `ruff`, or `npm run <script>` |
-| GitHub Copilot Agent | “assistant” (ask-first) | Use **pull-request flow**—do not push directly to `main` |
-| Cursor / IDE bots  | Ask before writing files outside `core/`, `frontend/`, or `tests/` |
+| Tool | Default approval mode | Notes |
+|------|-----------------------|-------|
+| OpenAI Codex CLI | `suggest` | Ask before **any** shell command other than `pytest`, `uv`, `ruff`, or `npm run <script>` |
+| GitHub Copilot Agent | "assistant" (ask-first) | Use **pull-request flow**—do not push directly to `main` |
+| Cursor / IDE bots | Ask before writing files outside `core/`, `frontend/`, or `tests/` |
 
 *Override by adding `# agent: auto-edit` or `# agent: full-auto` in a task description.*
 
@@ -21,65 +19,61 @@
 
 ## 2 Repository map & access rules
 
-| Path/folder              | Agent action                               |
-|--------------------------|-------------------------------------------|
-| `core/`                  | ✅ May read/write Python (Django) code.   |
-| `frontend/`              | ✅ May read/write React + Vite TS code.   |
-| `tests/`                 | ✅ Must keep tests green; add new tests.  |
-| `data/`, `tmp/`, `media/`, `job_results/` | 🚫 Read-only. Never commit generated or binary files. |
-| `srtm_cache/`            | 🚫 Read-only, large external data.        |
-| `logs/`, `db.sqlite3`    | 🚫 Ignore completely.                     |
-| `docker-compose*.yml`, `Dockerfile*` | ✅ May edit, but ask first—production environments depend on these. |
+| Path/folder | Agent action |
+|-------------|--------------|
+| `core/` | ✅ Django backend code |
+| `frontend/` | ✅ React + Vite TypeScript code |
+| `tests/` | ✅ Keep tests green; add tests for new code |
+| `cache/`, `data/`, `tmp/`, `media/`, `job_results/` | 🚫 Generated artefacts – do not commit |
+| `srtm_cache/` | 🚫 Large external data – read only |
+| `logs/`, `db.sqlite3` | 🚫 Ignore completely |
+| `docker-compose*.yml`, `Dockerfile*`, `caddy/` | ✅ May edit, but ask first—production setups depend on them |
 
 ---
 
 ## 3 Environment & setup commands
 
 ```bash
-uv venv                         # creates .venv
-uv sync
+uv venv                # create .venv
+uv sync                # install Python deps
 npm ci --prefix frontend
 ```
 
-Databases & services
+Databases & services:
 The SQLite file in the repo is test-only.
-For local Postgres + Redis, call docker compose up db redis –d.
+For local Postgres + Redis run `docker compose up db redis -d` or follow `dev_startup.md`.
 
-⸻
+---
 
-## 4 Formatting, linting & typing
-	-	Python: run ruff format . then ruff check .
-	-	Type hints are mandatory; fail CI if mypy warnings > 0
-	-	Front-end: npm run lint (ESLint + TypeScript)
-	-	No prettier for now—use ESLint’s auto-fix
+## 4 Formatting & linting
+- Python: `ruff format .` then `ruff check .`
+- Type hints are strongly encouraged
+- Front-end: `npm run lint`
+- No Prettier – use ESLint's auto-fix
 
-Agents should run all linters before proposing commits or PRs.
+Agents should run linters before proposing commits or PRs.
 
 ## 5 Testing protocol
 
-### Fast unit tests
-pytest -q
-
-### Full suite incl. slow CLI & integration tests
-pytest -m "not slow" -q
-
-Failing tests bar merges.
-If adding code, auto-generate companion tests.
-Use pytest-snapshots for fixture-heavy SVG output comparisons.
+```bash
+pytest -q           # run tests
+```
+Use `pytest-snapshots` for SVG fixtures.
+Failing tests block merges.
+Add tests alongside new code.
 
 ## 6 Commit & PR etiquette
-	-	Conventional Commits (feat:, fix:, chore:…).
-	-	PR description must list:
-        1.	Purpose / linked issue
-        2.	Key files changed
-        3.	pytest, ruff, npm run lint results
-        4.	Screenshots for UI tweaks
+- Conventional Commits (`feat:`, `fix:`, `chore:` …)
+- PR description must list:
+  1. Purpose / linked issue
+  2. Key files changed
+  3. `pytest`, `ruff`, and `npm run lint` results
+  4. Screenshots for UI tweaks
+
 ## 7 House rules & coding style
-	-	Backend prefer class-based views.
-	-	Service layer lives in core/services/; new domain logic goes there.
-	-	React components:
-        -	Functional + hooks
-        -	State via Zustand, never Redux
-        -	Tailwind CSS utility-first, no styled-components
-	-	Write docstrings (Google style) and inline comments for non-obvious bits.
-	-	Prefer pathlib, typing.Annotated, and f-strings.
+- Prefer Django class-based views
+- Domain logic lives in `core/services/`
+- React components: functional with hooks; state via Zustand
+- Tailwind CSS utility-first, no styled-components
+- Write docstrings (Google style) and inline comments for non-obvious code
+- Prefer `pathlib`, `typing.Annotated`, and f-strings
