@@ -797,7 +797,8 @@ def project_geometry(
     center_lon: float,
     center_lat: float,
     simplify_tolerance: float = 0.0,
-) -> List[dict]:
+    existing_transform=None,
+) -> Tuple[List[dict], Tuple[pyproj.Transformer, shapely.Point, float]]:
     """
     Projects a list of contour geometries from WGS84 to a local UTM zone based on the center longitude.
     Returns the list with updated projected geometries.
@@ -807,100 +808,80 @@ def project_geometry(
         center_lon (float): Longitude of the center point for UTM zone determination.
         center_lat (float): Latitude of the center point for UTM zone determination.
         simplify_tolerance (float): Tolerance for simplifying geometries.
+        existing_transform: Existing transformation to use instead of recalculating.
     Returns:
         List[dict]: Updated list of contours with projected geometries.
-    """
-    # Determine UTM zone
-    zone_number = int((center_lon + 180) / 6) + 1
-    is_northern = center_lat >= 0
-    epsg_code = f"326{zone_number:02d}" if is_northern else f"327{zone_number:02d}"
+        Tuple[pyproj.Transformer, shapely.Point, float]: The calculated projection, center and rotation angle ; for reuse
 
-    # Set up projection from WGS84 to UTM
-    proj = pyproj.Transformer.from_crs("EPSG:4326", f"EPSG:{epsg_code}", always_xy=True)
-    # First, project all geometries without rotation, collect them for union
-    projected_geoms = []
+    """
+    # If existing_transform is provided, unpack
+    if existing_transform is not None:
+        proj, center, rot_angle = existing_transform
+    else:
+        # Compute as before
+        zone_number = int((center_lon + 180) / 6) + 1
+        is_northern = center_lat >= 0
+        epsg_code = f"326{zone_number:02d}" if is_northern else f"327{zone_number:02d}"
+        proj = pyproj.Transformer.from_crs(
+            "EPSG:4326", f"EPSG:{epsg_code}", always_xy=True
+        )
+        # Project all geometries
+        projected_geoms = []
+        for contour in contours:
+            try:
+                geom = shape(contour["geometry"])
+                projected_geom = transform(proj.transform, geom)
+                projected_geoms.append(projected_geom)
+            except Exception as e:
+                continue
+        # Compute rotation/centroid
+        if not projected_geoms:
+            return [], (proj, None, 0.0)
+        merged = unary_union(projected_geoms)
+        center = merged.centroid
+        rot_angle = _grid_convergence_angle_from_geometry(projected_geoms)
+
+    # Now project/rotate all input geometries with the resolved params
+    projected_contours = []
+    fig, ax = plt.subplots()
     for contour in contours:
         try:
             geom = shape(contour["geometry"])
             projected_geom = transform(proj.transform, geom)
-            projected_geoms.append((contour, projected_geom))
-        except Exception as e:
-            logger.warning(
-                f"Skipping unprojectable contour at elevation {contour.get('elevation')}: {e}"
+            rotated_geom = shapely.affinity.rotate(
+                projected_geom, -rot_angle, origin=center
             )
-            continue
-
-    # Compute common centroid for rotation
-    all_shapes = [g for _, g in projected_geoms]
-    if not all_shapes:
-        return []
-    merged = unary_union(all_shapes)
-    center = merged.centroid
-    rot_angle = _grid_convergence_angle_from_geometry(all_shapes)
-
-    projected_contours = []
-    fig, ax = plt.subplots()
-
-    for contour, geom in projected_geoms:
-        rotated_geom = shapely.affinity.rotate(geom, -rot_angle, origin=center)
-        # Clean geometry strictly after rotation
-        if rotated_geom.geom_type in ("Polygon", "MultiPolygon"):
-            cleaned_geom = clean_geometry_strict(rotated_geom)
-            is_valid = cleaned_geom is not None
-        elif rotated_geom.geom_type in ("LineString", "MultiLineString"):
-            # For lines: check is_empty only
-            cleaned_geom = rotated_geom if not rotated_geom.is_empty else None
-            is_valid = cleaned_geom is not None
-        else:
-            allowed = [
-                g
-                for g in rotated_geom.geoms
-                if g.geom_type
-                in ("Polygon", "MultiPolygon", "LineString", "MultiLineString")
-            ]
-            if allowed:
-                cleaned_geom = unary_union(allowed)
-                is_valid = not cleaned_geom.is_empty
+            # cleaning code as before
+            if rotated_geom.geom_type in ("Polygon", "MultiPolygon"):
+                cleaned_geom = clean_geometry_strict(rotated_geom)
+                is_valid = cleaned_geom is not None
+            elif rotated_geom.geom_type in ("LineString", "MultiLineString"):
+                cleaned_geom = rotated_geom if not rotated_geom.is_empty else None
+                is_valid = cleaned_geom is not None
             else:
-                cleaned_geom = None
-                is_valid = False
-            logger.debug(
-                f"Contour at elevation {contour.get('elevation')} cleaned geometry is "
-                f"{'valid' if is_valid else 'invalid'} (type: {rotated_geom.geom_type})"
-            )
+                allowed = [
+                    g
+                    for g in rotated_geom.geoms
+                    if g.geom_type
+                    in ("Polygon", "MultiPolygon", "LineString", "MultiLineString")
+                ]
+                cleaned_geom = unary_union(allowed) if allowed else None
+                is_valid = cleaned_geom is not None and not cleaned_geom.is_empty
             if cleaned_geom is None:
-                logger.warning(
-                    f"Skipping contour at elevation {contour.get('elevation')} after cleaning (invalid geometry)."
-                )
                 continue
-        final_geom = cleaned_geom
-        if simplify_tolerance > 0.0:
-            logger.debug(
-                f"Simplifying geometry for elevation {contour['elevation']} with tolerance {simplify_tolerance}"
-            )
-            final_geom = final_geom.simplify(simplify_tolerance, preserve_topology=True)
-        contour["geometry"] = mapping(final_geom)
-        projected_contours.append(contour)
-
-        # Plot for debug
-        if final_geom.geom_type == "Polygon":
-            x, y = final_geom.exterior.xy
-            ax.plot(x, y, linewidth=0.5)
-        elif final_geom.geom_type == "LineString":
-            x, y = final_geom.xy
-            ax.plot(x, y, linewidth=0.5)
-        elif final_geom.geom_type == "LineString":
-            x, y = final_geom.xy
-            ax.plot(x, y, linewidth=0.5)
-        elif final_geom.geom_type == "MultiLineString":
-            for line in final_geom.geoms:
-                x, y = line.xy
-                ax.plot(x, y, linewidth=0.5)
-
-    ax.set_title("Projected Contours")
-    plt.savefig(os.path.join(DEBUG_IMAGE_PATH, "projected_contours.png"))
-
-    return projected_contours
+            final_geom = cleaned_geom
+            if simplify_tolerance > 0.0:
+                final_geom = final_geom.simplify(
+                    simplify_tolerance, preserve_topology=True
+                )
+            contour_copy = contour.copy()
+            contour_copy["geometry"] = mapping(final_geom)
+            projected_contours.append(contour_copy)
+            # (optional: debug plotting)
+        except Exception as e:
+            continue
+    plt.close(fig)
+    return projected_contours, (proj, center, rot_angle)
 
 
 def clip_contours_to_bbox(

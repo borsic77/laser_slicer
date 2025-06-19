@@ -35,9 +35,13 @@ def _features_from_polygon(poly, tags):
     """
 
     if hasattr(ox, "geometries_from_polygon"):
-        return ox.geometries_from_polygon(poly, tags=tags)
+        gdf = ox.geometries_from_polygon(poly, tags=tags)
     else:  # OSMnx ≥ 2.0
-        return ox.features_from_polygon(poly, tags=tags)
+        gdf = ox.features_from_polygon(poly, tags=tags)
+    # Always return in EPSG:4326
+    if gdf.crs is None or gdf.crs.to_epsg() != 4326:
+        gdf = gdf.to_crs(epsg=4326)
+    return gdf
 
 
 def fetch_roads(bounds: tuple[float, float, float, float]) -> MultiLineString:

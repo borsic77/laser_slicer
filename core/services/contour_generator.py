@@ -172,7 +172,9 @@ class ContourSlicingJob:
         )
         _log_contour_info(contours, "After Contour Generation")
         # Project, smooth, and scale the contours
-        contours = project_geometry(contours, cx, cy, simplify_tolerance=self.simplify)
+        contours, projection = project_geometry(
+            contours, cx, cy, simplify_tolerance=self.simplify
+        )
         _log_contour_info(contours, "After Projection")
         contours = smooth_geometry(contours, self.smoothing)
         _log_contour_info(contours, "After Smoothing")
@@ -210,8 +212,12 @@ class ContourSlicingJob:
                     r.length if hasattr(r, "length") else -1,
                 )
                 if not r.is_empty:
-                    projected = project_geometry(
-                        [{"geometry": mapping(r), "elevation": 0}], cx, cy
+                    projected, _ = project_geometry(
+                        [{"geometry": mapping(r), "elevation": 0}],
+                        cx,
+                        cy,
+                        0,
+                        projection,
                     )
                     if projected:
                         geom = shape(projected[0]["geometry"])
@@ -234,14 +240,18 @@ class ContourSlicingJob:
                     logger.warning("[OSM] No roads found for bounds: %s", self.bounds)
                     roads_geom = None
             except Exception as e:
-                logger.warning("Failed to fetch roads: %s", e)
+                logger.warning("Failed to fetch roads: %s", e, exc_info=True)
                 roads_geom = None
         if self.include_buildings:
             try:
                 b = fetch_buildings(self.bounds)
                 if not b.is_empty:
-                    projected = project_geometry(
-                        [{"geometry": mapping(b), "elevation": 0}], cx, cy
+                    projected, _ = project_geometry(
+                        [{"geometry": mapping(b), "elevation": 0}],
+                        cx,
+                        cy,
+                        0,
+                        projection,
                     )
                     if projected:
                         geom = shape(projected[0]["geometry"])
@@ -252,7 +262,7 @@ class ContourSlicingJob:
                             geom, xfact=scale_factor, yfact=scale_factor, origin=(0, 0)
                         )
             except Exception as e:
-                logger.warning("Failed to fetch buildings: %s", e)
+                logger.warning("Failed to fetch buildings: %s", e, exc_info=True)
                 buildings_geom = None
         # Filter small features and set layer thickness
         contours = filter_small_features(
