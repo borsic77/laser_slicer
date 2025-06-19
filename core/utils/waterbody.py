@@ -3,12 +3,11 @@ import os
 import tempfile
 from typing import Optional
 
-import geopandas as gpd
 import matplotlib.pyplot as plt
 import osmnx as ox
 import requests
 from django.conf import settings
-from shapely.geometry import MultiPolygon, Point, Polygon
+from shapely.geometry import Point, Polygon
 from shapely.ops import unary_union
 
 logger = logging.getLogger(__name__)

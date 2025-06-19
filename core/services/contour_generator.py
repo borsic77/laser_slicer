@@ -4,14 +4,11 @@ import numpy as np
 import shapely
 from django.conf import settings
 from shapely.geometry import (
-    GeometryCollection,
-    MultiPolygon,
-    Polygon,
     box,
     mapping,
     shape,
 )
-from shapely.ops import unary_union
+
 
 from core.utils.download_clip_elevation_tiles import download_srtm_tiles_for_bounds
 from core.utils.geocoding import compute_utm_bounds_from_wgs84
@@ -29,7 +26,6 @@ from core.utils.slicer import (
     generate_contours,
     mosaic_and_crop,
     project_geometry,
-    robust_local_outlier_mask,
     scale_and_center_contours_to_substrate,
     smooth_geometry,
 )

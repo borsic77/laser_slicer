@@ -879,6 +879,9 @@ def project_geometry(
             projected_contours.append(contour_copy)
             # (optional: debug plotting)
         except Exception as e:
+            logger.warning(
+                f"Failed to project contour at elevation {contour.get('elevation', 'unknown')}: {e}"
+            )
             continue
     plt.close(fig)
     return projected_contours, (proj, center, rot_angle)

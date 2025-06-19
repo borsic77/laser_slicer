@@ -3,7 +3,7 @@ import logging
 import numpy as np
 
 from core.utils.download_clip_elevation_tiles import download_srtm_tiles_for_bounds
-from core.utils.slicer import clean_srtm_dem, mosaic_and_crop, robust_local_outlier_mask
+from core.utils.slicer import clean_srtm_dem, mosaic_and_crop
 
 logger = logging.getLogger(__name__)
 
