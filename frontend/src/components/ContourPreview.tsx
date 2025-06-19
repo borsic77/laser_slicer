@@ -15,7 +15,7 @@
  * providing spatial context and depth perception for complex multi-layered shapes.
  */
 
-import { OrbitControls } from '@react-three/drei';
+import { Line, OrbitControls } from '@react-three/drei';
 import { Canvas, useThree } from '@react-three/fiber';
 import type { MultiLineString, MultiPolygon } from 'geojson';
 import { useMemo } from 'react';
@@ -244,29 +244,41 @@ function PolygonLayer({
 }
 
 function RoadLines({ geometry, z }: { geometry: MultiLineString; z: number }) {
-  if (!geometry || !Array.isArray(geometry.coordinates)) return null
+  if (!geometry || !Array.isArray(geometry.coordinates)) return null;
   return (
     <group>
       {geometry.coordinates.map((coords, i) => {
-        const pts = coords.map(([x, y]) => new THREE.Vector3(x, y, z))
-        const geo = new THREE.BufferGeometry().setFromPoints(pts)
-        return <line key={i} geometry={geo} material={new THREE.LineBasicMaterial({ color: '#000' })} />
+        const pts = coords.map(([x, y]) => new THREE.Vector3(x, y, z));
+        return (
+          <Line
+            key={i}
+            points={pts}
+            color="#000"
+            lineWidth={1} // world units, adjust if needed
+          />
+        );
       })}
     </group>
-  )
+  );
 }
 
 function WaterwayLines({ geometry, z }: { geometry: MultiLineString; z: number }) {
-  if (!geometry || !Array.isArray(geometry.coordinates)) return null
+  if (!geometry || !Array.isArray(geometry.coordinates)) return null;
   return (
     <group>
       {geometry.coordinates.map((coords, i) => {
-        const pts = coords.map(([x, y]) => new THREE.Vector3(x, y, z))
-        const geo = new THREE.BufferGeometry().setFromPoints(pts)
-        return <line key={i} geometry={geo} material={new THREE.LineBasicMaterial({ color: '#00aaff' })} />
+        const pts = coords.map(([x, y]) => new THREE.Vector3(x, y, z));
+        return (
+          <Line
+            key={i}
+            points={pts}
+            color="#00aaff"
+            lineWidth={2}
+          />
+        );
       })}
     </group>
-  )
+  );
 }
 
 function BuildingLayer({ geometry, z }: { geometry: MultiPolygon; z: number }) {
