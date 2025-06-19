@@ -147,6 +147,7 @@ def run_contour_slicing_job(self, job_id):
             water_polygon=params.get("water_polygon"),
             include_roads=params.get("include_roads", False),
             include_buildings=params.get("include_buildings", False),
+            include_waterways=params.get("include_waterways", False),
         )
         # Main processing
         layers = csj.run()

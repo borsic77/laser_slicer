@@ -183,6 +183,7 @@ function App() {
   const [waterPolygon, setWaterPolygon] = useState<any | null>(null);
   const [includeRoads, setIncludeRoads] = useState(false);
   const [includeBuildings, setIncludeBuildings] = useState(false);
+  const [includeWaterways, setIncludeWaterways] = useState(false);
 
 
   // Poll elevation job
@@ -467,6 +468,7 @@ function App() {
       water_polygon: waterPolygon ?? undefined,
       include_roads: includeRoads,
       include_buildings: includeBuildings,
+      include_waterways: includeWaterways,
 
     };
     if (fixedElevationEnabled && typeof fixedElevation === 'number') {
@@ -780,6 +782,9 @@ function App() {
           <p><strong>Highest Elevation:</strong> {elevationStats ? `${elevationStats.max.toFixed(0)} m` : '…'}</p>
           <label style={{display:'block'}}>
             <input type="checkbox" checked={includeRoads} onChange={e => setIncludeRoads(e.target.checked)} /> Roads
+          </label>
+          <label style={{display:'block'}}>
+            <input type="checkbox" checked={includeWaterways} onChange={e => setIncludeWaterways(e.target.checked)} /> Waterways
           </label>
           <label style={{display:'block'}}>
             <input type="checkbox" checked={includeBuildings} onChange={e => setIncludeBuildings(e.target.checked)} /> Buildings

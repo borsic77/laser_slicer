@@ -69,6 +69,7 @@ interface ContourLayer {
   elevation: number
   thickness?: number
   roads?: MultiLineString
+  waterways?: MultiLineString
   buildings?: MultiPolygon
 }
 
@@ -255,6 +256,19 @@ function RoadLines({ geometry, z }: { geometry: MultiLineString; z: number }) {
   )
 }
 
+function WaterwayLines({ geometry, z }: { geometry: MultiLineString; z: number }) {
+  if (!geometry || !Array.isArray(geometry.coordinates)) return null
+  return (
+    <group>
+      {geometry.coordinates.map((coords, i) => {
+        const pts = coords.map(([x, y]) => new THREE.Vector3(x, y, z))
+        const geo = new THREE.BufferGeometry().setFromPoints(pts)
+        return <line key={i} geometry={geo} material={new THREE.LineBasicMaterial({ color: '#00aaff' })} />
+      })}
+    </group>
+  )
+}
+
 function BuildingLayer({ geometry, z }: { geometry: MultiPolygon; z: number }) {
   return (
     <PolygonLayer geometry={geometry} elevation={0} cx={0} cy={0} positionY={z} thickness={0.001} index={0} color="#888" />
@@ -374,10 +388,11 @@ export default function ContourPreview({ layers }: ContourPreviewProps) {
           {layers.map((layer, idx) => {
             const z = cumulativeHeights[idx]
             console.log(`Layer ${idx} roads:`, layer.roads)
-            console.log(`Layer ${idx} buildings:`, layer.buildings)            
+            console.log(`Layer ${idx} buildings:`, layer.buildings)
             return (
-              <group key={`extras-${idx}`}> 
+              <group key={`extras-${idx}`}>
                 {layer.roads && <RoadLines geometry={layer.roads} z={z + (layer.thickness ?? 0.003) +0.001} />}
+                {layer.waterways && <WaterwayLines geometry={layer.waterways} z={z + (layer.thickness ?? 0.003) +0.001} />}
                 {layer.buildings && <BuildingLayer geometry={layer.buildings} z={z + (layer.thickness ?? 0.003) +0.001} />}
               </group>
             )

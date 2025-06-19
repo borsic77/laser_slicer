@@ -8,7 +8,7 @@ from shapely.geometry import (
 )
 from shapely.ops import unary_union
 
-__all__ = ["fetch_roads", "fetch_buildings"]
+__all__ = ["fetch_roads", "fetch_buildings", "fetch_waterways"]
 
 
 def _bounds_polygon(bounds: tuple[float, float, float, float]) -> Polygon:
@@ -48,6 +48,57 @@ def fetch_roads(bounds: tuple[float, float, float, float]) -> MultiLineString:
     """Fetch road geometries within bounds from OSM."""
     poly = _bounds_polygon(bounds)
     gdf = _features_from_polygon(poly, {"highway": True})
+    lines = []
+    for geom in gdf.geometry:
+        if geom.is_empty:
+            continue
+        gtype = geom.geom_type
+        if gtype in ("LineString", "MultiLineString"):
+            lines.append(geom)
+        elif gtype in ("Polygon", "MultiPolygon"):
+            lines.append(geom.boundary)
+        elif hasattr(geom, "geoms"):
+            for part in geom.geoms:
+                if part.geom_type in ("LineString", "MultiLineString"):
+                    lines.append(part)
+                elif part.geom_type in ("Polygon", "MultiPolygon"):
+                    lines.append(part.boundary)
+    if not lines:
+        return MultiLineString([])
+    merged = unary_union(lines)
+    if isinstance(merged, LineString):
+        return MultiLineString([merged])
+    if isinstance(merged, MultiLineString):
+        return merged
+    if hasattr(merged, "geoms"):
+        segments = [
+            g for g in merged.geoms if isinstance(g, (LineString, MultiLineString))
+        ]
+        if segments:
+            merge2 = unary_union(segments)
+            if isinstance(merge2, LineString):
+                return MultiLineString([merge2])
+            if isinstance(merge2, MultiLineString):
+                return merge2
+    return MultiLineString([])
+
+
+def fetch_waterways(bounds: tuple[float, float, float, float]) -> MultiLineString:
+    """Fetch waterway geometries within bounds from OSM.
+
+    Parameters
+    ----------
+    bounds : tuple[float, float, float, float]
+        (lon_min, lat_min, lon_max, lat_max)
+
+    Returns
+    -------
+    MultiLineString
+        Collection of river/stream/canal centerlines.
+    """
+
+    poly = _bounds_polygon(bounds)
+    gdf = _features_from_polygon(poly, {"waterway": ["river", "stream", "canal"]})
     lines = []
     for geom in gdf.geometry:
         if geom.is_empty:
@@ -150,6 +201,14 @@ def normalize_road_geometry(
             return MultiLineString([merged])
         return merged
     return None
+
+
+def normalize_waterway_geometry(
+    clipped: GeometryCollection | LineString | MultiLineString,
+) -> MultiLineString | None:
+    """Normalize waterway geometry to a MultiLineString or ``None``."""
+
+    return normalize_road_geometry(clipped)
 
 
 def normalize_building_geometry(

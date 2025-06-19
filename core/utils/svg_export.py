@@ -235,6 +235,7 @@ def contours_to_svg_zip(
     stroke_align: str = "#ff0000",
     stroke_road: str = "#0000ff",
     stroke_building: str = "#880000",
+    stroke_waterway: str = "#00aaff",
     stroke_width_mm: float = 0.1,  # may need to be increased for some lasers
     basename: str = "contours",
 ) -> bytes:
@@ -270,6 +271,7 @@ def contours_to_svg_zip(
         stroke_align (str): Stroke color for the alignment geometry (default: red).
         stroke_road (str): Stroke color for road geometries.
         stroke_building (str): Stroke color for building outlines.
+        stroke_waterway (str): Stroke color for waterways.
         stroke_width_mm (float): Width of strokes in millimeters (default: 0.1 mm).
         basename (str): Base filename used for SVG layers in the ZIP.
     Returns:
@@ -457,14 +459,20 @@ def contours_to_svg_zip(
                                 )
 
             # ----------------------------------------------
-            # Optional road and building geometries
+            # Optional road, waterway and building geometries
             # ----------------------------------------------
             if layer.get("roads") is not None:
                 road_geom = shape(layer["roads"])
                 if not road_geom.is_empty:
-                    segments = [road_geom] if isinstance(road_geom, LineString) else getattr(road_geom, "geoms", [road_geom])
+                    segments = (
+                        [road_geom]
+                        if isinstance(road_geom, LineString)
+                        else getattr(road_geom, "geoms", [road_geom])
+                    )
                     for seg in segments:
-                        path_d = linestring_to_svg_path(seg, glob_minx, glob_maxx, glob_miny, glob_maxy)
+                        path_d = linestring_to_svg_path(
+                            seg, glob_minx, glob_maxx, glob_miny, glob_maxy
+                        )
                         if path_d.strip():
                             dwg.add(
                                 dwg.path(
@@ -474,11 +482,37 @@ def contours_to_svg_zip(
                                     stroke_width=f"{stroke_width_mm:.3f}mm",
                                 )
                             )
+            if layer.get("waterways") is not None:
+                water_geom = shape(layer["waterways"])
+                if not water_geom.is_empty:
+                    segments = (
+                        [water_geom]
+                        if isinstance(water_geom, LineString)
+                        else getattr(water_geom, "geoms", [water_geom])
+                    )
+                    for seg in segments:
+                        path_d = linestring_to_svg_path(
+                            seg, glob_minx, glob_maxx, glob_miny, glob_maxy
+                        )
+                        if path_d.strip():
+                            dwg.add(
+                                dwg.path(
+                                    d=path_d,
+                                    stroke=stroke_waterway,
+                                    fill="none",
+                                    stroke_width=f"{stroke_width_mm:.3f}mm",
+                                )
+                            )
             if layer.get("buildings") is not None:
                 build_geom = shape(layer["buildings"])
                 if not build_geom.is_empty:
                     for path_d in _geom_to_paths(
-                        build_geom, glob_minx, glob_maxx, glob_miny, glob_maxy, include_holes=False
+                        build_geom,
+                        glob_minx,
+                        glob_maxx,
+                        glob_miny,
+                        glob_maxy,
+                        include_holes=False,
                     ):
                         dwg.add(
                             dwg.path(

@@ -15,8 +15,10 @@ from core.utils.geocoding import compute_utm_bounds_from_wgs84
 from core.utils.osm_features import (
     fetch_buildings,
     fetch_roads,
+    fetch_waterways,
     normalize_building_geometry,
     normalize_road_geometry,
+    normalize_waterway_geometry,
 )
 from core.utils.slicer import (
     clean_srtm_dem,
@@ -81,6 +83,7 @@ class ContourSlicingJob:
         water_polygon: dict | None = None,
         include_roads: bool = False,
         include_buildings: bool = False,
+        include_waterways: bool = False,
     ):
         """Initialize the ContourSlicingJob with parameters.
         Args:
@@ -98,6 +101,7 @@ class ContourSlicingJob:
             water_polygon (dict | None): GeoJSON-like dict representing a water polygon to be used for slicing.
             include_roads (bool): Whether to include road features in the contours.
             include_buildings (bool): Whether to include building features in the contours.
+            include_waterways (bool): Whether to include rivers, streams and canals.
         """
         self.bounds = bounds
         self.height = height_per_layer
@@ -129,6 +133,7 @@ class ContourSlicingJob:
             self.water_polygon = None
         self.include_roads = include_roads
         self.include_buildings = include_buildings
+        self.include_waterways = include_waterways
 
     def run(self) -> list[dict]:
         """Run the contour slicing job.
@@ -197,6 +202,7 @@ class ContourSlicingJob:
         scale_factor = substrate_m / max(width, height)
         roads_geom = None
         buildings_geom = None
+        waterways_geom = None
         if self.include_roads:
             try:
                 r = fetch_roads(self.bounds)
@@ -238,6 +244,30 @@ class ContourSlicingJob:
             except Exception as e:
                 logger.warning("Failed to fetch roads: %s", e, exc_info=True)
                 roads_geom = None
+        if self.include_waterways:
+            try:
+                w = fetch_waterways(self.bounds)
+                if not w.is_empty:
+                    projected, _ = project_geometry(
+                        [{"geometry": mapping(w), "elevation": 0}],
+                        cx,
+                        cy,
+                        0,
+                        projection,
+                    )
+                    if projected:
+                        geom = shape(projected[0]["geometry"])
+                        geom = shapely.affinity.translate(
+                            geom, xoff=-center_x, yoff=-center_y
+                        )
+                        waterways_geom = shapely.affinity.scale(
+                            geom, xfact=scale_factor, yfact=scale_factor, origin=(0, 0)
+                        )
+                else:
+                    waterways_geom = None
+            except Exception as e:
+                logger.warning("Failed to fetch waterways: %s", e, exc_info=True)
+                waterways_geom = None
         if self.include_buildings:
             try:
                 b = fetch_buildings(self.bounds)
@@ -279,6 +309,12 @@ class ContourSlicingJob:
                 clipped = roads_geom.intersection(visible_area)
                 normalized = normalize_road_geometry(clipped)
                 contour["roads"] = (
+                    mapping(normalized) if normalized is not None else None
+                )
+            if self.include_waterways and waterways_geom is not None:
+                clipped = waterways_geom.intersection(visible_area)
+                normalized = normalize_waterway_geometry(clipped)
+                contour["waterways"] = (
                     mapping(normalized) if normalized is not None else None
                 )
             if self.include_buildings and buildings_geom is not None:
