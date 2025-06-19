@@ -17,7 +17,7 @@
 
 import { OrbitControls } from '@react-three/drei';
 import { Canvas, useThree } from '@react-three/fiber';
-import type { MultiPolygon, MultiLineString } from 'geojson';
+import type { MultiLineString, MultiPolygon } from 'geojson';
 import { useMemo } from 'react';
 import * as THREE from 'three';
 
@@ -249,7 +249,7 @@ function RoadLines({ geometry, z }: { geometry: MultiLineString; z: number }) {
       {geometry.coordinates.map((coords, i) => {
         const pts = coords.map(([x, y]) => new THREE.Vector3(x, y, z))
         const geo = new THREE.BufferGeometry().setFromPoints(pts)
-        return <line key={i} geometry={geo} material={new THREE.LineBasicMaterial({ color: '#666' })} />
+        return <line key={i} geometry={geo} material={new THREE.LineBasicMaterial({ color: '#000' })} />
       })}
     </group>
   )
@@ -367,15 +367,22 @@ export default function ContourPreview({ layers }: ContourPreviewProps) {
             )
           })}
 
+          {/*
+            Render additional features like roads and buildings if available in the layer.
+            These are positioned at the appropriate height based on their thickness.
+          */}
           {layers.map((layer, idx) => {
             const z = cumulativeHeights[idx]
+            console.log(`Layer ${idx} roads:`, layer.roads)
+            console.log(`Layer ${idx} buildings:`, layer.buildings)            
             return (
               <group key={`extras-${idx}`}> 
-                {layer.roads && <RoadLines geometry={layer.roads} z={z + (layer.thickness ?? 0.003) * 0.5} />}
-                {layer.buildings && <BuildingLayer geometry={layer.buildings} z={z + (layer.thickness ?? 0.003) * 0.02} />}
+                {layer.roads && <RoadLines geometry={layer.roads} z={z + (layer.thickness ?? 0.003) +0.001} />}
+                {layer.buildings && <BuildingLayer geometry={layer.buildings} z={z + (layer.thickness ?? 0.003) +0.001} />}
               </group>
             )
           })}
+          
 
           {/*
             Render axes helper for orientation reference.
