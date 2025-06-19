@@ -3,11 +3,24 @@ import logging
 import numpy as np
 import shapely
 from django.conf import settings
-from shapely.geometry import box, shape, mapping
+from shapely.geometry import (
+    GeometryCollection,
+    MultiPolygon,
+    Polygon,
+    box,
+    mapping,
+    shape,
+)
+from shapely.ops import unary_union
 
 from core.utils.download_clip_elevation_tiles import download_srtm_tiles_for_bounds
 from core.utils.geocoding import compute_utm_bounds_from_wgs84
-from core.utils.osm_features import fetch_roads, fetch_buildings
+from core.utils.osm_features import (
+    fetch_buildings,
+    fetch_roads,
+    normalize_building_geometry,
+    normalize_road_geometry,
+)
 from core.utils.slicer import (
     clean_srtm_dem,
     clip_contours_to_bbox,
@@ -39,6 +52,15 @@ def _log_contour_info(contours, process_step: str = "Contour Generation"):
             geom.area,
             geom.is_valid,
         )
+
+
+def _geometry_feature_count(geom):
+    """Return the count of features for logging."""
+    if geom is None or geom.is_empty:
+        return 0
+    if hasattr(geom, "geoms"):
+        return len(geom.geoms)
+    return 1
 
 
 class ContourSlicingJob:
@@ -77,6 +99,9 @@ class ContourSlicingJob:
             min_area (float): Minimum area for filtering small features.
             min_feature_width_mm (float): Minimum feature width in mm.
             fixed_elevation (float | None): Need to start slicing from here, if provided.
+            water_polygon (dict | None): GeoJSON-like dict representing a water polygon to be used for slicing.
+            include_roads (bool): Whether to include road features in the contours.
+            include_buildings (bool): Whether to include building features in the contours.
         """
         self.bounds = bounds
         self.height = height_per_layer
@@ -177,6 +202,13 @@ class ContourSlicingJob:
         if self.include_roads:
             try:
                 r = fetch_roads(self.bounds)
+                count = _geometry_feature_count(r)
+                logger.info(
+                    "[OSM] Downloaded %d road features (%s), total length=%.1f",
+                    count,
+                    r.geom_type,
+                    r.length if hasattr(r, "length") else -1,
+                )
                 if not r.is_empty:
                     projected = project_geometry(
                         [{"geometry": mapping(r), "elevation": 0}], cx, cy
@@ -189,6 +221,18 @@ class ContourSlicingJob:
                         roads_geom = shapely.affinity.scale(
                             geom, xfact=scale_factor, yfact=scale_factor, origin=(0, 0)
                         )
+                        logger.debug(
+                            "[OSM] Roads projected and scaled: %s, length=%.1f",
+                            roads_geom.geom_type,
+                            roads_geom.length,
+                        )
+                    else:
+                        logger.warning(
+                            "[OSM] No roads projected for bounds: %s", self.bounds
+                        )
+                else:
+                    logger.warning("[OSM] No roads found for bounds: %s", self.bounds)
+                    roads_geom = None
             except Exception as e:
                 logger.warning("Failed to fetch roads: %s", e)
                 roads_geom = None
@@ -221,14 +265,22 @@ class ContourSlicingJob:
             band_above = (
                 shape(contours[idx + 1]["geometry"]) if idx + 1 < n_layers else None
             )
-            visible_area = band_i if band_above is None else band_i.difference(band_above)
+            visible_area = (
+                band_i if band_above is None else band_i.difference(band_above)
+            )
 
             if self.include_roads and roads_geom is not None:
                 clipped = roads_geom.intersection(visible_area)
-                contour["roads"] = mapping(clipped) if not clipped.is_empty else None
+                normalized = normalize_road_geometry(clipped)
+                contour["roads"] = (
+                    mapping(normalized) if normalized is not None else None
+                )
             if self.include_buildings and buildings_geom is not None:
                 clipped = buildings_geom.intersection(visible_area)
-                contour["buildings"] = mapping(clipped) if not clipped.is_empty else None
+                normalized = normalize_building_geometry(clipped)
+                contour["buildings"] = (
+                    mapping(normalized) if normalized is not None else None
+                )
 
             contour["thickness"] = self.layer_thickness / 1000.0
 

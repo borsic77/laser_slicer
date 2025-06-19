@@ -722,8 +722,6 @@ def generate_contours(
                 # Insert waterband just before this level
                 new_level_polys.append((fixed_elevation, [water_band]))
                 inserted = True
-                # Prepare cleaned water geometry for robust differencing
-                from shapely.ops import unary_union
 
                 cleaned_water = clean_geometry_strict(water_band)
                 # Optionally buffer for robust carving
@@ -844,21 +842,37 @@ def project_geometry(
     fig, ax = plt.subplots()
 
     for contour, geom in projected_geoms:
-        # Rotation cleanup: remove the unnecessary -90 deg offset, rotate only by -rot_angle
-        rotated_geom = shapely.affinity.rotate(
-            geom, -rot_angle, origin=center
-        )  # Clean up: only rotate by -rot_angle
+        rotated_geom = shapely.affinity.rotate(geom, -rot_angle, origin=center)
         # Clean geometry strictly after rotation
-        cleaned_geom = clean_geometry_strict(rotated_geom)
-        logger.debug(
-            f"Contour at elevation {contour.get('elevation')} cleaned geometry is "
-            f"{'valid' if cleaned_geom is not None else 'invalid'}"
-        )
-        if cleaned_geom is None:
-            logger.warning(
-                f"Skipping contour at elevation {contour.get('elevation')} after cleaning (invalid geometry)."
+        if rotated_geom.geom_type in ("Polygon", "MultiPolygon"):
+            cleaned_geom = clean_geometry_strict(rotated_geom)
+            is_valid = cleaned_geom is not None
+        elif rotated_geom.geom_type in ("LineString", "MultiLineString"):
+            # For lines: check is_empty only
+            cleaned_geom = rotated_geom if not rotated_geom.is_empty else None
+            is_valid = cleaned_geom is not None
+        else:
+            allowed = [
+                g
+                for g in rotated_geom.geoms
+                if g.geom_type
+                in ("Polygon", "MultiPolygon", "LineString", "MultiLineString")
+            ]
+            if allowed:
+                cleaned_geom = unary_union(allowed)
+                is_valid = not cleaned_geom.is_empty
+            else:
+                cleaned_geom = None
+                is_valid = False
+            logger.debug(
+                f"Contour at elevation {contour.get('elevation')} cleaned geometry is "
+                f"{'valid' if is_valid else 'invalid'} (type: {rotated_geom.geom_type})"
             )
-            continue
+            if cleaned_geom is None:
+                logger.warning(
+                    f"Skipping contour at elevation {contour.get('elevation')} after cleaning (invalid geometry)."
+                )
+                continue
         final_geom = cleaned_geom
         if simplify_tolerance > 0.0:
             logger.debug(
@@ -875,6 +889,13 @@ def project_geometry(
         elif final_geom.geom_type == "LineString":
             x, y = final_geom.xy
             ax.plot(x, y, linewidth=0.5)
+        elif final_geom.geom_type == "LineString":
+            x, y = final_geom.xy
+            ax.plot(x, y, linewidth=0.5)
+        elif final_geom.geom_type == "MultiLineString":
+            for line in final_geom.geoms:
+                x, y = line.xy
+                ax.plot(x, y, linewidth=0.5)
 
     ax.set_title("Projected Contours")
     plt.savefig(os.path.join(DEBUG_IMAGE_PATH, "projected_contours.png"))
