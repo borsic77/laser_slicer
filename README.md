@@ -113,7 +113,7 @@ See [Developer Startup Guide](dev_startup.md) for setup instructions.
 
 - [x] Introduce roads and houses as extra layer
 - [x] Add waterways overlay
-- [ ] Export STL for 3‑D printing
+- [x] Export STL for 3‑D printing
 - [ ] CI/CD (workflow dispatch to Docker Hub)
 
 ---
