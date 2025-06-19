@@ -25,7 +25,10 @@ vscode.lan {
 }
 pihole.lan {
     tls internal       
-    reverse_proxy pihole:80
+    reverse_proxy /admin* pihole:80
+    handle /* {
+        redir /admin
+    }
 }
 homeassistant.lan {
     tls internal       
