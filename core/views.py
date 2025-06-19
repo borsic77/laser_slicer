@@ -197,6 +197,8 @@ def slice_contours(request):
         if fixed_elevation_value not in (None, "", "null")
         else None,
         "water_polygon": request.data.get("water_polygon"),
+        "include_roads": bool(request.data.get("include_roads", False)),
+        "include_buildings": bool(request.data.get("include_buildings", False)),
     }
     # logger.debug("Creating contour slicing job with params: %s", params)
     job = ContourJob.objects.create(params=params, status="PENDING")

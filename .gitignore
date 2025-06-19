@@ -3,6 +3,7 @@ __pycache__/
 *.py[co]
 *.pyo
 *.pyd
+cache/
 
 # Build artifacts
 build/

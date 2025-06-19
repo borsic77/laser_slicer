@@ -145,6 +145,8 @@ def run_contour_slicing_job(self, job_id):
             min_feature_width_mm=params["min_feature_width_mm"],
             fixed_elevation=params["fixed_elevation"],
             water_polygon=params.get("water_polygon"),
+            include_roads=params.get("include_roads", False),
+            include_buildings=params.get("include_buildings", False),
         )
         # Main processing
         layers = csj.run()

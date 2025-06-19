@@ -3,10 +3,21 @@ import logging
 import numpy as np
 import shapely
 from django.conf import settings
-from shapely.geometry import box, shape
+from shapely.geometry import (
+    box,
+    mapping,
+    shape,
+)
+
 
 from core.utils.download_clip_elevation_tiles import download_srtm_tiles_for_bounds
 from core.utils.geocoding import compute_utm_bounds_from_wgs84
+from core.utils.osm_features import (
+    fetch_buildings,
+    fetch_roads,
+    normalize_building_geometry,
+    normalize_road_geometry,
+)
 from core.utils.slicer import (
     clean_srtm_dem,
     clip_contours_to_bbox,
@@ -15,7 +26,6 @@ from core.utils.slicer import (
     generate_contours,
     mosaic_and_crop,
     project_geometry,
-    robust_local_outlier_mask,
     scale_and_center_contours_to_substrate,
     smooth_geometry,
 )
@@ -40,6 +50,15 @@ def _log_contour_info(contours, process_step: str = "Contour Generation"):
         )
 
 
+def _geometry_feature_count(geom):
+    """Return the count of features for logging."""
+    if geom is None or geom.is_empty:
+        return 0
+    if hasattr(geom, "geoms"):
+        return len(geom.geoms)
+    return 1
+
+
 class ContourSlicingJob:
     """Class to handle the slicing of elevation data into contour layers.
     This class is responsible for downloading elevation data, generating contours,
@@ -60,6 +79,8 @@ class ContourSlicingJob:
         min_feature_width_mm: float,
         fixed_elevation: float | None = None,
         water_polygon: dict | None = None,
+        include_roads: bool = False,
+        include_buildings: bool = False,
     ):
         """Initialize the ContourSlicingJob with parameters.
         Args:
@@ -74,6 +95,9 @@ class ContourSlicingJob:
             min_area (float): Minimum area for filtering small features.
             min_feature_width_mm (float): Minimum feature width in mm.
             fixed_elevation (float | None): Need to start slicing from here, if provided.
+            water_polygon (dict | None): GeoJSON-like dict representing a water polygon to be used for slicing.
+            include_roads (bool): Whether to include road features in the contours.
+            include_buildings (bool): Whether to include building features in the contours.
         """
         self.bounds = bounds
         self.height = height_per_layer
@@ -103,6 +127,8 @@ class ContourSlicingJob:
             self.water_polygon = cropped if not cropped.is_empty else None
         else:
             self.water_polygon = None
+        self.include_roads = include_roads
+        self.include_buildings = include_buildings
 
     def run(self) -> list[dict]:
         """Run the contour slicing job.
@@ -142,7 +168,9 @@ class ContourSlicingJob:
         )
         _log_contour_info(contours, "After Contour Generation")
         # Project, smooth, and scale the contours
-        contours = project_geometry(contours, cx, cy, simplify_tolerance=self.simplify)
+        contours, projection = project_geometry(
+            contours, cx, cy, simplify_tolerance=self.simplify
+        )
         _log_contour_info(contours, "After Projection")
         contours = smooth_geometry(contours, self.smoothing)
         _log_contour_info(contours, "After Smoothing")
@@ -159,11 +187,107 @@ class ContourSlicingJob:
 
         # Log contour information
         _log_contour_info(contours, "After Scaling and Centering")
+        # Prepare optional OSM features
+        substrate_m = self.substrate_size / 1000.0
+        minx, miny, maxx, maxy = utm_bounds
+        width = maxx - minx
+        height = maxy - miny
+        center_x = (minx + maxx) / 2
+        center_y = (miny + maxy) / 2
+        scale_factor = substrate_m / max(width, height)
+        roads_geom = None
+        buildings_geom = None
+        if self.include_roads:
+            try:
+                r = fetch_roads(self.bounds)
+                count = _geometry_feature_count(r)
+                logger.info(
+                    "[OSM] Downloaded %d road features (%s), total length=%.1f",
+                    count,
+                    r.geom_type,
+                    r.length if hasattr(r, "length") else -1,
+                )
+                if not r.is_empty:
+                    projected, _ = project_geometry(
+                        [{"geometry": mapping(r), "elevation": 0}],
+                        cx,
+                        cy,
+                        0,
+                        projection,
+                    )
+                    if projected:
+                        geom = shape(projected[0]["geometry"])
+                        geom = shapely.affinity.translate(
+                            geom, xoff=-center_x, yoff=-center_y
+                        )
+                        roads_geom = shapely.affinity.scale(
+                            geom, xfact=scale_factor, yfact=scale_factor, origin=(0, 0)
+                        )
+                        logger.debug(
+                            "[OSM] Roads projected and scaled: %s, length=%.1f",
+                            roads_geom.geom_type,
+                            roads_geom.length,
+                        )
+                    else:
+                        logger.warning(
+                            "[OSM] No roads projected for bounds: %s", self.bounds
+                        )
+                else:
+                    logger.warning("[OSM] No roads found for bounds: %s", self.bounds)
+                    roads_geom = None
+            except Exception as e:
+                logger.warning("Failed to fetch roads: %s", e, exc_info=True)
+                roads_geom = None
+        if self.include_buildings:
+            try:
+                b = fetch_buildings(self.bounds)
+                if not b.is_empty:
+                    projected, _ = project_geometry(
+                        [{"geometry": mapping(b), "elevation": 0}],
+                        cx,
+                        cy,
+                        0,
+                        projection,
+                    )
+                    if projected:
+                        geom = shape(projected[0]["geometry"])
+                        geom = shapely.affinity.translate(
+                            geom, xoff=-center_x, yoff=-center_y
+                        )
+                        buildings_geom = shapely.affinity.scale(
+                            geom, xfact=scale_factor, yfact=scale_factor, origin=(0, 0)
+                        )
+            except Exception as e:
+                logger.warning("Failed to fetch buildings: %s", e, exc_info=True)
+                buildings_geom = None
         # Filter small features and set layer thickness
         contours = filter_small_features(
             contours, self.min_area, self.min_feature_width
         )
         # _log_contour_info(contours, "After Filtering Small Features")
-        for contour in contours:
+        n_layers = len(contours)
+        for idx, contour in enumerate(contours):
+            band_i = shape(contour["geometry"])
+            band_above = (
+                shape(contours[idx + 1]["geometry"]) if idx + 1 < n_layers else None
+            )
+            visible_area = (
+                band_i if band_above is None else band_i.difference(band_above)
+            )
+
+            if self.include_roads and roads_geom is not None:
+                clipped = roads_geom.intersection(visible_area)
+                normalized = normalize_road_geometry(clipped)
+                contour["roads"] = (
+                    mapping(normalized) if normalized is not None else None
+                )
+            if self.include_buildings and buildings_geom is not None:
+                clipped = buildings_geom.intersection(visible_area)
+                normalized = normalize_building_geometry(clipped)
+                contour["buildings"] = (
+                    mapping(normalized) if normalized is not None else None
+                )
+
             contour["thickness"] = self.layer_thickness / 1000.0
+
         return contours

@@ -181,6 +181,8 @@ function App() {
   const [fixedElevation, setFixedElevation] = useState<number | null>(null);
   const [fixedElevationEnabled, setFixedElevationEnabled] = useState(false);
   const [waterPolygon, setWaterPolygon] = useState<any | null>(null);
+  const [includeRoads, setIncludeRoads] = useState(false);
+  const [includeBuildings, setIncludeBuildings] = useState(false);
 
 
   // Poll elevation job
@@ -463,6 +465,8 @@ function App() {
       layer_thickness: params.layerThickness,
       fixedElevation: fixedElevationEnabled ? fixedElevation : undefined,
       water_polygon: waterPolygon ?? undefined,
+      include_roads: includeRoads,
+      include_buildings: includeBuildings,
 
     };
     if (fixedElevationEnabled && typeof fixedElevation === 'number') {
@@ -774,6 +778,12 @@ function App() {
           <p><strong>Height:</strong> {areaStats ? `${areaStats.height.toFixed(0)} m` : 'N/A'}</p>
           <p><strong>Lowest Elevation:</strong> {elevationStats ? `${elevationStats.min.toFixed(0)} m` : '…'}</p>
           <p><strong>Highest Elevation:</strong> {elevationStats ? `${elevationStats.max.toFixed(0)} m` : '…'}</p>
+          <label style={{display:'block'}}>
+            <input type="checkbox" checked={includeRoads} onChange={e => setIncludeRoads(e.target.checked)} /> Roads
+          </label>
+          <label style={{display:'block'}}>
+            <input type="checkbox" checked={includeBuildings} onChange={e => setIncludeBuildings(e.target.checked)} /> Buildings
+          </label>
         </div>
       </div>
       <ToastContainer
