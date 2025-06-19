@@ -53,3 +53,5 @@ frontend/.vite/
 Thumbs.db
 
 dump.rdb
+
+Caddyfile
