@@ -9,7 +9,6 @@ from shapely.geometry import (
     shape,
 )
 
-
 from core.utils.download_clip_elevation_tiles import download_srtm_tiles_for_bounds
 from core.utils.geocoding import compute_utm_bounds_from_wgs84
 from core.utils.osm_features import (
@@ -135,6 +134,62 @@ class ContourSlicingJob:
         self.include_buildings = include_buildings
         self.include_waterways = include_waterways
 
+    def _prepare_osm_feature_geom(
+        self,
+        fetch_fn,
+        projection,
+        center_x,
+        center_y,
+        scale_factor,
+        cx,
+        cy,
+        log_label=None,
+    ):
+        """ "
+        Prepare OSM feature geometry by fetching and transforming it.
+        Args:
+            fetch_fn (callable): Function to fetch the OSM feature geometry.
+            projection (str): Projection string for the geometry.
+            center_x (float): Center x-coordinate for translation.
+            center_y (float): Center y-coordinate for translation.
+            scale_factor (float): Scale factor for the geometry.
+            cx (float): Center x-coordinate in WGS84.
+            cy (float): Center y-coordinate in WGS84.
+            log_label (str | None): Label for logging the feature type.
+        """
+        try:
+            geom = fetch_fn(self.bounds)
+            if log_label:
+                count = _geometry_feature_count(geom)
+                logger.info(
+                    "[OSM] Downloaded %d %s features (%s), total length=%.1f",
+                    count,
+                    log_label,
+                    geom.geom_type,
+                    geom.length if hasattr(geom, "length") else -1,
+                )
+            if not geom.is_empty:
+                projected, _ = project_geometry(
+                    [{"geometry": mapping(geom), "elevation": 0}],
+                    cx,
+                    cy,
+                    0,
+                    projection,
+                )
+                if projected:
+                    g = shape(projected[0]["geometry"])
+                    g = shapely.affinity.translate(g, xoff=-center_x, yoff=-center_y)
+                    g = shapely.affinity.scale(
+                        g, xfact=scale_factor, yfact=scale_factor, origin=(0, 0)
+                    )
+                    return g
+            return None
+        except Exception as e:
+            logger.warning(
+                f"Failed to fetch {log_label or 'feature'}: %s", e, exc_info=True
+            )
+            return None
+
     def run(self) -> list[dict]:
         """Run the contour slicing job.
         This method downloads elevation data, generates contours,
@@ -200,96 +255,48 @@ class ContourSlicingJob:
         center_x = (minx + maxx) / 2
         center_y = (miny + maxy) / 2
         scale_factor = substrate_m / max(width, height)
-        roads_geom = None
-        buildings_geom = None
-        waterways_geom = None
-        if self.include_roads:
-            try:
-                r = fetch_roads(self.bounds)
-                count = _geometry_feature_count(r)
-                logger.info(
-                    "[OSM] Downloaded %d road features (%s), total length=%.1f",
-                    count,
-                    r.geom_type,
-                    r.length if hasattr(r, "length") else -1,
-                )
-                if not r.is_empty:
-                    projected, _ = project_geometry(
-                        [{"geometry": mapping(r), "elevation": 0}],
-                        cx,
-                        cy,
-                        0,
-                        projection,
-                    )
-                    if projected:
-                        geom = shape(projected[0]["geometry"])
-                        geom = shapely.affinity.translate(
-                            geom, xoff=-center_x, yoff=-center_y
-                        )
-                        roads_geom = shapely.affinity.scale(
-                            geom, xfact=scale_factor, yfact=scale_factor, origin=(0, 0)
-                        )
-                        logger.debug(
-                            "[OSM] Roads projected and scaled: %s, length=%.1f",
-                            roads_geom.geom_type,
-                            roads_geom.length,
-                        )
-                    else:
-                        logger.warning(
-                            "[OSM] No roads projected for bounds: %s", self.bounds
-                        )
-                else:
-                    logger.warning("[OSM] No roads found for bounds: %s", self.bounds)
-                    roads_geom = None
-            except Exception as e:
-                logger.warning("Failed to fetch roads: %s", e, exc_info=True)
-                roads_geom = None
-        if self.include_waterways:
-            try:
-                w = fetch_waterways(self.bounds)
-                if not w.is_empty:
-                    projected, _ = project_geometry(
-                        [{"geometry": mapping(w), "elevation": 0}],
-                        cx,
-                        cy,
-                        0,
-                        projection,
-                    )
-                    if projected:
-                        geom = shape(projected[0]["geometry"])
-                        geom = shapely.affinity.translate(
-                            geom, xoff=-center_x, yoff=-center_y
-                        )
-                        waterways_geom = shapely.affinity.scale(
-                            geom, xfact=scale_factor, yfact=scale_factor, origin=(0, 0)
-                        )
-                else:
-                    waterways_geom = None
-            except Exception as e:
-                logger.warning("Failed to fetch waterways: %s", e, exc_info=True)
-                waterways_geom = None
-        if self.include_buildings:
-            try:
-                b = fetch_buildings(self.bounds)
-                if not b.is_empty:
-                    projected, _ = project_geometry(
-                        [{"geometry": mapping(b), "elevation": 0}],
-                        cx,
-                        cy,
-                        0,
-                        projection,
-                    )
-                    if projected:
-                        geom = shape(projected[0]["geometry"])
-                        geom = shapely.affinity.translate(
-                            geom, xoff=-center_x, yoff=-center_y
-                        )
-                        buildings_geom = shapely.affinity.scale(
-                            geom, xfact=scale_factor, yfact=scale_factor, origin=(0, 0)
-                        )
-            except Exception as e:
-                logger.warning("Failed to fetch buildings: %s", e, exc_info=True)
-                buildings_geom = None
+        roads_geom = (
+            self._prepare_osm_feature_geom(
+                fetch_roads,
+                projection,
+                center_x,
+                center_y,
+                scale_factor,
+                cx,
+                cy,
+                "road",
+            )
+            if self.include_roads
+            else None
+        )
+        waterways_geom = (
+            self._prepare_osm_feature_geom(
+                fetch_waterways,
+                projection,
+                center_x,
+                center_y,
+                scale_factor,
+                cx,
+                cy,
+                "waterway",
+            )
+            if self.include_waterways
+            else None
+        )
+        buildings_geom = (
+            self._prepare_osm_feature_geom(
+                fetch_buildings,
+                projection,
+                center_x,
+                center_y,
+                scale_factor,
+                cx,
+                cy,
+                "building",
+            )
+            if self.include_buildings
+            else None
+        )
         # Filter small features and set layer thickness
         contours = filter_small_features(
             contours, self.min_area, self.min_feature_width
