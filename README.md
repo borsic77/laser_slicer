@@ -130,7 +130,7 @@ See [Developer Startup Guide](dev_startup.md) for setup instructions.
 ## License
 
 Distributed under the **MIT License**.  
-See [`LICENSE`](LICENSE) for more information.
+See [`LICENCE`](LICENCE) for more information.
 
 ---
 
