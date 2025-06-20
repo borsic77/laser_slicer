@@ -161,7 +161,10 @@ def test_contour_slicing_job_with_osm(monkeypatch):
     monkeypatch.setattr(
         "core.services.contour_generator._log_contour_info", lambda *a, **k: None
     )
-    monkeypatch.setattr("core.services.contour_generator.fetch_roads", lambda b: ml)
+    monkeypatch.setattr(
+        "core.services.contour_generator.fetch_roads",
+        lambda b: {"residential": ml},
+    )
     monkeypatch.setattr("core.services.contour_generator.fetch_waterways", lambda b: ml)
     monkeypatch.setattr(
         "core.services.contour_generator.fetch_buildings",
@@ -185,7 +188,8 @@ def test_contour_slicing_job_with_osm(monkeypatch):
     )
     result = job.run()
     layer = result[0]
-    assert "roads" in layer
+    assert "roads" in layer and isinstance(layer["roads"], dict)
+    assert "residential" in layer["roads"]
     assert "buildings" in layer
     assert "waterways" in layer
 
@@ -232,7 +236,7 @@ def test_contour_slicing_job_empty_osm(monkeypatch):
     )
     monkeypatch.setattr(
         "core.services.contour_generator.fetch_roads",
-        lambda b: shapely.geometry.MultiLineString(),
+        lambda b: {},
     )
     monkeypatch.setattr(
         "core.services.contour_generator.fetch_waterways",

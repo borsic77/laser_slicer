@@ -191,6 +191,38 @@ class ContourSlicingJob:
             )
             return None
 
+    def _prepare_osm_road_geoms(
+        self,
+        projection,
+        center_x,
+        center_y,
+        scale_factor,
+        cx,
+        cy,
+    ) -> dict[str, shapely.geometry.MultiLineString]:
+        """Fetch and project road geometries grouped by type."""
+
+        try:
+            raw = fetch_roads(self.bounds)
+            result = {}
+            for rtype, geom in raw.items():
+                projected = self._prepare_osm_feature_geom(
+                    lambda _b, g=geom: g,
+                    projection,
+                    center_x,
+                    center_y,
+                    scale_factor,
+                    cx,
+                    cy,
+                    f"road:{rtype}",
+                )
+                if projected is not None:
+                    result[rtype] = projected
+            return result
+        except Exception as exc:
+            logger.warning("Failed to fetch roads: %s", exc, exc_info=True)
+            return {}
+
     def run(self) -> list[dict]:
         """Execute the contour slicing job.
 
@@ -256,18 +288,16 @@ class ContourSlicingJob:
         center_y = (miny + maxy) / 2
         scale_factor = substrate_m / max(width, height)
         roads_geom = (
-            self._prepare_osm_feature_geom(
-                fetch_roads,
+            self._prepare_osm_road_geoms(
                 projection,
                 center_x,
                 center_y,
                 scale_factor,
                 cx,
                 cy,
-                "road",
             )
             if self.include_roads
-            else None
+            else {}
         )
         waterways_geom = (
             self._prepare_osm_feature_geom(
@@ -312,12 +342,14 @@ class ContourSlicingJob:
                 band_i if band_above is None else band_i.difference(band_above)
             )
 
-            if self.include_roads and roads_geom is not None:
-                clipped = roads_geom.intersection(visible_area)
-                normalized = normalize_road_geometry(clipped)
-                contour["roads"] = (
-                    mapping(normalized) if normalized is not None else None
-                )
+            if self.include_roads and roads_geom:
+                road_features = {}
+                for rtype, rgeom in roads_geom.items():
+                    clipped = rgeom.intersection(visible_area)
+                    normalized = normalize_road_geometry(clipped)
+                    if normalized is not None:
+                        road_features[rtype] = mapping(normalized)
+                contour["roads"] = road_features if road_features else None
             if self.include_waterways and waterways_geom is not None:
                 clipped = waterways_geom.intersection(visible_area)
                 normalized = normalize_waterway_geometry(clipped)

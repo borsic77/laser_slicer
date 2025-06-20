@@ -21,6 +21,16 @@ import type { MultiLineString, MultiPolygon } from 'geojson';
 import { useMemo } from 'react';
 import * as THREE from 'three';
 
+const ROAD_STYLES: Record<string, { color: string; width: number }> = {
+  motorway: { color: '#ff0000', width: 3 },
+  trunk: { color: '#ff6600', width: 2.5 },
+  primary: { color: '#ffa500', width: 2 },
+  secondary: { color: '#ffd000', width: 1.5 },
+  tertiary: { color: '#ffff00', width: 1.5 },
+  residential: { color: '#ffffff', width: 1 },
+  service: { color: '#bbbbbb', width: 1 },
+};
+
 /**
  * CameraController
  *
@@ -68,7 +78,7 @@ interface ContourLayer {
   geometry: MultiPolygon
   elevation: number
   thickness?: number
-  roads?: MultiLineString
+  roads?: Record<string, MultiLineString>
   waterways?: MultiLineString
   buildings?: MultiPolygon
 }
@@ -243,23 +253,25 @@ function PolygonLayer({
   )
 }
 
-function RoadLines({ geometry, z }: { geometry: MultiLineString; z: number }) {
-  if (!geometry || !Array.isArray(geometry.coordinates)) return null;
-  return (
-    <group>
-      {geometry.coordinates.map((coords, i) => {
-        const pts = coords.map(([x, y]) => new THREE.Vector3(x, y, z));
-        return (
-          <Line
-            key={i}
-            points={pts}
-            color="#000"
-            lineWidth={1} // world units, adjust if needed
-          />
-        );
-      })}
-    </group>
-  );
+function RoadLines({ roads, z }: { roads: Record<string, MultiLineString>; z: number }) {
+  if (!roads) return null;
+  const elems: JSX.Element[] = [];
+  Object.entries(roads).forEach(([type, geom]) => {
+    if (!Array.isArray(geom.coordinates)) return;
+    geom.coordinates.forEach((coords, i) => {
+      const pts = coords.map(([x, y]) => new THREE.Vector3(x, y, z));
+      const style = ROAD_STYLES[type] || { color: '#000', width: 1 };
+      elems.push(
+        <Line
+          key={`${type}-${i}`}
+          points={pts}
+          color={style.color}
+          lineWidth={style.width}
+        />
+      );
+    });
+  });
+  return <group>{elems}</group>;
 }
 
 function WaterwayLines({ geometry, z }: { geometry: MultiLineString; z: number }) {
@@ -403,7 +415,7 @@ export default function ContourPreview({ layers }: ContourPreviewProps) {
             console.log(`Layer ${idx} buildings:`, layer.buildings)
             return (
               <group key={`extras-${idx}`}>
-                {layer.roads && <RoadLines geometry={layer.roads} z={z + (layer.thickness ?? 0.003) +0.001} />}
+                {layer.roads && <RoadLines roads={layer.roads} z={z + (layer.thickness ?? 0.003) + 0.001} />}
                 {layer.waterways && <WaterwayLines geometry={layer.waterways} z={z + (layer.thickness ?? 0.003) +0.001} />}
                 {layer.buildings && <BuildingLayer geometry={layer.buildings} z={z + (layer.thickness ?? 0.003) +0.001} />}
               </group>
