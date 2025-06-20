@@ -18,7 +18,7 @@
 import { Line, OrbitControls } from '@react-three/drei';
 import { Canvas, useThree } from '@react-three/fiber';
 import type { MultiLineString, MultiPolygon } from 'geojson';
-import { useMemo } from 'react';
+import React, { useMemo } from 'react';
 import * as THREE from 'three';
 
 const ROAD_STYLES: Record<string, { color: string; width: number }> = {
@@ -255,7 +255,7 @@ function PolygonLayer({
 
 function RoadLines({ roads, z }: { roads: Record<string, MultiLineString>; z: number }) {
   if (!roads) return null;
-  const elems: JSX.Element[] = [];
+  const elems: React.ReactElement[] = [];
   Object.entries(roads).forEach(([type, geom]) => {
     if (!Array.isArray(geom.coordinates)) return;
     geom.coordinates.forEach((coords, i) => {
