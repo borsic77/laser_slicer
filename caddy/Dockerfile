@@ -4,7 +4,7 @@ FROM node:20-slim AS frontend-builder
 
 WORKDIR /app
 COPY frontend/package*.json ./
-RUN npm ci
+RUN npm ci --include=dev
 COPY frontend/ .
 ARG VITE_API_URL
 ENV VITE_API_URL=$VITE_API_URL
