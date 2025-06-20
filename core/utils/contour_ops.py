@@ -25,7 +25,13 @@ if DEBUG:
 
 
 def save_debug_contour_polygon(polygon, level: float, filename: str) -> None:
-    """Save a debug image of ``polygon`` at ``level``."""
+    """Persist a debug PNG of a contour polygon.
+
+    Args:
+        polygon: The polygon to plot.
+        level: Elevation level of the polygon.
+        filename: Base name of the output file.
+    """
     fig, ax = plt.subplots()
     if polygon.is_empty or not polygon.is_valid:
         return
@@ -44,7 +50,15 @@ def save_debug_contour_polygon(polygon, level: float, filename: str) -> None:
 def _prepare_meshgrid(
     elevation_data: np.ndarray, transform: rasterio.Affine
 ) -> Tuple[np.ndarray, np.ndarray]:
-    """Generate longitude and latitude meshgrids from ``elevation_data``."""
+    """Generate longitude and latitude grids for plotting.
+
+    Args:
+        elevation_data: Elevation values as a 2D array.
+        transform: Affine transform of the raster.
+
+    Returns:
+        Two arrays representing longitude and latitude respectively.
+    """
     ny, nx = elevation_data.shape
     y = np.arange(ny)
     x = np.arange(nx)
@@ -65,7 +79,19 @@ def _create_contourf_levels(
     margin: float = 30.0,
     num_layers: int | None = None,
 ) -> np.ndarray:
-    """Create matplotlib contour levels."""
+    """Compute the contour levels for a DEM.
+
+    Args:
+        elevation_data: Raw elevation array.
+        interval: Desired contour interval in metres.
+        fixed_elevation: Optional fixed elevation to include.
+        tol: Tolerance when building the level range.
+        margin: Unused legacy parameter.
+        num_layers: Generate this many evenly spaced layers instead.
+
+    Returns:
+        Array of contour break values.
+    """
     min_elev = np.min(elevation_data)
     max_elev = np.max(elevation_data)
     if num_layers is not None:
@@ -94,7 +120,14 @@ def _create_contourf_levels(
 
 
 def _extract_level_polygons(cs) -> List[Tuple[float, List[Polygon]]]:
-    """Extract filled contour polygons for every level in ``cs``."""
+    """Convert matplotlib contour output to Shapely polygons.
+
+    Args:
+        cs: A ``QuadContourSet`` returned by ``contourf``.
+
+    Returns:
+        List of ``(level, polygons)`` tuples.
+    """
     level_polys: list[tuple[float, list[Polygon]]] = []
     if hasattr(cs, "collections"):
         for i, collection in enumerate(cs.collections):
@@ -137,7 +170,14 @@ def _extract_level_polygons(cs) -> List[Tuple[float, List[Polygon]]]:
 def _plot_contour_layers(
     contour_layers: List[dict], raw_xlim, raw_ylim, debug_image_path: str
 ) -> None:
-    """Plot contour layers to ``debug_image_path``."""
+    """Plot contour layers for debugging purposes.
+
+    Args:
+        contour_layers: Sequence of contour features.
+        raw_xlim: Original X limits from Matplotlib.
+        raw_ylim: Original Y limits from Matplotlib.
+        debug_image_path: Directory to write ``closed_contours.png``.
+    """
     fig, ax = plt.subplots()
     for layer in contour_layers:
         band_geom = shape(layer["geometry"])
@@ -158,7 +198,15 @@ def _plot_contour_layers(
 def _compute_layer_bands(
     level_polys: List[Tuple[float, List[Polygon]]], transform
 ) -> List[dict]:
-    """Build a cumulative stack of closed contour bands."""
+    """Build a cumulative stack of closed contour bands.
+
+    Args:
+        level_polys: Output from :func:`_extract_level_polygons`.
+        transform: Affine transform of the DEM.
+
+    Returns:
+        List of contour features sorted from lowest to highest.
+    """
     contour_layers: list[dict] = []
     cumulative = None
     for level, polys in reversed(level_polys):
@@ -193,7 +241,25 @@ def generate_contours(
     num_layers: int | None = None,
     water_polygon: Polygon | None = None,
 ) -> List[dict]:
-    """Generate stacked contour bands from elevation data."""
+    """Generate contour bands from elevation data.
+
+    Args:
+        masked_elevation_data: Masked DEM used for level creation.
+        elevation_data: Raw DEM values.
+        transform: Affine transform describing ``elevation_data``.
+        interval: Contour interval in metres.
+        simplify: Simplification tolerance in metres.
+        debug_image_path: Directory for debug images.
+        center: Center coordinates of the area of interest.
+        scale: Unused scaling factor kept for backward compatibility.
+        bounds: Bounding box of the area of interest in WGS84.
+        fixed_elevation: Elevation at which a water body should be inserted.
+        num_layers: If given, override ``interval`` and generate that many layers.
+        water_polygon: Optional polygon of a water body to carve out.
+
+    Returns:
+        A list of contour feature dictionaries sorted from bottom to top.
+    """
     logger.debug("generate contours called, fixed_elevation: %s", fixed_elevation)
     lon, lat = _prepare_meshgrid(elevation_data, transform)
     levels = _create_contourf_levels(

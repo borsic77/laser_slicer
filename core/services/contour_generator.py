@@ -143,17 +143,20 @@ class ContourSlicingJob:
         cy,
         log_label=None,
     ):
-        """ "
-        Prepare OSM feature geometry by fetching and transforming it.
+        """Fetch and project optional OSM features.
+
         Args:
-            fetch_fn (callable): Function to fetch the OSM feature geometry.
-            projection (str): Projection string for the geometry.
-            center_x (float): Center x-coordinate for translation.
-            center_y (float): Center y-coordinate for translation.
-            scale_factor (float): Scale factor for the geometry.
-            cx (float): Center x-coordinate in WGS84.
-            cy (float): Center y-coordinate in WGS84.
-            log_label (str | None): Label for logging the feature type.
+            fetch_fn: Callable returning a geometry for the job bounds.
+            projection: Existing projection tuple from :func:`project_geometry`.
+            center_x: Translation offset in metres (x-axis).
+            center_y: Translation offset in metres (y-axis).
+            scale_factor: Scaling factor applied after translation.
+            cx: Center longitude in WGS84.
+            cy: Center latitude in WGS84.
+            log_label: Optional label used in log messages.
+
+        Returns:
+            A transformed geometry or ``None`` if fetching failed.
         """
         try:
             geom = fetch_fn(self.bounds)
@@ -189,11 +192,10 @@ class ContourSlicingJob:
             return None
 
     def run(self) -> list[dict]:
-        """Run the contour slicing job.
-        This method downloads elevation data, generates contours,
-        and prepares the data for slicing into layers.
+        """Execute the contour slicing job.
+
         Returns:
-            list[dict]: List of contour features with their properties.
+            A list of contour feature dictionaries prepared for slicing.
         """
         # Unpack the bounding box coordinates and center
         lon_min, lat_min, lon_max, lat_max = self.bounds

@@ -26,7 +26,15 @@ logger = logging.getLogger(__name__)
 
 
 def clean_geometry(geom: BaseGeometry) -> BaseGeometry | None:
-    """Clean a geometry using ``make_valid``."""
+    """Attempt to fix invalid geometries.
+
+    Args:
+        geom: Geometry to clean.
+
+    Returns:
+        The cleaned geometry or ``None`` if it cannot be fixed.
+    """
+
     geom = make_valid(geom)
     if geom.is_empty or geom.area == 0:
         return None
@@ -34,7 +42,14 @@ def clean_geometry(geom: BaseGeometry) -> BaseGeometry | None:
 
 
 def clean_geometry_strict(geom: BaseGeometry) -> BaseGeometry | None:
-    """Aggressively fix invalid geometries."""
+    """Aggressively fix invalid geometries.
+
+    Args:
+        geom: Geometry to validate.
+
+    Returns:
+        A valid geometry or ``None`` if fixing fails.
+    """
     geom = make_valid(geom)
     if geom.is_empty or geom.area == 0:
         return None
@@ -58,7 +73,17 @@ def clean_geometry_strict(geom: BaseGeometry) -> BaseGeometry | None:
 def walk_bbox_between(
     coords, start_idx: int, end_idx: int, direction: str = "cw"
 ) -> list:
-    """Walk the bbox coordinates circularly from ``end_idx`` to ``start_idx``."""
+    """Walk bbox coordinates between two indices.
+
+    Args:
+        coords: Sequence of corner coordinates in clockwise order.
+        start_idx: Start index within ``coords``.
+        end_idx: End index within ``coords``.
+        direction: ``"cw"`` for clockwise, ``"ccw"`` for counter-clockwise.
+
+    Returns:
+        List of coordinates along the bounding box path.
+    """
     if direction == "cw":
         if start_idx >= end_idx:
             return coords[end_idx : start_idx + 1]
@@ -69,7 +94,15 @@ def walk_bbox_between(
 
 
 def is_almost_closed(line: LineString, tolerance: float = 1e-8) -> bool:
-    """Return ``True`` if ``line`` is nearly closed."""
+    """Check if a line is nearly closed.
+
+    Args:
+        line: Line to check.
+        tolerance: Maximum gap length considered closed.
+
+    Returns:
+        ``True`` if the line's endpoints are within ``tolerance`` of each other.
+    """
     return (
         line.coords[0] != line.coords[-1]
         and LineString([line.coords[0], line.coords[-1]]).length < tolerance
@@ -77,7 +110,14 @@ def is_almost_closed(line: LineString, tolerance: float = 1e-8) -> bool:
 
 
 def _flatten_polygons(geoms: List[Polygon]) -> List[Polygon]:
-    """Flatten ``geoms`` extracting only ``Polygon`` objects."""
+    """Extract polygon parts from heterogeneous geometries.
+
+    Args:
+        geoms: Iterable of polygons or multipolygons.
+
+    Returns:
+        A list containing only ``Polygon`` objects.
+    """
     flat: List[Polygon] = []
     for geom in geoms:
         if geom.geom_type == "Polygon":
@@ -88,7 +128,14 @@ def _flatten_polygons(geoms: List[Polygon]) -> List[Polygon]:
 
 
 def _force_multipolygon(geom):
-    """Ensure ``geom`` is returned as a ``MultiPolygon``."""
+    """Return a geometry as a ``MultiPolygon``.
+
+    Args:
+        geom: Source geometry which may be a ``Polygon`` or ``GeometryCollection``.
+
+    Returns:
+        A ``MultiPolygon`` instance (possibly empty).
+    """
     if isinstance(geom, (Polygon, MultiPolygon)):
         return MultiPolygon([geom]) if isinstance(geom, Polygon) else geom
     if isinstance(geom, GeometryCollection):
@@ -98,7 +145,14 @@ def _force_multipolygon(geom):
 
 
 def _grid_convergence_angle_from_geometry(projected_geoms: list) -> float:
-    """Compute rotation angle for ``projected_geoms``."""
+    """Compute the rotation angle for a set of projected geometries.
+
+    Args:
+        projected_geoms: Geometries already in a projected CRS.
+
+    Returns:
+        Rotation angle in degrees for north alignment.
+    """
     if not projected_geoms:
         return 0.0
     unioned = unary_union(projected_geoms)
@@ -131,7 +185,18 @@ def project_geometry(
     simplify_tolerance: float = 0.0,
     existing_transform=None,
 ):
-    """Project contour geometries to UTM and rotate them north-up."""
+    """Project contour geometries to UTM and rotate north-up.
+
+    Args:
+        contours: Contours with GeoJSON geometries in WGS84.
+        center_lon: Longitude used to select the UTM zone.
+        center_lat: Latitude used to select the UTM zone.
+        simplify_tolerance: Optional simplification tolerance in metres.
+        existing_transform: Optional precomputed transform triple.
+
+    Returns:
+        Tuple of the projected contours and a transformation descriptor.
+    """
     if existing_transform is not None:
         proj, center, rot_angle = existing_transform
     else:
@@ -197,7 +262,15 @@ def project_geometry(
 def clip_contours_to_bbox(
     contours: list[dict], bbox: Tuple[float, float, float, float]
 ) -> list[dict]:
-    """Clip projected contours to ``bbox``."""
+    """Clip projected contours to a bounding box.
+
+    Args:
+        contours: Contours in projected coordinates.
+        bbox: Target bounds ``(minx, miny, maxx, maxy)``.
+
+    Returns:
+        List of contours intersecting the box.
+    """
     bbox_poly = box(*bbox)
     clipped = []
     for contour in contours:
@@ -216,7 +289,16 @@ def scale_and_center_contours_to_substrate(
     substrate_size_mm: float,
     utm_bounds: Tuple[float, float, float, float],
 ) -> List[dict]:
-    """Scale and center contours to ``utm_bounds`` and ``substrate_size_mm``."""
+    """Scale and center contours to the print substrate.
+
+    Args:
+        contours: Contours in projected coordinates.
+        substrate_size_mm: Size of the square substrate in millimetres.
+        utm_bounds: Bounding box of the source data in the same projection.
+
+    Returns:
+        Updated contour list scaled and centered to the substrate.
+    """
     substrate_m = substrate_size_mm / 1000.0
     minx, miny, maxx, maxy = utm_bounds
     width = maxx - minx
@@ -255,7 +337,15 @@ def scale_and_center_contours_to_substrate(
 
 
 def smooth_geometry(contours: List[dict], smoothing: int) -> List[dict]:
-    """Optionally smooth projected contours."""
+    """Smooth projected contours using the buffer trick.
+
+    Args:
+        contours: Contours to smooth.
+        smoothing: Buffer radius in metres; non-positive disables smoothing.
+
+    Returns:
+        List of smoothed contours.
+    """
     if smoothing <= 0:
         return contours
     smoothed_contours = []
@@ -276,7 +366,16 @@ def smooth_geometry(contours: List[dict], smoothing: int) -> List[dict]:
 def filter_small_features(
     contours: List[dict], min_area_cm2: float, min_width_mm: float = 0.0
 ) -> List[dict]:
-    """Remove polygons smaller than ``min_area_cm2`` or narrower than ``min_width_mm``."""
+    """Remove tiny or thin features from contour layers.
+
+    Args:
+        contours: Contour list to filter.
+        min_area_cm2: Minimum polygon area to keep in square centimetres.
+        min_width_mm: Minimum width of features in millimetres.
+
+    Returns:
+        Filtered contour list.
+    """
     min_area_m2 = min_area_cm2 / 1e4 if min_area_cm2 > 0 else 0.0
     min_width_m = min_width_mm / 1000.0 if min_width_mm > 0 else 0.0
     filtered = []

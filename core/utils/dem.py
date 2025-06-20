@@ -1,4 +1,4 @@
-"""Utility functions for processing DEM tiles and arrays."""
+"""Utilities for manipulating digital elevation models (DEMs)."""
 
 import logging
 import math
@@ -16,13 +16,35 @@ logger = logging.getLogger(__name__)
 def clean_srtm_dem(
     dem: np.ndarray, min_valid: float = -500, max_valid: float = 9000
 ) -> np.ndarray:
-    """Replace outliers with ``np.nan`` in an SRTM DEM array."""
+    """Clean invalid values from a DEM.
+
+    Args:
+        dem: DEM values as a 2D array.
+        min_valid: Lowest acceptable elevation in metres.
+        max_valid: Highest acceptable elevation in metres.
+
+    Returns:
+        ``dem`` with out-of-range values replaced by ``np.nan``.
+    """
+
     arr = np.where((dem == -32768) | (dem < min_valid) | (dem > max_valid), np.nan, dem)
     return arr
 
 
-def robust_local_outlier_mask(arr, window: int = 5, thresh: float = 5.0):
-    """Apply a robust local outlier mask to ``arr``."""
+def robust_local_outlier_mask(
+    arr: np.ndarray, window: int = 5, thresh: float = 5.0
+) -> np.ndarray:
+    """Mask local elevation outliers.
+
+    Args:
+        arr: DEM array to clean.
+        window: Size of the median filter window.
+        thresh: Threshold multiplier for the MAD.
+
+    Returns:
+        ``arr`` with detected outliers replaced by ``np.nan``.
+    """
+
     med = scipy.ndimage.median_filter(arr, size=window, mode="reflect")
     diff = np.abs(arr - med)
     mad = scipy.ndimage.median_filter(diff, size=window, mode="reflect")
@@ -30,8 +52,17 @@ def robust_local_outlier_mask(arr, window: int = 5, thresh: float = 5.0):
     return np.where(mask, np.nan, arr)
 
 
-def fill_nans_in_dem(arr, max_iter: int = 20):
-    """Iteratively fill NaNs in a DEM using nearest neighbours."""
+def fill_nans_in_dem(arr: np.ndarray, max_iter: int = 20) -> np.ndarray:
+    """Fill missing elevation values iteratively.
+
+    Args:
+        arr: DEM array containing ``np.nan`` gaps.
+        max_iter: Maximum number of interpolation passes.
+
+    Returns:
+        The array with NaN values filled by nearest-neighbour interpolation.
+    """
+
     arr = arr.copy()
     for _ in range(max_iter):
         if not np.isnan(arr).any():
@@ -45,14 +76,33 @@ def fill_nans_in_dem(arr, max_iter: int = 20):
 def round_affine(
     transform: rasterio.Affine, precision: float = 1e-4
 ) -> rasterio.Affine:
-    """Round components of ``transform`` to ``precision``."""
+    """Round an affine transform for stable comparisons.
+
+    Args:
+        transform: Affine transform to round.
+        precision: Decimal precision.
+
+    Returns:
+        A transform with each component rounded to ``precision``.
+    """
+
     return rasterio.Affine(
         *(round(val, int(-math.log10(precision))) for val in transform)
     )
 
 
-def sample_elevation(lat: float, lon: float, dem_path) -> float:
-    """Sample the elevation at ``lat``/``lon`` from a DEM file."""
+def sample_elevation(lat: float, lon: float, dem_path: str) -> float:
+    """Read a single elevation value from a DEM file.
+
+    Args:
+        lat: Latitude in WGS84.
+        lon: Longitude in WGS84.
+        dem_path: Path to a (possibly gzipped) DEM raster.
+
+    Returns:
+        The elevation in metres at the specified coordinates.
+    """
+
     with rasterio.open(f"/vsigzip/{dem_path}") as src:
         row, col = src.index(lon, lat)
         arr = src.read(1)
@@ -71,7 +121,15 @@ def mosaic_and_crop(
     tif_paths: List[str],
     bounds: Tuple[float, float, float, float],
 ) -> Tuple[np.ndarray, rasterio.Affine]:
-    """Merge ``tif_paths`` and crop to ``bounds``."""
+    """Merge elevation tiles and crop to a bounding box.
+
+    Args:
+        tif_paths: Paths to the tiles to merge. ``.gz`` files are opened via ``vsigzip``.
+        bounds: Bounding box ``(lon_min, lat_min, lon_max, lat_max)`` in WGS84.
+
+    Returns:
+        A tuple ``(array, transform)`` of the cropped DEM and its affine transform.
+    """
     src_files = [
         rasterio.open(f"/vsigzip/{p}") if p.endswith(".gz") else rasterio.open(p)
         for p in tif_paths
