@@ -18,7 +18,7 @@ from core.tasks import (  # New: see below
 )
 from core.utils.download_clip_elevation_tiles import ensure_tile_downloaded
 from core.utils.geocoding import geocode_address
-from core.utils.slicer import sample_elevation
+from core.utils.dem import sample_elevation
 from core.utils.waterbody import fetch_waterbody_polygon
 
 logger = logging.getLogger(__name__)

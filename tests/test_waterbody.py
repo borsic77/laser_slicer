@@ -4,7 +4,7 @@ from shapely.geometry import Point, Polygon
 
 import rasterio.transform
 from core.utils.waterbody import fetch_waterbody_polygon
-from core.utils.slicer import generate_contours
+from core.utils.contour_ops import generate_contours
 
 
 def test_fetch_waterbody_polygon_found(monkeypatch):

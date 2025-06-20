@@ -18,17 +18,18 @@ from shapely.geometry import (
 )
 
 from core.utils.download_clip_elevation_tiles import download_srtm_tiles_for_bounds
-from core.utils.slicer import (
+from core.utils.contour_ops import (
     _compute_layer_bands,
     _create_contourf_levels,
     _extract_level_polygons,
-    _force_multipolygon,
     _prepare_meshgrid,
+)
+from core.utils.dem import mosaic_and_crop, round_affine
+from core.utils.geometry_ops import (
+    _force_multipolygon,
     clean_geometry,
     clean_geometry_strict,
-    mosaic_and_crop,
     project_geometry,
-    round_affine,
     scale_and_center_contours_to_substrate,
     walk_bbox_between,
 )
@@ -59,7 +60,7 @@ def test_mosaic_and_crop(switzerland_bounds):
 def test_is_almost_closed():
     from shapely.geometry import LineString
 
-    from core.utils.slicer import is_almost_closed
+    from core.utils.geometry_ops import is_almost_closed
 
     fully_closed = LineString([(0, 0), (1, 0), (1, 1), (0, 0)])
     almost_closed = LineString(
@@ -74,7 +75,7 @@ def test_is_almost_closed():
 
 # Test for walk_bbox_between
 def test_walk_bbox_between():
-    from core.utils.slicer import walk_bbox_between
+    from core.utils.geometry_ops import walk_bbox_between
 
     bbox_coords = [(0, 1), (0, 0), (2, 0), (2, 1)]  # Clockwise: TL, BL, BR, TR
 
@@ -94,7 +95,7 @@ def test_project_geometry(tmp_path):
     from shapely.geometry import Polygon, mapping
 
     from core.utils import slicer
-    from core.utils.slicer import project_geometry
+    from core.utils.geometry_ops import project_geometry
 
     # Create a square polygon near Yverdon-les-Bains
     poly = Polygon(
@@ -113,7 +114,7 @@ def test_project_geometry(tmp_path):
 def test_scale_and_center_contours_to_substrate():
     from shapely.geometry import Polygon, mapping, shape
 
-    from core.utils.slicer import scale_and_center_contours_to_substrate
+    from core.utils.geometry_ops import scale_and_center_contours_to_substrate
 
     # Create a large UTM-scale square around (300000, 5200000)
     utm_poly = Polygon(
@@ -193,7 +194,7 @@ def test_create_contourf_levels():
 def test_flatten_polygons():
     from shapely.geometry import MultiPolygon, Polygon
 
-    from core.utils.slicer import _flatten_polygons
+    from core.utils.geometry_ops import _flatten_polygons
 
     p1 = Polygon([(0, 0), (1, 0), (1, 1), (0, 1)])
     p2 = Polygon([(2, 2), (3, 2), (3, 3), (2, 3)])
@@ -419,7 +420,7 @@ def test_compute_layer_bands_cylinder():
     import numpy as np
     from shapely.geometry import shape
 
-    from core.utils.slicer import _compute_layer_bands, _extract_level_polygons
+    from core.utils.contour_ops import _compute_layer_bands, _extract_level_polygons
 
     # Create a cylinder with sharp elevation edges
     x = np.linspace(0, 1, 200)
@@ -512,7 +513,7 @@ def test_save_debug_contour_polygon_polygon(tmp_path):
     from shapely.geometry import Polygon
 
     from core.utils import slicer
-    from core.utils.slicer import save_debug_contour_polygon
+    from core.utils.contour_ops import save_debug_contour_polygon
 
     slicer.DEBUG_IMAGE_PATH = str(tmp_path)
     poly = Polygon([(0, 0), (1, 0), (1, 1), (0, 1)])
@@ -527,7 +528,7 @@ def test_save_debug_contour_polygon_multipolygon(tmp_path):
     from shapely.geometry import MultiPolygon, Polygon
 
     from core.utils import slicer
-    from core.utils.slicer import save_debug_contour_polygon
+    from core.utils.contour_ops import save_debug_contour_polygon
 
     slicer.DEBUG_IMAGE_PATH = str(tmp_path)
     poly1 = Polygon([(0, 0), (1, 0), (1, 1), (0, 1)])
@@ -540,7 +541,7 @@ def test_save_debug_contour_polygon_multipolygon(tmp_path):
 
 def test_save_debug_contour_polygon_empty():
     # Should not throw, should return early
-    from core.utils.slicer import save_debug_contour_polygon
+    from core.utils.contour_ops import save_debug_contour_polygon
 
     class DummyPoly:
         is_empty = True
@@ -552,7 +553,7 @@ def test_save_debug_contour_polygon_empty():
 
 def test_save_debug_contour_polygon_invalid():
     # Should not throw, should return early
-    from core.utils.slicer import save_debug_contour_polygon
+    from core.utils.contour_ops import save_debug_contour_polygon
 
     class DummyPoly:
         is_empty = False
@@ -570,7 +571,7 @@ import rasterio.windows
 
 def test_mosaic_and_crop_lat_swap(monkeypatch):
     # Provide a dummy raster with proper shape, test lat_min > lat_max
-    from core.utils.slicer import mosaic_and_crop
+    from core.utils.dem import mosaic_and_crop
 
     def fake_merge(src_files):
         arr = np.ones((1, 5, 5))
@@ -585,16 +586,17 @@ def test_mosaic_and_crop_lat_swap(monkeypatch):
 
         return arr, CustomTransform(*transform)
 
-    monkeypatch.setattr("core.utils.slicer.merge", fake_merge)
+    monkeypatch.setattr("core.utils.dem.merge", fake_merge)
     import logging
 
-    monkeypatch.setattr("core.utils.slicer.logger", logging.getLogger("dummy"))
+    monkeypatch.setattr("core.utils.dem.logger", logging.getLogger("dummy"))
 
     # Normal window behavior
     def fake_from_bounds(*args, **kwargs):
         return rasterio.windows.Window(0, 0, 5, 5)
 
-    monkeypatch.setattr("core.utils.slicer.from_bounds", fake_from_bounds)
+    monkeypatch.setattr("core.utils.dem.from_bounds", fake_from_bounds)
+
     class DummySrc:
         def close(self):
             pass
@@ -607,7 +609,7 @@ def test_mosaic_and_crop_lat_swap(monkeypatch):
 
 
 def test_mosaic_and_crop_orientation_warning(monkeypatch):
-    from core.utils.slicer import mosaic_and_crop
+    from core.utils.dem import mosaic_and_crop
 
     # Simulate transform.e > 0
 
@@ -624,12 +626,12 @@ def test_mosaic_and_crop_orientation_warning(monkeypatch):
 
         return arr, CustomTransform(*transform)
 
-    monkeypatch.setattr("core.utils.slicer.merge", fake_merge)
+    monkeypatch.setattr("core.utils.dem.merge", fake_merge)
     import logging
 
-    monkeypatch.setattr("core.utils.slicer.logger", logging.getLogger("dummy"))
+    monkeypatch.setattr("core.utils.dem.logger", logging.getLogger("dummy"))
     monkeypatch.setattr(
-        "core.utils.slicer.from_bounds",
+        "core.utils.dem.from_bounds",
         lambda *a, **k: rasterio.windows.Window(0, 0, 5, 5),
     )
 
@@ -645,7 +647,7 @@ def test_mosaic_and_crop_orientation_warning(monkeypatch):
 
 
 def test_mosaic_and_crop_from_bounds_error(monkeypatch):
-    from core.utils.slicer import mosaic_and_crop
+    from core.utils.dem import mosaic_and_crop
 
     # Patch rasterio.open to return a dummy object
     class DummySrc:
@@ -661,17 +663,17 @@ def test_mosaic_and_crop_from_bounds_error(monkeypatch):
         transform = rasterio.transform.from_origin(0, 5, 1, 1)
         return arr, transform
 
-    monkeypatch.setattr("core.utils.slicer.merge", fake_merge)
+    monkeypatch.setattr("core.utils.dem.merge", fake_merge)
 
     import logging
 
-    monkeypatch.setattr("core.utils.slicer.logger", logging.getLogger("dummy"))
+    monkeypatch.setattr("core.utils.dem.logger", logging.getLogger("dummy"))
 
     # Raise in from_bounds
     def fake_from_bounds(*args, **kwargs):
         raise ValueError("fail")
 
-    monkeypatch.setattr("core.utils.slicer.from_bounds", fake_from_bounds)
+    monkeypatch.setattr("core.utils.dem.from_bounds", fake_from_bounds)
 
     with pytest.raises(ValueError):
         mosaic_and_crop(["dummy"], (0, 0, 5, 5))
