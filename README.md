@@ -1,7 +1,7 @@
 # Laser Slicer – Laser‑Cuttable Contour Map Generator
 
 Turn any point on Earth into a **stack of precisely‑aligned SVG layers ready for laser cutting**.  
-Laser Slicer downloads SRTM elevation data, slices it at the interval you choose, and gives you:
+Laser Slicer downloads SRTM elevation data, OSM features like roads and waterways, slices contours at the interval you choose, and gives you:
 
 Live site: [laserslicer.legradic.ch](https://laserslicer.legradic.ch)
 ![Screenshot of the Laser Slicer interface](screenshot.png)
