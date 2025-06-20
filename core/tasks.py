@@ -126,6 +126,14 @@ def run_elevation_range_job(self, job_id):
 
 @shared_task(bind=True)
 def run_contour_slicing_job(self, job_id):
+    """
+    Task to run the contour slicing job.
+    This processes the contour job parameters, runs the slicing algorithm,
+    and saves the resulting layers to the job parameters.
+    Args:
+        self: The Celery task instance.
+        job_id (str): The ID of the ContourJob to run.
+    """
     job = ContourJob.objects.get(pk=job_id)
     try:
         job.status = "RUNNING"
