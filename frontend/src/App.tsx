@@ -565,7 +565,7 @@ function App() {
             />
             <button onClick={handleGeocode}>Locate on Map</button>
           </div>
-
+          
           <div className="parameters">
             <label>
               Number of layers:
@@ -696,6 +696,7 @@ function App() {
               />
               Square output
             </label>
+            <hr style={{ width: '100%', border: 'none', borderTop: '1px solid #ccc', margin: '1em 0' }} />
             <button id="slice-button" onClick={handleSlice}>Slice!</button>
             <button id="export-button" onClick={handleExport} disabled={!sliced || slicing}>Export SVGs</button>
             {jobResultUrl && (
@@ -780,6 +781,8 @@ function App() {
           <p><strong>Height:</strong> {areaStats ? `${areaStats.height.toFixed(0)} m` : 'N/A'}</p>
           <p><strong>Lowest Elevation:</strong> {elevationStats ? `${elevationStats.min.toFixed(0)} m` : '…'}</p>
           <p><strong>Highest Elevation:</strong> {elevationStats ? `${elevationStats.max.toFixed(0)} m` : '…'}</p>
+          <hr style={{ width: '100%', border: 'none', borderTop: '1px solid #ccc', margin: '1em 0' }} />
+          <h2>OSM features</h2>
           <label style={{display:'block'}}>
             <input type="checkbox" checked={includeRoads} onChange={e => setIncludeRoads(e.target.checked)} /> Roads
           </label>
@@ -802,7 +805,19 @@ function App() {
       />
       {showManual && <ManualModal onClose={() => setShowManual(false)} />}
       <footer style={{ textAlign: 'center', padding: '1rem', fontSize: '0.9rem', color: '#777' }}>
-        © {new Date().getFullYear()} Boris Legradic · <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener noreferrer">MIT License</a>
+        © {new Date().getFullYear()} Boris Legradic ·
+        <a href="https://opensource.org/licenses/MIT" target="_blank" rel="noopener noreferrer" style={{ marginLeft: '0.5em' }}>
+          MIT License
+        </a> ·
+        <a href="https://legradic.ch" target="_blank" rel="noopener noreferrer" style={{ marginLeft: '0.5em' }}>
+          legradic.ch
+        </a> ·
+        <a href="https://github.com/borsic77/laser_slicer" target="_blank" rel="noopener noreferrer" style={{ marginLeft: '0.5em' }}>
+          GitHub
+        </a> ·
+        <a href="mailto:info@legradic.ch" style={{ marginLeft: '0.5em' }}>
+          info@legradic.ch
+        </a>
       </footer>
     </div>
   )
