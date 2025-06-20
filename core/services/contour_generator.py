@@ -19,17 +19,15 @@ from core.utils.osm_features import (
     normalize_road_geometry,
     normalize_waterway_geometry,
 )
-from core.utils.slicer import (
-    clean_srtm_dem,
+from core.utils.dem import clean_srtm_dem, fill_nans_in_dem, mosaic_and_crop
+from core.utils.geometry_ops import (
     clip_contours_to_bbox,
-    fill_nans_in_dem,
     filter_small_features,
-    generate_contours,
-    mosaic_and_crop,
     project_geometry,
     scale_and_center_contours_to_substrate,
     smooth_geometry,
 )
+from core.utils.contour_ops import generate_contours
 
 logger = logging.getLogger(__name__)
 
