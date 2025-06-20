@@ -44,43 +44,57 @@ def _features_from_polygon(poly, tags):
     return gdf
 
 
-def fetch_roads(bounds: tuple[float, float, float, float]) -> MultiLineString:
-    """Fetch road geometries within bounds from OSM."""
+def fetch_roads(
+    bounds: tuple[float, float, float, float],
+) -> dict[str, MultiLineString]:
+    """Fetch road geometries grouped by ``highway`` type within bounds."""
+
     poly = _bounds_polygon(bounds)
     gdf = _features_from_polygon(poly, {"highway": True})
-    lines = []
-    for geom in gdf.geometry:
-        if geom.is_empty:
+
+    features: dict[str, list] = {}
+    for _, row in gdf.iterrows():
+        geom = row.geometry
+        road_types = row.get("highway")
+        if geom is None or geom.is_empty or not road_types:
             continue
-        gtype = geom.geom_type
-        if gtype in ("LineString", "MultiLineString"):
-            lines.append(geom)
-        elif gtype in ("Polygon", "MultiPolygon"):
-            lines.append(geom.boundary)
-        elif hasattr(geom, "geoms"):
-            for part in geom.geoms:
-                if part.geom_type in ("LineString", "MultiLineString"):
-                    lines.append(part)
-                elif part.geom_type in ("Polygon", "MultiPolygon"):
-                    lines.append(part.boundary)
-    if not lines:
-        return MultiLineString([])
-    merged = unary_union(lines)
-    if isinstance(merged, LineString):
-        return MultiLineString([merged])
-    if isinstance(merged, MultiLineString):
-        return merged
-    if hasattr(merged, "geoms"):
-        segments = [
-            g for g in merged.geoms if isinstance(g, (LineString, MultiLineString))
-        ]
-        if segments:
-            merge2 = unary_union(segments)
-            if isinstance(merge2, LineString):
-                return MultiLineString([merge2])
-            if isinstance(merge2, MultiLineString):
-                return merge2
-    return MultiLineString([])
+        if not isinstance(road_types, list):
+            road_types = [road_types]
+
+        def _add_geom(g):
+            gtype = g.geom_type
+            if gtype in ("LineString", "MultiLineString"):
+                for rt in road_types:
+                    features.setdefault(rt, []).append(g)
+            elif gtype in ("Polygon", "MultiPolygon"):
+                for rt in road_types:
+                    features.setdefault(rt, []).append(g.boundary)
+            elif hasattr(g, "geoms"):
+                for part in g.geoms:
+                    _add_geom(part)
+
+        _add_geom(geom)
+
+    result: dict[str, MultiLineString] = {}
+    for rtype, geoms in features.items():
+        if not geoms:
+            continue
+        merged = unary_union(geoms)
+        if isinstance(merged, LineString):
+            result[rtype] = MultiLineString([merged])
+        elif isinstance(merged, MultiLineString):
+            result[rtype] = merged
+        elif hasattr(merged, "geoms"):
+            segments = [
+                g for g in merged.geoms if isinstance(g, (LineString, MultiLineString))
+            ]
+            if segments:
+                merge2 = unary_union(segments)
+                if isinstance(merge2, LineString):
+                    result[rtype] = MultiLineString([merge2])
+                elif isinstance(merge2, MultiLineString):
+                    result[rtype] = merge2
+    return result
 
 
 def fetch_waterways(bounds: tuple[float, float, float, float]) -> MultiLineString:

@@ -14,10 +14,31 @@ Intended for use with laser-cuttable topographic models.
 import io
 import math
 import zipfile
-from typing import List, Tuple
+from typing import Dict, List, Tuple
 
 import svgwrite
 from shapely.geometry import LineString, MultiLineString, MultiPolygon, Polygon, shape
+
+# Default styling for different road types when exporting SVGs.
+ROAD_COLORS: Dict[str, str] = {
+    "motorway": "#ff0000",
+    "trunk": "#ff6600",
+    "primary": "#ffa500",
+    "secondary": "#ffd000",
+    "tertiary": "#ffff00",
+    "residential": "#ffffff",
+    "service": "#bbbbbb",
+}
+
+ROAD_WIDTHS_MM: Dict[str, float] = {
+    "motorway": 0.3,
+    "trunk": 0.25,
+    "primary": 0.2,
+    "secondary": 0.15,
+    "tertiary": 0.15,
+    "residential": 0.1,
+    "service": 0.1,
+}
 
 
 def _iter_polygons(geom):
@@ -462,26 +483,51 @@ def contours_to_svg_zip(
             # Optional road, waterway and building geometries
             # ----------------------------------------------
             if layer.get("roads") is not None:
-                road_geom = shape(layer["roads"])
-                if not road_geom.is_empty:
-                    segments = (
-                        [road_geom]
-                        if isinstance(road_geom, LineString)
-                        else getattr(road_geom, "geoms", [road_geom])
-                    )
-                    for seg in segments:
-                        path_d = linestring_to_svg_path(
-                            seg, glob_minx, glob_maxx, glob_miny, glob_maxy
+                roads_dict = layer["roads"]
+                if isinstance(roads_dict, dict):
+                    for rtype, rgeom_json in roads_dict.items():
+                        rgeom = shape(rgeom_json)
+                        if rgeom.is_empty:
+                            continue
+                        segments = (
+                            [rgeom]
+                            if isinstance(rgeom, LineString)
+                            else getattr(rgeom, "geoms", [rgeom])
                         )
-                        if path_d.strip():
-                            dwg.add(
-                                dwg.path(
-                                    d=path_d,
-                                    stroke=stroke_road,
-                                    fill="none",
-                                    stroke_width=f"{stroke_width_mm:.3f}mm",
-                                )
+                        for seg in segments:
+                            path_d = linestring_to_svg_path(
+                                seg, glob_minx, glob_maxx, glob_miny, glob_maxy
                             )
+                            if path_d.strip():
+                                dwg.add(
+                                    dwg.path(
+                                        d=path_d,
+                                        stroke=ROAD_COLORS.get(rtype, stroke_road),
+                                        fill="none",
+                                        stroke_width=f"{ROAD_WIDTHS_MM.get(rtype, stroke_width_mm):.3f}mm",
+                                    )
+                                )
+                else:
+                    road_geom = shape(roads_dict)
+                    if not road_geom.is_empty:
+                        segments = (
+                            [road_geom]
+                            if isinstance(road_geom, LineString)
+                            else getattr(road_geom, "geoms", [road_geom])
+                        )
+                        for seg in segments:
+                            path_d = linestring_to_svg_path(
+                                seg, glob_minx, glob_maxx, glob_miny, glob_maxy
+                            )
+                            if path_d.strip():
+                                dwg.add(
+                                    dwg.path(
+                                        d=path_d,
+                                        stroke=stroke_road,
+                                        fill="none",
+                                        stroke_width=f"{stroke_width_mm:.3f}mm",
+                                    )
+                                )
             if layer.get("waterways") is not None:
                 water_geom = shape(layer["waterways"])
                 if not water_geom.is_empty:
