@@ -9,7 +9,9 @@ from shapely.geometry import (
     shape,
 )
 
-from core.utils.download_clip_elevation_tiles import download_srtm_tiles_for_bounds
+from core.utils.download_clip_elevation_tiles import (
+    download_elevation_tiles_for_bounds,
+)
 from core.utils.geocoding import compute_utm_bounds_from_wgs84
 from core.utils.osm_features import (
     fetch_buildings,
@@ -233,7 +235,7 @@ class ContourSlicingJob:
         lon_min, lat_min, lon_max, lat_max = self.bounds
         cx, cy = self.center
         # Download elevation tiles and generate contours
-        tile_paths = download_srtm_tiles_for_bounds(self.bounds)
+        tile_paths = download_elevation_tiles_for_bounds(self.bounds)
         elevation, transform = mosaic_and_crop(tile_paths, self.bounds)
         # Clean the elevation data
         elevation = clean_srtm_dem(elevation)

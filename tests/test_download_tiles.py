@@ -5,6 +5,7 @@ from core.utils.download_clip_elevation_tiles import (
     ensure_tile_downloaded,
     get_srtm_tile_path,
     is_antimeridian_crossing,
+    within_swiss_bounds,
 )
 
 
@@ -78,6 +79,17 @@ def test_is_antimeridian_crossing(bounds, expected):
     assert is_antimeridian_crossing(bounds) is expected
 
 
+@pytest.mark.parametrize(
+    "bounds,expected",
+    [
+        ((6.5, 46.7, 6.7, 46.9), True),
+        ((0.0, 0.0, 1.0, 1.0), False),
+    ],
+)
+def test_within_swiss_bounds(bounds, expected):
+    assert within_swiss_bounds(bounds) is expected
+
+
 def test_get_srtm_tile_path(tmp_path):
     path1 = get_srtm_tile_path(46.8, 6.6, tmp_path)
     assert path1 == tmp_path / "N46E006.hgt.gz"
@@ -93,7 +105,9 @@ def test_get_srtm_tile_path(tmp_path):
         (-16.2, -179.9, (-180, -17, -179, -16), "S17W180.hgt.gz"),
     ],
 )
-def test_ensure_tile_downloaded(monkeypatch, tmp_path, lat, lon, expected_bounds, filename):
+def test_ensure_tile_downloaded(
+    monkeypatch, tmp_path, lat, lon, expected_bounds, filename
+):
     def fake_download(bounds):
         assert bounds == expected_bounds
         return [str(tmp_path / filename)]

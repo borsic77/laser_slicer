@@ -1,7 +1,7 @@
 # Laser Slicer – Laser‑Cuttable Contour Map Generator
 
-Turn any point on Earth into a **stack of precisely‑aligned SVG layers ready for laser cutting**.  
-Laser Slicer downloads SRTM elevation data, OSM features like roads and waterways, slices contours at the interval you choose, and gives you:
+Turn any point on Earth into a **stack of precisely‑aligned SVG layers ready for laser cutting**.
+Laser Slicer downloads high‑resolution SwissALTI3D data within Switzerland and falls back to global SRTM elevation data elsewhere. It fetches OSM features like roads and waterways, slices contours at the interval you choose, and gives you:
 
 Live site: [laserslicer.legradic.ch](https://laserslicer.legradic.ch)
 ![Screenshot of the Laser Slicer interface](screenshot.png)
@@ -10,7 +10,7 @@ Live site: [laserslicer.legradic.ch](https://laserslicer.legradic.ch)
 * A **browser 3‑D preview** of the stacked model
 * A **Dockerised, reproducible workflow** that runs the heavy lifting in Celery workers
 * **Fixed elevation** tool for clean coastlines and lakes
-* **SRTM noise filtering** for troublesome areas (e.g. Boston)
+* **DEM noise filtering** for troublesome areas (e.g. Boston)
 
 
 
@@ -22,8 +22,8 @@ Live site: [laserslicer.legradic.ch](https://laserslicer.legradic.ch)
 |-----------------------------------------|---------------------------------------|
 | **Leaflet map** – pick any address or drop a pin | **Geocoding** through Nominatim |
 | Auto geolocation start | `/api/elevation` single‑point query |
-| Parameter panel – slice height, base height, simplification | Fetch & clip **SRTM 30 m** DEM |
-| Minimum area/width filters & optional fixed elevation (lake) | Robust SRTM cleaning & outlier filtering |
+| Parameter panel – slice height, base height, simplification | Fetch & clip **SwissALTI3D 2 m** or SRTM 30 m DEM |
+| Minimum area/width filters & optional fixed elevation (lake) | Robust DEM cleaning & outlier filtering |
 | Toggle roads/buildings/waterways overlay | Fetch OSM roads, buildings & waterways |
 | **Slice** button launches background job | Contour generation with GDAL / Matplotlib |
 | Live **Three.js** 3‑D preview of layers | Optional simplification with Shapely |
@@ -143,5 +143,6 @@ Feel free to reach out via [GitHub](https://github.com/borsic77) or [email](mail
 
 ## Acknowledgements
 
-* NASA / NGA – SRTM data  
-* OpenStreetMap & Nominatim  
+* NASA / NGA – SRTM data
+* swisstopo – SwissALTI3D
+* OpenStreetMap & Nominatim
