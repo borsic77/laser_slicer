@@ -61,7 +61,8 @@ def test_contour_slicing_job_run(monkeypatch):
         return fake_contours
 
     monkeypatch.setattr(
-        "core.services.contour_generator.download_srtm_tiles_for_bounds", fake_download
+        "core.services.contour_generator.download_elevation_tiles_for_bounds",
+        fake_download,
     )
     monkeypatch.setattr("core.services.contour_generator.mosaic_and_crop", fake_mosaic)
     monkeypatch.setattr("core.services.contour_generator.clean_srtm_dem", lambda x: x)
@@ -125,7 +126,7 @@ def test_contour_slicing_job_with_osm(monkeypatch):
     ml = shapely.geometry.MultiLineString([[(0, 0), (1, 0)]])
 
     monkeypatch.setattr(
-        "core.services.contour_generator.download_srtm_tiles_for_bounds",
+        "core.services.contour_generator.download_elevation_tiles_for_bounds",
         lambda b: ["tile"],
     )
     monkeypatch.setattr(
@@ -198,7 +199,7 @@ def test_contour_slicing_job_empty_osm(monkeypatch):
     poly = Polygon([(0, 0), (1, 0), (1, 1), (0, 0)])
 
     monkeypatch.setattr(
-        "core.services.contour_generator.download_srtm_tiles_for_bounds",
+        "core.services.contour_generator.download_elevation_tiles_for_bounds",
         lambda b: ["tile"],
     )
     monkeypatch.setattr(
@@ -273,7 +274,7 @@ def test_elevation_range_job(monkeypatch):
     """ElevationRangeJob.run returns min and max elevations."""
     arr = np.array([[100, 200], [300, 400]], dtype=float)
     monkeypatch.setattr(
-        "core.services.elevation_service.download_srtm_tiles_for_bounds",
+        "core.services.elevation_service.download_elevation_tiles_for_bounds",
         lambda b: ["tile"],
     )
     monkeypatch.setattr(
@@ -293,7 +294,7 @@ def test_elevation_range_job_invalid(monkeypatch):
     """ElevationRangeJob.run raises ElevationDataError when DEM is invalid."""
     arr = np.array([[np.nan, np.nan]])
     monkeypatch.setattr(
-        "core.services.elevation_service.download_srtm_tiles_for_bounds",
+        "core.services.elevation_service.download_elevation_tiles_for_bounds",
         lambda b: ["tile"],
     )
     monkeypatch.setattr(
