@@ -26,7 +26,8 @@ services:
     env_file: .env.docker
     volumes:
       - ./media:/app/media    
-      - ./data/srtm_cache:/app/data/srtm_cache      
+      - ./data/srtm_cache:/app/data/srtm_cache
+      - ./data/alti3d_cache:/app/data/alti3d_cache
     depends_on:
       - db
       - redis
@@ -41,7 +42,8 @@ services:
     env_file: .env.docker
     volumes:
       - ./media:/app/media    
-      - ./data/srtm_cache:/app/data/srtm_cache        
+      - ./data/srtm_cache:/app/data/srtm_cache
+      - ./data/alti3d_cache:/app/data/alti3d_cache
     depends_on:
       - db
       - redis

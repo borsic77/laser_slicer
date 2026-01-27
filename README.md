@@ -23,7 +23,8 @@ Live site: [laserslicer.legradic.ch](https://laserslicer.legradic.ch)
 | **Leaflet map** – pick any address or drop a pin | **Geocoding** through Nominatim |
 | Auto geolocation start | `/api/elevation` single‑point query |
 | Parameter panel – slice height, base height, simplification | Fetch & clip **SRTM 30 m** DEM |
-| Minimum area/width filters & optional fixed elevation (lake) | Robust SRTM cleaning & outlier filtering |
+| Minimum area/width filters & optional fixed elevation (lake) | **SwissALTI3D 2m** (automatic fallback) |
+| Toggle roads/buildings/waterways overlay | Robust SRTM cleaning & outlier filtering |
 | Toggle roads/buildings/waterways overlay | Fetch OSM roads, buildings & waterways |
 | **Slice** button launches background job | Contour generation with GDAL / Matplotlib |
 | Live **Three.js** 3‑D preview of layers | Optional simplification with Shapely |
