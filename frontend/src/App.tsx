@@ -569,25 +569,23 @@ function App() {
                 type="number"
                 id="num-layers"
                 value={params.numLayers}
-                min={0} // At least 1 layer
+                min={0}
                 onChange={(e) => {
                   const val = Math.max(1, Math.floor(Number(e.target.value)));
                   dispatch({ type: 'SET_NUM_LAYERS', value: val });
                 }}
               />
             </label>
-            <label>
-              Height per layer:
-              <span style={{ marginLeft: '0.5em', fontWeight: 'bold' }}>{params.heightPerLayer.toFixed(1)}</span>
-              m<br />
-              <br />
-            </label>  
+            <div style={{ fontSize: '0.9rem', color: 'var(--color-text)', opacity: 1, marginBottom: '15px' }}>
+               Height per layer: <strong>{params.heightPerLayer.toFixed(1)} m</strong>
+            </div>  
 
               <button
                 onClick={() => setFixMode(true)}
                 disabled={fixMode}
                 title="Click, then place a marker on the map to sample elevation."
-                style={{ marginBottom: '0.5em' }}
+                title="Click, then place a marker on the map to sample elevation."
+                style={{ marginBottom: '5px' }}
               >
                 {fixMode ? "Select on map..." : "Fix Elevation (water body)"}
               </button>
@@ -607,18 +605,19 @@ function App() {
                 }}
 
               />
-              <label style={{ display: "block" }}>
+              <label style={{ display: "flex", flexDirection: 'row', alignItems: 'center', marginTop: '5px' }}>
                 <input
                   type="checkbox"
                   checked={fixedElevationEnabled}
                   onChange={e => setFixedElevationEnabled(e.target.checked)}
                   disabled={fixedElevation === null}
+                  style={{ margin: 0 }}
                 />{" "}
                 Enable fixed elevation
               </label>              
                   
-            <label title="Reduce geometry complexity by removing small details. 0 = no simplification.">
-              Simplify shape:
+            <label title="Reduce geometry complexity">
+              Simplify:
               <input
                 type="range"
                 id="simplify"
@@ -629,7 +628,7 @@ function App() {
                 onChange={(e) => setSimplify(Number(e.target.value))}
               />
             </label>
-            <label title="Smooth jagged edges with a small buffer in/out operation. 0 = no smoothing.">
+            <label title="Smooth jagged edges">
               Smoothing:
               <input
                 type="range"
@@ -641,60 +640,68 @@ function App() {
                 onChange={(e) => setSmoothing(Number(e.target.value))}
               />
             </label>
-            <label>
-              Substrate size (mm):
-              <input
-                type="number"
-                id="substrate-size"
-                value={params.substrateSize}
-                min={10} // Minimum substrate size in mm
-                onChange={(e) => dispatch({ type: 'SET_SUBSTRATE_SIZE', value: Number(e.target.value) })}
-              />
-            </label>
-            <label>
-              Layer thickness (mm):
-              <input
-                type="number"
-                id="layer-thickness"
-                value={params.layerThickness}
-                min={0.1} // Minimum thickness in mm
-                step={0.1}
-                onChange={(e) => dispatch({ type: 'SET_LAYER_THICKNESS', value: Number(e.target.value) })}
-              />
-            </label>
-            <label title="Remove small polygons below this area in square centimeters - measured on the scaled geometry (laser output). 0 = no filtering.">
-              Minimum feature size (cm²):
-              <input
-                type="number"
-                id="min-area"
-                min="0"
-                step="10"
-                value={minArea}
-                onChange={(e) => setMinArea(Number(e.target.value))}
-              />
-            </label>
-            <label title="Remove narrow features (e.g., bridges, ingresses) below this width in mm. Applied after scaling. 0 = no filtering.">
-              Minimum feature width (mm):
-              <input
-                type="number"
-                id="min-feature-width"
-                min="0"
-                step="0.1"
-                value={minFeatureWidth}
-                onChange={(e) => setMinFeatureWidth(Number(e.target.value))}
-              />
-            </label>
-            <label>
+            <div className="section-group">
+                <label title="Substrate size in mm">
+                  Substrate (mm):
+                  <input
+                    type="number"
+                    id="substrate-size"
+                    value={params.substrateSize}
+                    min={10} 
+                    onChange={(e) => dispatch({ type: 'SET_SUBSTRATE_SIZE', value: Number(e.target.value) })}
+                  />
+                </label>
+                <label title="Layer thickness in mm">
+                  Thickness (mm):
+                  <input
+                    type="number"
+                    id="layer-thickness"
+                    value={params.layerThickness}
+                    min={0.1}
+                    step={0.1}
+                    onChange={(e) => dispatch({ type: 'SET_LAYER_THICKNESS', value: Number(e.target.value) })}
+                  />
+                </label>
+            </div>
+
+            <div className="section-group">
+                <label title="Remove features smaller than this area (cm²)">
+                  Min Area (cm²):
+                  <input
+                    type="number"
+                    id="min-area"
+                    min="0"
+                    step="10"
+                    value={minArea}
+                    onChange={(e) => setMinArea(Number(e.target.value))}
+                  />
+                </label>
+                <label title="Remove features thinner than this width (mm)">
+                  Min Width (mm):
+                  <input
+                    type="number"
+                    id="min-feature-width"
+                    min="0"
+                    step="0.1"
+                    value={minFeatureWidth}
+                    onChange={(e) => setMinFeatureWidth(Number(e.target.value))}
+                  />
+                </label>
+            </div>
+            <label style={{ flexDirection: 'row', alignItems: 'center' }}>
               <input
                 type="checkbox"
                 checked={params.squareOutput}
                 onChange={(e) => dispatch({ type: 'SET_SQUARE_OUTPUT', value: e.target.checked })}
+                style={{ margin: 0 }}
               />
               Square output
             </label>
-            <hr style={{ width: '100%', border: 'none', borderTop: '1px solid #ccc', margin: '1em 0' }} />
-            <button id="slice-button" onClick={handleSlice}>Slice!</button>
-            <button id="export-button" onClick={handleExport} disabled={!sliced || slicing}>Export SVGs</button>
+            <hr style={{ width: '100%', border: 'none', borderTop: '1px solid #ccc', margin: '0.5em 0' }} />
+            <div className="button-group">
+              <button id="slice-button" onClick={handleSlice}>Slice!</button>
+              <button id="export-button" onClick={handleExport} disabled={!sliced || slicing}>Export</button>
+            </div>
             {jobResultUrl && (
               <a id="download-link" href={API_URL + jobResultUrl} download>
                 ⬇️ Download ZIP

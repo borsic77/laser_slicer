@@ -50,7 +50,7 @@
 
 /* Sidebar layout */
 .sidebar {
-  width: 250px;
+  width: 280px; /* Increased width to prevent wrapping */
   padding: 20px;
   background-color: var(--color-sidebar-bg);
   border-radius: 8px;
@@ -60,6 +60,38 @@
   text-align: left;
   color: var(--color-sidebar-text);
   border: 1px solid var(--color-border);
+  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+  z-index: 10;
+}
+
+.controls {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* Section Group grid */
+.section-group {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    align-items: center;
+}
+
+.section-group label {
+    white-space: normal;
+    font-size: 0.85rem;
+}
+
+/* Button group */
+.button-group {
+  display: flex;
+  gap: 10px;
+}
+
+.button-group button {
+  flex: 1;
+  padding: 8px 0;
 }
 
 /* Right sidebar layout */
@@ -85,9 +117,25 @@
 }
 
 /* Input appearance */
-.sidebar input,
-.sidebar button,
 .sidebar label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.sidebar input[type="number"],
+.sidebar input[type="text"] {
+  padding: 8px;
+  border-radius: 4px;
+  width: 100%; /* Ensure full width */
+  box-sizing: border-box; /* Prevent padding from causing overflow */
+  min-width: 0; /* Allow shrinking */
+}
+
+.sidebar input,
+.sidebar button {
   background-color: var(--color-input-bg);
   color: var(--color-input-text);
   border: 1px solid var(--color-border);
