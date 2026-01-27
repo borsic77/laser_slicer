@@ -38,7 +38,9 @@ class ElevationRangeJob:
             A dictionary with 'min' and 'max' elevation values.
         """
         tile_paths = download_elevation_tiles_for_bounds(self.bounds)
-        elevation, _ = mosaic_and_crop(tile_paths, self.bounds)
+        # Downsample by 10x for fast statistics (approx 20m res for Swiss data)
+        # This drastically speeds up min/max calculation for map interactions
+        elevation, _ = mosaic_and_crop(tile_paths, self.bounds, downsample_factor=10)
         elevation = clean_srtm_dem(elevation)
         # elevation = robust_local_outlier_mask(elevation)
         if elevation.size == 0 or not np.isfinite(elevation).any():

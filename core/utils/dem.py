@@ -122,12 +122,15 @@ def sample_elevation(lat: float, lon: float, dem_path: str) -> float:
 def mosaic_and_crop(
     tif_paths: List[str],
     bounds: Tuple[float, float, float, float],
+    downsample_factor: int = 1,
 ) -> Tuple[np.ndarray, rasterio.Affine]:
     """Merge elevation tiles and crop to a bounding box.
 
     Args:
         tif_paths: Paths to the tiles to merge. ``.gz`` files are opened via ``vsigzip``.
         bounds: Bounding box ``(lon_min, lat_min, lon_max, lat_max)`` in WGS84.
+        downsample_factor: Factor to downsample the output (default 1 = native resolution).
+                           Factor N means take every Nth pixel (resolution * N).
 
     Returns:
         A tuple ``(array, transform)`` of the cropped DEM and its affine transform.
@@ -139,7 +142,16 @@ def mosaic_and_crop(
         rasterio.open(f"/vsigzip/{p}") if p.endswith(".gz") else rasterio.open(p)
         for p in tif_paths
     ]
-    mosaic, transform = merge(src_files)
+
+    res = None
+    if downsample_factor > 1 and src_files:
+        # Get native resolution from first file
+        # src.res is (width_res, height_res) usually positive
+        rx, ry = src_files[0].res
+        res = (rx * downsample_factor, ry * downsample_factor)
+        logger.debug(f"Downsampling mosaic by {downsample_factor}x. Target res: {res}")
+
+    mosaic, transform = merge(src_files, res=res)
 
     lon_min, lat_min, lon_max, lat_max = bounds
     if lat_min > lat_max:

@@ -259,6 +259,10 @@ class ContourSlicingJob:
             fixed_elevation=self.fixed_elevation,
             num_layers=self.num_layers,
             water_polygon=self.water_polygon,
+            # We can expose resolution_scale to the API later if needed
+            resolution_scale=1.0,
+            # Default noise filtering threshold
+            min_area_deg2=1e-10,
         )
         _log_contour_info(contours, "After Contour Generation")
 

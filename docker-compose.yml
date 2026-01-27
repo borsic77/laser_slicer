@@ -17,6 +17,7 @@ services:
       dockerfile: core/Dockerfile
     volumes:
       - ./core:/app/core
+      - ./tests:/app/tests
       - ./pyproject.toml:/app/pyproject.toml
       - ./media:/app/media
     env_file: .env.docker

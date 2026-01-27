@@ -123,11 +123,14 @@ def _create_contourf_levels(
     return np.array(levels)
 
 
-def _extract_level_polygons(cs) -> List[Tuple[float, List[Polygon]]]:
+def _extract_level_polygons(
+    cs, min_area: float = 0.0
+) -> List[Tuple[float, List[Polygon]]]:
     """Convert matplotlib contour output to Shapely polygons.
 
     Args:
         cs: A ``QuadContourSet`` returned by ``contourf``.
+        min_area: Minimum area to keep (in source units, likely deg²).
 
     Returns:
         List of ``(level, polygons)`` tuples.
@@ -145,6 +148,10 @@ def _extract_level_polygons(cs) -> List[Tuple[float, List[Polygon]]]:
                     shell = poly_arrays[0]
                     holes = poly_arrays[1:] if len(poly_arrays) > 1 else None
                     poly = Polygon(shell, holes)
+                    # Early area check before expensive cleaning
+                    if min_area > 0 and poly.area < min_area:
+                        continue
+
                     poly = clean_geometry_strict(poly)
                     if poly:
                         polys.append(poly)
@@ -164,6 +171,10 @@ def _extract_level_polygons(cs) -> List[Tuple[float, List[Polygon]]]:
             if not np.allclose(seg[0], seg[-1]):
                 seg = np.vstack([seg, seg[0]])
             poly = Polygon(seg)
+            # Early area check
+            if min_area > 0 and poly.area < min_area:
+                continue
+
             poly = clean_geometry_strict(poly)
             if poly:
                 polys.append(poly)
@@ -244,6 +255,8 @@ def generate_contours(
     fixed_elevation: float | None = None,
     num_layers: int | None = None,
     water_polygon: Polygon | None = None,
+    resolution_scale: float = 1.0,
+    min_area_deg2: float = 1e-10,
 ) -> List[dict]:
     """Generate contour bands from elevation data.
 
@@ -260,11 +273,28 @@ def generate_contours(
         fixed_elevation: Elevation at which a water body should be inserted.
         num_layers: If given, override ``interval`` and generate that many layers.
         water_polygon: Optional polygon of a water body to carve out.
+        resolution_scale: Downsample factor (0.0 < x <= 1.0).
+        min_area_deg2: Minimum polygon area in degrees squared to keep.
 
     Returns:
         A list of contour feature dictionaries sorted from bottom to top.
     """
-    logger.debug("generate contours called, fixed_elevation: %s", fixed_elevation)
+    logger.debug(
+        "generate contours called, fixed_elevation: %s, res_scale: %s",
+        fixed_elevation,
+        resolution_scale,
+    )
+
+    # Downsample if requested
+    if resolution_scale < 1.0 and resolution_scale > 0:
+        step = int(1 / resolution_scale)
+        if step > 1:
+            logger.info("Downsampling elevation data by factor %d", step)
+            elevation_data = elevation_data[::step, ::step]
+            masked_elevation_data = masked_elevation_data[::step, ::step]
+            # Update transform: pixel size increases by factor 'step'
+            transform = transform * transform.scale(step, step)
+
     lon, lat = _prepare_meshgrid(elevation_data, transform)
     levels = _create_contourf_levels(
         masked_elevation_data, interval, fixed_elevation, num_layers=num_layers
@@ -276,8 +306,11 @@ def generate_contours(
         raw_xlim = ax.get_xlim()
         raw_ylim = ax.get_ylim()
         plt.savefig(os.path.join(debug_image_path, "contours.png"))
-    level_polys = _extract_level_polygons(cs)
+
+    # Pass min_area for early filtering
+    level_polys = _extract_level_polygons(cs, min_area=min_area_deg2)
     plt.close(fig)
+
     if water_polygon is not None and fixed_elevation is not None:
         water_band = orient(_force_multipolygon(water_polygon))
         new_level_polys = []
@@ -329,6 +362,7 @@ def generate_contours(
         if not inserted:
             new_level_polys.append((fixed_elevation, [water_band]))
         level_polys = new_level_polys
+
     contour_layers = _compute_layer_bands(level_polys, transform)
     if DEBUG:
         os.makedirs(DEBUG_IMAGE_PATH, exist_ok=True)
@@ -337,12 +371,11 @@ def generate_contours(
             save_debug_contour_polygon(band_geom, layer["elevation"], "contour_polygon")
     _plot_contour_layers(contour_layers, raw_xlim, raw_ylim, debug_image_path)
     logger.debug("Generated %d contour layers", len(contour_layers))
+
     filtered = []
     for layer in contour_layers:
         geom = shape(layer["geometry"])
-        # Filter small features (noise) to improve performance
-        # 1e-10 deg^2 is roughly 10m^2, reasonable for 2m resolution data
-        if not geom.is_empty and geom.area > 1e-10:
+        if not geom.is_empty and geom.area > min_area_deg2:
             filtered.append(layer)
 
     logger.debug("Returning %d contours after area filtering", len(filtered))

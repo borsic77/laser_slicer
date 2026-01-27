@@ -17,7 +17,6 @@ from shapely.geometry import (
     shape,
 )
 
-from core.utils.download_clip_elevation_tiles import download_srtm_tiles_for_bounds
 from core.utils.contour_ops import (
     _compute_layer_bands,
     _create_contourf_levels,
@@ -25,6 +24,7 @@ from core.utils.contour_ops import (
     _prepare_meshgrid,
 )
 from core.utils.dem import mosaic_and_crop, round_affine
+from core.utils.download_clip_elevation_tiles import download_srtm_tiles_for_bounds
 from core.utils.geometry_ops import (
     _force_multipolygon,
     clean_geometry,
@@ -105,9 +105,12 @@ def test_project_geometry(tmp_path):
 
     slicer.DEBUG_IMAGE_PATH = str(tmp_path)
     result = project_geometry([contour], center_lon=6.6, center_lat=46.8)
-    assert isinstance(result, list)
-    assert "geometry" in result[0]
-    assert result[0]["geometry"]["type"] == "Polygon"
+    assert isinstance(result, tuple)
+    contours = result[0]
+    assert isinstance(contours, list)
+    assert len(contours) > 0
+    assert "geometry" in contours[0]
+    assert contours[0]["geometry"]["type"] == "Polygon"
 
 
 # Test for scale_and_center_contours_to_substrate
@@ -468,9 +471,9 @@ def test_clean_geometry_strict_buffer_exception(monkeypatch):
             raise ValueError("buffer failure")
 
     fake_geom = FakeInvalid()
-    from core.utils import slicer
+    from core.utils import geometry_ops
 
-    monkeypatch.setattr(slicer, "make_valid", lambda x: fake_geom)
+    monkeypatch.setattr(geometry_ops, "make_valid", lambda x: fake_geom)
     assert clean_geometry_strict(fake_geom) is None
 
 
@@ -512,10 +515,10 @@ def test_save_debug_contour_polygon_polygon(tmp_path):
 
     from shapely.geometry import Polygon
 
-    from core.utils import slicer
+    from core.utils import contour_ops, slicer
     from core.utils.contour_ops import save_debug_contour_polygon
 
-    slicer.DEBUG_IMAGE_PATH = str(tmp_path)
+    contour_ops.DEBUG_IMAGE_PATH = str(tmp_path)
     poly = Polygon([(0, 0), (1, 0), (1, 1), (0, 1)])
     save_debug_contour_polygon(poly, 100, "testpoly")
     expected = os.path.join(str(tmp_path), "testpoly_elev_100.png")
@@ -527,10 +530,10 @@ def test_save_debug_contour_polygon_multipolygon(tmp_path):
 
     from shapely.geometry import MultiPolygon, Polygon
 
-    from core.utils import slicer
+    from core.utils import contour_ops, slicer
     from core.utils.contour_ops import save_debug_contour_polygon
 
-    slicer.DEBUG_IMAGE_PATH = str(tmp_path)
+    contour_ops.DEBUG_IMAGE_PATH = str(tmp_path)
     poly1 = Polygon([(0, 0), (1, 0), (1, 1), (0, 1)])
     poly2 = Polygon([(2, 2), (3, 2), (3, 3), (2, 3)])
     multi = MultiPolygon([poly1, poly2])
