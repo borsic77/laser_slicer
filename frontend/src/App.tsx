@@ -752,8 +752,10 @@ function App() {
                 }
 
                 // Validate against min/max (if loaded)
-                if (elevationStats && (elevation < elevationStats.min || elevation > elevationStats.max)) {
-                  const msg = `Elevation ${elevation}m is outside area bounds (${elevationStats.min}–${elevationStats.max})`;
+                // Validate against min/max (if loaded) with tolerance for downsampling inaccuracy
+                const TOLERANCE = 50; // meters
+                if (elevationStats && (elevation < elevationStats.min - TOLERANCE || elevation > elevationStats.max + TOLERANCE)) {
+                  const msg = `Elevation ${elevation}m is significantly outside area bounds (${elevationStats.min}–${elevationStats.max})`;
                   toast.error(msg);   
                 }
               } catch (err: any) {

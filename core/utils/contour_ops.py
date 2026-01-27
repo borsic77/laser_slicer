@@ -168,6 +168,8 @@ def _extract_level_polygons(
         level = cs.levels[i]
         polys: list[Polygon] = []
         for seg in segs:
+            if len(seg) < 3:
+                continue
             if not np.allclose(seg[0], seg[-1]):
                 seg = np.vstack([seg, seg[0]])
             poly = Polygon(seg)
@@ -324,8 +326,12 @@ def generate_contours(
                 new_level_polys.append((fixed_elevation, [water_band]))
                 inserted = True
                 cleaned_water = clean_geometry_strict(water_band)
+                # Buffer by approx 5 meters (0.00005 deg) to ensure water fits inside the hole
+                # Previous value of 0.01 was ~1km, which deleted small lakes!
                 robust_water = (
-                    cleaned_water.buffer(-0.01) if cleaned_water is not None else None
+                    cleaned_water.buffer(-0.00005)
+                    if cleaned_water is not None
+                    else None
                 )
                 robust_water = (
                     clean_geometry_strict(robust_water)

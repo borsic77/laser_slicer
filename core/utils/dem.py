@@ -107,16 +107,18 @@ def sample_elevation(lat: float, lon: float, dem_path: str) -> float:
 
     with rasterio.open(f"/vsigzip/{dem_path}") as src:
         row, col = src.index(lon, lat)
-        arr = src.read(1)
+        window = rasterio.windows.Window(col, row, 1, 1)
+        arr = src.read(1, window=window)
+        val = arr[0, 0]
         logger.debug(
             "Sampled elevation at (%s, %s) -> (row: %s, col: %s), value: %s",
             lat,
             lon,
             row,
             col,
-            arr[row, col],
+            val,
         )
-        return float(arr[row, col])
+        return float(val)
 
 
 def mosaic_and_crop(
