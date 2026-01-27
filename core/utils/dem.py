@@ -74,13 +74,15 @@ def fill_nans_in_dem(arr: np.ndarray, max_iter: int = 20) -> np.ndarray:
 
 
 def round_affine(
-    transform: rasterio.Affine, precision: float = 1e-4
+    transform: rasterio.Affine, precision: float = 1e-9
 ) -> rasterio.Affine:
     """Round an affine transform for stable comparisons.
 
     Args:
         transform: Affine transform to round.
-        precision: Decimal precision.
+        precision: Decimal precision. For WGS84 (degrees), 1e-4 is approx 11 meters,
+                   which is too coarse for 2m pixels (approx 2e-5).
+                   Use 1e-9 (approx 0.1mm) by default.
 
     Returns:
         A transform with each component rounded to ``precision``.
@@ -130,6 +132,9 @@ def mosaic_and_crop(
     Returns:
         A tuple ``(array, transform)`` of the cropped DEM and its affine transform.
     """
+    if not tif_paths:
+        raise ValueError("No elevation tiles provided for mosaicing.")
+
     src_files = [
         rasterio.open(f"/vsigzip/{p}") if p.endswith(".gz") else rasterio.open(p)
         for p in tif_paths

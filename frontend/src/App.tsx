@@ -106,12 +106,8 @@ function App() {
   // Selected map center coordinates [latitude, longitude]; shared with MapView and info sidebar
   const [coordinates, setCoordinates] = useState<[number, number] | null>(null)
 
-  // If no coordinates are set, try to get current location via geolocation API
-  // If geolocation fails, fallback to Mont Blanc coordinates
-  // (45.832622, 6.864717) as a default location
-  // This is used to center the map initially and provide a default location
-  // Note: This is only run once on mount, so it won't re-trigger if coordinates change
   useEffect(() => {
+    console.log("App mounted. API_URL:", API_URL);
     if (coordinates === null) {
       if ("geolocation" in navigator) {
         navigator.geolocation.getCurrentPosition(

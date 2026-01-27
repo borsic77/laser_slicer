@@ -9,7 +9,7 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
     ports:
-      - "5432:5432"
+      - "5435:5432"
 
   backend:
     build:
@@ -61,11 +61,21 @@ services:
     build:
       context: .
       dockerfile: frontend/Dockerfile
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
     environment:
       - VITE_API_URL=http://localhost:8000
     ports:
       - "5173:5173"
     command: npm run dev -- --host
+
+  alti3d:
+    image: local/alti3d-downloader
+    volumes:
+      - ./data/alti3d_cache:/alti3d-dl/output
+    profiles:
+      - tools
 
 volumes:
   pgdata:

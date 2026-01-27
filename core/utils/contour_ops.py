@@ -13,7 +13,7 @@ from shapely.geometry import Polygon, mapping, shape
 from shapely.geometry.polygon import orient
 from shapely.ops import unary_union
 
-from .geometry_ops import _force_multipolygon, clean_geometry_strict, _flatten_polygons
+from .geometry_ops import _flatten_polygons, _force_multipolygon, clean_geometry_strict
 
 matplotlib.use("Agg")
 logger = logging.getLogger(__name__)
@@ -92,12 +92,16 @@ def _create_contourf_levels(
     Returns:
         Array of contour break values.
     """
-    min_elev = np.min(elevation_data)
-    max_elev = np.max(elevation_data)
+    min_elev = np.nanmin(elevation_data)
+    max_elev = np.nanmax(elevation_data)
+
+    if np.isnan(min_elev) or np.isnan(max_elev):
+        raise ValueError(
+            "Elevation data contains only NaN values. Check bounds or source data."
+        )
+
     if num_layers is not None:
-        levels = np.linspace(
-            np.min(elevation_data), np.max(elevation_data), num_layers + 1
-        ).tolist()
+        levels = np.linspace(min_elev, max_elev, num_layers + 1).tolist()
     else:
         levels = np.arange(min_elev, max_elev + tol, interval).tolist()
     if fixed_elevation is not None:
@@ -112,8 +116,8 @@ def _create_contourf_levels(
     levels = sorted(set(round(lvl, 6) for lvl in levels))
     logger.debug(
         "Elevation data ranges from %s, %s \nContour levels boundaries are: %s",
-        np.min(elevation_data),
-        np.max(elevation_data),
+        min_elev,
+        max_elev,
         levels,
     )
     return np.array(levels)
@@ -336,6 +340,10 @@ def generate_contours(
     filtered = []
     for layer in contour_layers:
         geom = shape(layer["geometry"])
-        if not geom.is_empty and geom.area > 1e-8:
+        # Filter small features (noise) to improve performance
+        # 1e-10 deg^2 is roughly 10m^2, reasonable for 2m resolution data
+        if not geom.is_empty and geom.area > 1e-10:
             filtered.append(layer)
+
+    logger.debug("Returning %d contours after area filtering", len(filtered))
     return filtered

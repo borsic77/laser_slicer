@@ -1,11 +1,12 @@
+import sys
+import types
+from pathlib import Path
+
 import numpy as np
 import pytest
 import rasterio.transform
 import shapely.geometry
 from shapely.geometry import Polygon, mapping
-from pathlib import Path
-import types
-import sys
 
 # Provide dummy 'django.conf' with a settings object used by contour_generator
 django_conf = types.ModuleType("django.conf")
@@ -24,7 +25,7 @@ cache_module.cache = types.SimpleNamespace(
 sys.modules.setdefault("django.core.cache", cache_module)
 
 from core.services.contour_generator import ContourSlicingJob
-from core.services.elevation_service import ElevationRangeJob, ElevationDataError
+from core.services.elevation_service import ElevationDataError, ElevationRangeJob
 
 
 def test_contour_slicing_job_run(monkeypatch):
@@ -61,19 +62,19 @@ def test_contour_slicing_job_run(monkeypatch):
         return fake_contours
 
     monkeypatch.setattr(
-        "core.services.contour_generator.download_srtm_tiles_for_bounds", fake_download
+        "core.services.contour_generator.download_elevation_tiles_for_bounds",
+        fake_download,
     )
     monkeypatch.setattr("core.services.contour_generator.mosaic_and_crop", fake_mosaic)
     monkeypatch.setattr("core.services.contour_generator.clean_srtm_dem", lambda x: x)
-    monkeypatch.setattr(
-        "core.services.contour_generator.robust_local_outlier_mask", lambda x: x
-    )
+    # robust_local_outlier_mask is commented out in code, so no need to mock it
+
     monkeypatch.setattr(
         "core.services.contour_generator.generate_contours", fake_generate
     )
     monkeypatch.setattr(
         "core.services.contour_generator.project_geometry",
-        lambda c, cx, cy, simplify_tolerance=0: c,
+        lambda c, cx, cy, simplify_tolerance=0, existing_transform=None: (c, None),
     )
     monkeypatch.setattr(
         "core.services.contour_generator.smooth_geometry", lambda c, s: c
@@ -122,10 +123,10 @@ def test_contour_slicing_job_run(monkeypatch):
 
 def test_contour_slicing_job_with_osm(monkeypatch):
     poly = Polygon([(0, 0), (1, 0), (1, 1), (0, 0)])
-    ml = shapely.geometry.MultiLineString([[(0, 0), (1, 0)]])
+    ml = shapely.geometry.MultiLineString([[(0, 0.75), (1, 0.75)]])
 
     monkeypatch.setattr(
-        "core.services.contour_generator.download_srtm_tiles_for_bounds",
+        "core.services.contour_generator.download_elevation_tiles_for_bounds",
         lambda b: ["tile"],
     )
     monkeypatch.setattr(
@@ -139,7 +140,7 @@ def test_contour_slicing_job_with_osm(monkeypatch):
     )
     monkeypatch.setattr(
         "core.services.contour_generator.project_geometry",
-        lambda c, cx, cy, simplify_tolerance=0: c,
+        lambda c, cx, cy, simplify_tolerance=0, existing_transform=None: (c, None),
     )
     monkeypatch.setattr(
         "core.services.contour_generator.smooth_geometry", lambda c, s: c
@@ -176,7 +177,7 @@ def test_contour_slicing_job_with_osm(monkeypatch):
         height_per_layer=100,
         num_layers=1,
         simplify=0,
-        substrate_size_mm=100,
+        substrate_size_mm=1000,
         layer_thickness_mm=2,
         center=(0.5, 0.5),
         smoothing=0,
@@ -198,7 +199,7 @@ def test_contour_slicing_job_empty_osm(monkeypatch):
     poly = Polygon([(0, 0), (1, 0), (1, 1), (0, 0)])
 
     monkeypatch.setattr(
-        "core.services.contour_generator.download_srtm_tiles_for_bounds",
+        "core.services.contour_generator.download_elevation_tiles_for_bounds",
         lambda b: ["tile"],
     )
     monkeypatch.setattr(
@@ -212,7 +213,7 @@ def test_contour_slicing_job_empty_osm(monkeypatch):
     )
     monkeypatch.setattr(
         "core.services.contour_generator.project_geometry",
-        lambda c, cx, cy, simplify_tolerance=0: c,
+        lambda c, cx, cy, simplify_tolerance=0, existing_transform=None: (c, None),
     )
     monkeypatch.setattr(
         "core.services.contour_generator.smooth_geometry", lambda c, s: c
@@ -273,16 +274,13 @@ def test_elevation_range_job(monkeypatch):
     """ElevationRangeJob.run returns min and max elevations."""
     arr = np.array([[100, 200], [300, 400]], dtype=float)
     monkeypatch.setattr(
-        "core.services.elevation_service.download_srtm_tiles_for_bounds",
+        "core.services.elevation_service.download_elevation_tiles_for_bounds",
         lambda b: ["tile"],
     )
     monkeypatch.setattr(
         "core.services.elevation_service.mosaic_and_crop", lambda p, b: (arr, None)
     )
     monkeypatch.setattr("core.services.elevation_service.clean_srtm_dem", lambda x: x)
-    monkeypatch.setattr(
-        "core.services.elevation_service.robust_local_outlier_mask", lambda x: x
-    )
 
     job = ElevationRangeJob((0, 0, 1, 1))
     result = job.run()
@@ -293,16 +291,13 @@ def test_elevation_range_job_invalid(monkeypatch):
     """ElevationRangeJob.run raises ElevationDataError when DEM is invalid."""
     arr = np.array([[np.nan, np.nan]])
     monkeypatch.setattr(
-        "core.services.elevation_service.download_srtm_tiles_for_bounds",
+        "core.services.elevation_service.download_elevation_tiles_for_bounds",
         lambda b: ["tile"],
     )
     monkeypatch.setattr(
         "core.services.elevation_service.mosaic_and_crop", lambda p, b: (arr, None)
     )
     monkeypatch.setattr("core.services.elevation_service.clean_srtm_dem", lambda x: x)
-    monkeypatch.setattr(
-        "core.services.elevation_service.robust_local_outlier_mask", lambda x: x
-    )
 
     job = ElevationRangeJob((0, 0, 1, 1))
     with pytest.raises(ElevationDataError):

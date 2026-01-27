@@ -300,6 +300,7 @@ export default function MapView({ coordinates, onBoundsChange, squareOutput = fa
     <MapContainer
       center={position}
       zoom={13}
+      zoomDelta={.25}
       scrollWheelZoom={true}
       style={{ height: '400px', width: '100%' }}
       ref={(instance) => { mapRef.current = instance as L.Map; }}

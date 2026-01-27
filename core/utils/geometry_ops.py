@@ -6,8 +6,8 @@ from collections import defaultdict
 from typing import List, Tuple
 
 import numpy as np
-import shapely
 import pyproj
+import shapely
 from shapely.geometry import (
     GeometryCollection,
     LineString,
@@ -206,12 +206,22 @@ def project_geometry(
         proj = pyproj.Transformer.from_crs(
             "EPSG:4326", f"EPSG:{epsg_code}", always_xy=True
         )
+        logger.info(
+            f"Projecting {len(contours)} contours to {epsg_code}. Center: {center_lon}, {center_lat}"
+        )
         projected_geoms = []
-        for contour in contours:
+        for idx, contour in enumerate(contours):
             try:
                 geom = shape(contour["geometry"])
-                projected_geoms.append(transform(proj.transform, geom))
-            except Exception:
+                transformed = transform(proj.transform, geom)
+                if transformed.is_empty:
+                    logger.warning(f"Contour {idx} became empty after projection")
+                projected_geoms.append(transformed)
+            except Exception as e:
+                logger.error(f"Projection pre-check failed for contour: {e}")
+                continue
+            except Exception as e:
+                logger.error(f"Projection pre-check failed for contour: {e}")
                 continue
         if not projected_geoms:
             return [], (proj, None, 0.0)
@@ -220,13 +230,14 @@ def project_geometry(
         rot_angle = _grid_convergence_angle_from_geometry(projected_geoms)
 
     projected_contours = []
-    for contour in contours:
+    for i, contour in enumerate(contours):
         try:
             geom = shape(contour["geometry"])
             projected_geom = transform(proj.transform, geom)
             rotated_geom = shapely.affinity.rotate(
                 projected_geom, -rot_angle, origin=center
             )
+
             if rotated_geom.geom_type in ("Polygon", "MultiPolygon"):
                 cleaned_geom = clean_geometry_strict(rotated_geom)
             elif rotated_geom.geom_type in ("LineString", "MultiLineString"):
@@ -239,8 +250,13 @@ def project_geometry(
                     in ("Polygon", "MultiPolygon", "LineString", "MultiLineString")
                 ]
                 cleaned_geom = unary_union(allowed) if allowed else None
+
             if cleaned_geom is None:
+                logger.warning(
+                    f"Contour {i} dropped: Invalid after projection/rotation. Type: {rotated_geom.geom_type}, Valid: {rotated_geom.is_valid}"
+                )
                 continue
+
             final_geom = cleaned_geom
             if simplify_tolerance > 0.0:
                 final_geom = final_geom.simplify(
@@ -272,15 +288,23 @@ def clip_contours_to_bbox(
         List of contours intersecting the box.
     """
     bbox_poly = box(*bbox)
+    logger.debug(f"Clipping contours to box: {bbox}")
     clipped = []
-    for contour in contours:
+    for i, contour in enumerate(contours):
         geom = shape(contour["geometry"])
+        if i == 0:
+            logger.debug(f"First contour bounds before clipping: {geom.bounds}")
         clipped_geom = geom.intersection(bbox_poly)
         cleaned = clean_geometry_strict(clipped_geom)
         if cleaned is not None and not cleaned.is_empty:
             contour_clipped = contour.copy()
             contour_clipped["geometry"] = mapping(cleaned)
             clipped.append(contour_clipped)
+        else:
+            if i == 0:
+                logger.debug(
+                    f"Contour 0 clipped away. intersection empty? {clipped_geom.is_empty}"
+                )
     return clipped
 
 
@@ -328,6 +352,10 @@ def scale_and_center_contours_to_substrate(
         )
 
     all_scaled_bounds = [shape(c["geometry"]).bounds for c in updated]
+    if not all_scaled_bounds:
+        logger.warning("No scaled bounds found (no valid contours after scaling).")
+        return []
+
     min_x = min(b[0] for b in all_scaled_bounds)
     max_x = max(b[2] for b in all_scaled_bounds)
     min_y = min(b[1] for b in all_scaled_bounds)

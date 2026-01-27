@@ -2,8 +2,10 @@ import logging
 
 import numpy as np
 
-from core.utils.download_clip_elevation_tiles import download_srtm_tiles_for_bounds
 from core.utils.dem import clean_srtm_dem, mosaic_and_crop
+from core.utils.download_clip_elevation_tiles import (
+    download_elevation_tiles_for_bounds,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +37,7 @@ class ElevationRangeJob:
         Returns:
             A dictionary with 'min' and 'max' elevation values.
         """
-        tile_paths = download_srtm_tiles_for_bounds(self.bounds)
+        tile_paths = download_elevation_tiles_for_bounds(self.bounds)
         elevation, _ = mosaic_and_crop(tile_paths, self.bounds)
         elevation = clean_srtm_dem(elevation)
         # elevation = robust_local_outlier_mask(elevation)

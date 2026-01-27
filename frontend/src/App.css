@@ -52,25 +52,28 @@
 .sidebar {
   width: 250px;
   padding: 20px;
-  background-color: #1f1f1f;
+  background-color: var(--color-sidebar-bg);
   border-radius: 8px;
   display: flex;
   flex-direction: column;
   gap: 10px;
   text-align: left;
+  color: var(--color-sidebar-text);
+  border: 1px solid var(--color-border);
 }
 
 /* Right sidebar layout */
 .info-sidebar {
   width: 250px;
   padding: 20px;
-  background-color: #2a2a2a;
+  background-color: var(--color-sidebar-bg);
   border-radius: 8px;
   display: flex;
   flex-direction: column;
   gap: 10px;
   text-align: left;
-  color: white;
+  color: var(--color-sidebar-text);
+  border: 1px solid var(--color-border);
 }
 
 /* Main panel layout */
@@ -85,7 +88,9 @@
 .sidebar input,
 .sidebar button,
 .sidebar label {
-
+  background-color: var(--color-input-bg);
+  color: var(--color-input-text);
+  border: 1px solid var(--color-border);
   font-size: 1rem;
 }
 

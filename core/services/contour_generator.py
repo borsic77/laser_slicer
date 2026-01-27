@@ -9,8 +9,19 @@ from shapely.geometry import (
     shape,
 )
 
-from core.utils.download_clip_elevation_tiles import download_srtm_tiles_for_bounds
+from core.utils.contour_ops import generate_contours
+from core.utils.dem import clean_srtm_dem, fill_nans_in_dem, mosaic_and_crop
+from core.utils.download_clip_elevation_tiles import (
+    download_elevation_tiles_for_bounds,
+)
 from core.utils.geocoding import compute_utm_bounds_from_wgs84
+from core.utils.geometry_ops import (
+    clip_contours_to_bbox,
+    filter_small_features,
+    project_geometry,
+    scale_and_center_contours_to_substrate,
+    smooth_geometry,
+)
 from core.utils.osm_features import (
     fetch_buildings,
     fetch_roads,
@@ -19,15 +30,6 @@ from core.utils.osm_features import (
     normalize_road_geometry,
     normalize_waterway_geometry,
 )
-from core.utils.dem import clean_srtm_dem, fill_nans_in_dem, mosaic_and_crop
-from core.utils.geometry_ops import (
-    clip_contours_to_bbox,
-    filter_small_features,
-    project_geometry,
-    scale_and_center_contours_to_substrate,
-    smooth_geometry,
-)
-from core.utils.contour_ops import generate_contours
 
 logger = logging.getLogger(__name__)
 
@@ -233,7 +235,7 @@ class ContourSlicingJob:
         lon_min, lat_min, lon_max, lat_max = self.bounds
         cx, cy = self.center
         # Download elevation tiles and generate contours
-        tile_paths = download_srtm_tiles_for_bounds(self.bounds)
+        tile_paths = download_elevation_tiles_for_bounds(self.bounds)
         elevation, transform = mosaic_and_crop(tile_paths, self.bounds)
         # Clean the elevation data
         elevation = clean_srtm_dem(elevation)
@@ -259,26 +261,29 @@ class ContourSlicingJob:
             water_polygon=self.water_polygon,
         )
         _log_contour_info(contours, "After Contour Generation")
+
         # Project, smooth, and scale the contours
         contours, projection = project_geometry(
             contours, cx, cy, simplify_tolerance=self.simplify
         )
-        _log_contour_info(contours, "After Projection")
+        logger.debug(f"After Projection: {len(contours)} contours")
+
         contours = smooth_geometry(contours, self.smoothing)
-        _log_contour_info(contours, "After Smoothing")
+        logger.debug(f"After Smoothing: {len(contours)} contours")
+
         utm_bounds = compute_utm_bounds_from_wgs84(
             lon_min, lat_min, lon_max, lat_max, cx, cy
         )
+
         # clip to make sure an fixed elevation water body does not violate the bounding box
         contours = clip_contours_to_bbox(contours, utm_bounds)
-        _log_contour_info(contours, "After Clipping to Bounding Box")
+        logger.debug(f"After Clipping: {len(contours)} contours")
 
         contours = scale_and_center_contours_to_substrate(
             contours, self.substrate_size, utm_bounds
         )
+        logger.debug(f"After Scaling: {len(contours)} contours")
 
-        # Log contour information
-        _log_contour_info(contours, "After Scaling and Centering")
         # Prepare optional OSM features
         substrate_m = self.substrate_size / 1000.0
         minx, miny, maxx, maxy = utm_bounds
@@ -331,8 +336,13 @@ class ContourSlicingJob:
         contours = filter_small_features(
             contours, self.min_area, self.min_feature_width
         )
-        # _log_contour_info(contours, "After Filtering Small Features")
+        logger.debug(f"After Filtering: {len(contours)} contours")
+
         n_layers = len(contours)
+        if n_layers == 0:
+            logger.warning("No contours remaining after processing.")
+            return []
+
         for idx, contour in enumerate(contours):
             band_i = shape(contour["geometry"])
             band_above = (

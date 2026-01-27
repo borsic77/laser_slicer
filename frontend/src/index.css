@@ -13,6 +13,13 @@
   --color-button-bg: #1a1a1a;
   --color-button-bg-light: #f9f9f9;
 
+  /* New Semantic Variables */
+  --color-sidebar-bg: #1f1f1f;
+  --color-sidebar-text: #ffffff;
+  --color-input-bg: #2a2a2a;
+  --color-input-text: #ffffff;
+  --color-border: #ccc;
+
   font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
   font-weight: 400;
@@ -72,6 +79,12 @@ button:focus-visible {
   :root {
     color: #213547;
     background-color: #ffffff;
+    
+    /* Light Mode Overrides */
+    --color-sidebar-bg: #f5f5f5;
+    --color-sidebar-text: #213547;
+    --color-input-bg: #ffffff;
+    --color-input-text: #000000;
   }
   a:hover {
     color: #747bff;

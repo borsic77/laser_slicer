@@ -1,5 +1,6 @@
 import logging
-import os
+import shutil
+import subprocess
 from math import floor
 from pathlib import Path
 from typing import List, Tuple
@@ -10,6 +11,11 @@ from filelock import FileLock
 
 logger = logging.getLogger(__name__)
 TILE_CACHE_DIR = settings.TILE_CACHE_DIR
+ALTI3D_CACHE_DIR = settings.ALTI3D_CACHE_DIR
+ALTI3D_DOWNLOADER = settings.ALTI3D_DOWNLOADER
+
+# Swiss bounds (lon_min, lat_min, lon_max, lat_max)
+SWISS_BOUNDS = (5.95, 45.82, 10.49, 47.81)
 
 
 # Utility function to check for antimeridian crossing
@@ -122,3 +128,38 @@ def ensure_tile_downloaded(lat: float, lon: float) -> Path:
     paths = download_srtm_tiles_for_bounds(bounds)
     # There will be exactly one path in the returned list, matching our point
     return Path(paths[0])
+
+
+def within_swiss_bounds(bounds: Tuple[float, float, float, float]) -> bool:
+    """Check if bounds intersect Switzerland."""
+    lon_min, lat_min, lon_max, lat_max = bounds
+    s_lon_min, s_lat_min, s_lon_max, s_lat_max = SWISS_BOUNDS
+    return not (
+        lon_max < s_lon_min
+        or lon_min > s_lon_max
+        or lat_max < s_lat_min
+        or lat_min > s_lat_max
+    )
+
+
+from core.utils.swiss_topo_api import download_swissalti3d_tiles
+
+
+def download_alti3d_tiles_for_bounds(
+    bounds: Tuple[float, float, float, float],
+) -> List[str]:
+    """Download SwissALTI3D tiles using native STAC API implementation."""
+    return download_swissalti3d_tiles(bounds)
+
+
+def download_elevation_tiles_for_bounds(
+    bounds: Tuple[float, float, float, float],
+) -> List[str]:
+    """Download elevation tiles, preferring SwissALTI3D when in Switzerland."""
+    if within_swiss_bounds(bounds):
+        tiles = download_alti3d_tiles_for_bounds(bounds)
+        if tiles:
+            return tiles
+        logger.info("No SwissALTI3D tiles found, falling back to SRTM.")
+
+    return download_srtm_tiles_for_bounds(bounds)
