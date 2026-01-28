@@ -584,7 +584,6 @@ function App() {
                 onClick={() => setFixMode(true)}
                 disabled={fixMode}
                 title="Click, then place a marker on the map to sample elevation."
-                title="Click, then place a marker on the map to sample elevation."
                 style={{ marginBottom: '5px' }}
               >
                 {fixMode ? "Select on map..." : "Fix Elevation (water body)"}
