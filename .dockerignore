@@ -5,3 +5,16 @@
 .git
 .venv
 .env
+
+# Large data and media files
+/media/
+/data/
+/cache/
+/job_results/
+/tmp/
+/logs/
+/staticfiles/
+
+# Frontend dependencies and build artifacts
+/frontend/node_modules/
+/frontend/dist/
