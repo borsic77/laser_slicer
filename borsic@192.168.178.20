@@ -1,0 +1,26 @@
+# Core Django
+DJANGO_SECRET_KEY=supersecret
+DJANGO_DEBUG=True
+DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1,192.168.178.20,laserslicer.legradic.ch
+DJANGO_CORS_ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173,http://localhost:4173,http://192.168.178.20:4173,https://laserslicer.legradic.ch
+DJANGO_CSRF_TRUSTED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173,http://localhost:4173,http://192.168.178.20:4173,https://laserslicer.legradic.ch
+# Postgres for Docker (service name!)
+POSTGRES_DB=laserslicer
+POSTGRES_USER=laserslicer
+POSTGRES_PASSWORD=slrtibasdf7876wer
+POSTGRES_HOST=db
+POSTGRES_PORT=5432
+
+# Redis for Docker (service name!)
+REDIS_HOST=redis
+REDIS_PORT=6379
+
+TILE_CACHE_DIR=/app/data/srtm_cache
+MEDIA_ROOT=/app/media
+# Celery
+CELERY_BROKER_URL=redis://redis:6379/0
+CELERY_RESULT_BACKEND=redis://redis:6379/0
+
+USER_AGENT=laserslicer/1.0 (info@legradic.com)
+VITE_API_URL=https://laserslicer.legradic.ch/api
+
