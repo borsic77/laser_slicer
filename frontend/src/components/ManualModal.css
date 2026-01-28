@@ -154,5 +154,19 @@
 
   .modal-content {
       box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+      background: var(--color-sidebar-bg, #f5f5f5); /* Explicit light fallback */
+      color: #213547; /* Explicit dark text */
+  }
+
+  .close-button-top {
+      color: #213547;
+  }
+  
+  .modal-header {
+      border-bottom: 1px solid #ddd;
+  }
+
+  .advanced-section {
+    border-top: 1px solid #ddd;
   }
 }
