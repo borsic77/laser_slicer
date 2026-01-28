@@ -263,32 +263,82 @@ class ContourSlicingJob:
             resolution_scale=1.0,
             # Default noise filtering threshold
             min_area_deg2=1e-10,
+            # Map smoothing slider (0-200) to Gaussian sigma (0.0 - 4.0)
+            # Slider=50 -> sigma=1.0 (approx 2m smoothing on high-res)
+            dem_smoothing=max(0, float(self.smoothing) / 50.0),
         )
         _log_contour_info(contours, "After Contour Generation")
 
-        # Project, smooth, and scale the contours
-        contours, projection = project_geometry(
-            contours, cx, cy, simplify_tolerance=self.simplify
+        # Establish projection parameters once on main thread
+        # We use the center point to define a stable origin and rotation (Grid Convergence)
+        # Calling project_geometry with [] will initialize it from cx, cy
+        _, (proj, rot_center, rot_angle) = project_geometry(
+            [], cx, cy, simplify_tolerance=0.0
         )
-        logger.debug(f"After Projection: {len(contours)} contours")
 
-        contours = smooth_geometry(contours, self.smoothing)
-        logger.debug(f"After Smoothing: {len(contours)} contours")
+        # Prepare arguments for parallel execution
+        # Use billiard.Pool because Celery workers are daemonic and cannot spawn children with standard multiprocessing
+        # billiard is Celery's fork of multiprocessing that handles this safely.
+        import billiard
+
+        from core.utils.geocoding import compute_utm_bounds_from_wgs84
+        from core.utils.parallel_ops import process_and_scale_single_contour
 
         utm_bounds = compute_utm_bounds_from_wgs84(
             lon_min, lat_min, lon_max, lat_max, cx, cy
         )
 
-        # clip to make sure an fixed elevation water body does not violate the bounding box
-        contours = clip_contours_to_bbox(contours, utm_bounds)
-        logger.debug(f"After Clipping: {len(contours)} contours")
+        proj_params = (proj, rot_center, rot_angle)
 
-        contours = scale_and_center_contours_to_substrate(
-            contours, self.substrate_size, utm_bounds
+        logger.info(
+            f"Starting parallel processing of {len(contours)} contours using billiard..."
         )
-        logger.debug(f"After Scaling: {len(contours)} contours")
 
-        # Prepare optional OSM features
+        # Prepare arguments for starmap
+        tasks_args = [
+            (
+                c,
+                proj_params,
+                cx,
+                cy,
+                self.simplify,
+                self.smoothing,
+                utm_bounds,
+                self.substrate_size,
+                self.min_area,
+                self.min_feature_width,
+            )
+            for c in contours
+        ]
+
+        processed_contours = []
+        try:
+            # billiard handles daemon processes properly
+            import multiprocessing
+
+            cpu_count = multiprocessing.cpu_count()
+            workers = max(1, cpu_count - 1)
+
+            with billiard.Pool(processes=workers) as pool:
+                # Use starmap to unpack arguments
+                results = pool.starmap(process_and_scale_single_contour, tasks_args)
+                processed_contours = [r for r in results if r is not None]
+
+        except Exception as exc:
+            logger.error(f"Parallel execution failed: {exc}.", exc_info=True)
+            raise exc
+
+        # Sort by elevation
+        processed_contours.sort(key=lambda x: x["elevation"])
+        contours = processed_contours
+
+        logger.debug(
+            f"Parallel processing complete. {len(contours)} valid contours remaining."
+        )
+
+        # Prepare optional OSM features (Roads/Waterways need the 'scale_factor' and 'center' from the now-implicit scaling)
+        # We need to re-calculate the scale params to process OSM features identically
+        # logic duplicated from `scale_and_center_contours_to_substrate`
         substrate_m = self.substrate_size / 1000.0
         minx, miny, maxx, maxy = utm_bounds
         width = maxx - minx
@@ -296,9 +346,12 @@ class ContourSlicingJob:
         center_x = (minx + maxx) / 2
         center_y = (miny + maxy) / 2
         scale_factor = substrate_m / max(width, height)
+
+        # ... (rest of OSM processing remains sequential as it's usually fast/small) ...
+
         roads_geom = (
             self._prepare_osm_road_geoms(
-                projection,
+                (proj, rot_center, rot_angle),  # projection
                 center_x,
                 center_y,
                 scale_factor,
@@ -311,7 +364,7 @@ class ContourSlicingJob:
         waterways_geom = (
             self._prepare_osm_feature_geom(
                 fetch_waterways,
-                projection,
+                (proj, rot_center, rot_angle),
                 center_x,
                 center_y,
                 scale_factor,
@@ -325,7 +378,7 @@ class ContourSlicingJob:
         buildings_geom = (
             self._prepare_osm_feature_geom(
                 fetch_buildings,
-                projection,
+                (proj, rot_center, rot_angle),
                 center_x,
                 center_y,
                 scale_factor,
@@ -336,11 +389,11 @@ class ContourSlicingJob:
             if self.include_buildings
             else None
         )
-        # Filter small features and set layer thickness
-        contours = filter_small_features(
-            contours, self.min_area, self.min_feature_width
-        )
-        logger.debug(f"After Filtering: {len(contours)} contours")
+
+        # Filter small features was already done in parallel step!
+        # Removed filter_small_features call.
+
+        logger.debug(f"Final Count: {len(contours)} contours")
 
         n_layers = len(contours)
         if n_layers == 0:
@@ -348,35 +401,45 @@ class ContourSlicingJob:
             return []
 
         for idx, contour in enumerate(contours):
-            band_i = shape(contour["geometry"])
-            band_above = (
-                shape(contours[idx + 1]["geometry"]) if idx + 1 < n_layers else None
-            )
-            visible_area = (
-                band_i if band_above is None else band_i.difference(band_above)
-            )
-
-            if self.include_roads and roads_geom:
-                road_features = {}
-                for rtype, rgeom in roads_geom.items():
-                    clipped = rgeom.intersection(visible_area)
-                    normalized = normalize_road_geometry(clipped)
-                    if normalized is not None:
-                        road_features[rtype] = mapping(normalized)
-                contour["roads"] = road_features if road_features else None
-            if self.include_waterways and waterways_geom is not None:
-                clipped = waterways_geom.intersection(visible_area)
-                normalized = normalize_waterway_geometry(clipped)
-                contour["waterways"] = (
-                    mapping(normalized) if normalized is not None else None
-                )
-            if self.include_buildings and buildings_geom is not None:
-                clipped = buildings_geom.intersection(visible_area)
-                normalized = normalize_building_geometry(clipped)
-                contour["buildings"] = (
-                    mapping(normalized) if normalized is not None else None
-                )
-
+            # Recalculate thickness (was done in sequential loop)
             contour["thickness"] = self.layer_thickness / 1000.0
+
+            # OSM intersections (still sequential, usually fast)
+            if self.include_roads or self.include_waterways or self.include_buildings:
+                band_i = shape(contour["geometry"])
+                # We need simple visibility check: what is NOT covered by the layer above?
+                # This is "slicing logic".
+                # Actually previously this was:
+                # band_above = ... if idx + 1 < n_layers else None
+                # visible = band_i.diff(band_above)
+                # ...
+
+                band_above = (
+                    shape(contours[idx + 1]["geometry"]) if idx + 1 < n_layers else None
+                )
+                visible_area = (
+                    band_i if band_above is None else band_i.difference(band_above)
+                )
+
+                if self.include_roads and roads_geom:
+                    road_features = {}
+                    for rtype, rgeom in roads_geom.items():
+                        clipped = rgeom.intersection(visible_area)
+                        normalized = normalize_road_geometry(clipped)
+                        if normalized is not None:
+                            road_features[rtype] = mapping(normalized)
+                    contour["roads"] = road_features if road_features else None
+                if self.include_waterways and waterways_geom is not None:
+                    clipped = waterways_geom.intersection(visible_area)
+                    normalized = normalize_waterway_geometry(clipped)
+                    contour["waterways"] = (
+                        mapping(normalized) if normalized is not None else None
+                    )
+                if self.include_buildings and buildings_geom is not None:
+                    clipped = buildings_geom.intersection(visible_area)
+                    normalized = normalize_building_geometry(clipped)
+                    contour["buildings"] = (
+                        mapping(normalized) if normalized is not None else None
+                    )
 
         return contours

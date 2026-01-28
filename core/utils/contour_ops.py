@@ -8,6 +8,7 @@ import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import rasterio
+import scipy.ndimage
 from django.conf import settings
 from shapely.geometry import Polygon, mapping, shape
 from shapely.geometry.polygon import orient
@@ -259,6 +260,7 @@ def generate_contours(
     water_polygon: Polygon | None = None,
     resolution_scale: float = 1.0,
     min_area_deg2: float = 1e-10,
+    dem_smoothing: float = 0.0,
 ) -> List[dict]:
     """Generate contour bands from elevation data.
 
@@ -277,6 +279,7 @@ def generate_contours(
         water_polygon: Optional polygon of a water body to carve out.
         resolution_scale: Downsample factor (0.0 < x <= 1.0).
         min_area_deg2: Minimum polygon area in degrees squared to keep.
+        dem_smoothing: Gaussian blur sigma for DEM pre-processing (0.0 = off).
 
     Returns:
         A list of contour feature dictionaries sorted from bottom to top.
@@ -296,6 +299,16 @@ def generate_contours(
             masked_elevation_data = masked_elevation_data[::step, ::step]
             # Update transform: pixel size increases by factor 'step'
             transform = transform * transform.scale(step, step)
+
+    # Apply light Gaussian smoothing to DEM to remove pixel stair-stepping (jagged edges)
+    if dem_smoothing > 0:
+        logger.info("Applying Gaussian smoothing to DEM (sigma=%.2f)", dem_smoothing)
+        elevation_data = scipy.ndimage.gaussian_filter(
+            elevation_data, sigma=dem_smoothing
+        )
+        masked_elevation_data = scipy.ndimage.gaussian_filter(
+            masked_elevation_data, sigma=dem_smoothing
+        )
 
     lon, lat = _prepare_meshgrid(elevation_data, transform)
     levels = _create_contourf_levels(

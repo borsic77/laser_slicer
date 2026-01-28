@@ -209,25 +209,19 @@ def project_geometry(
         logger.info(
             f"Projecting {len(contours)} contours to {epsg_code}. Center: {center_lon}, {center_lat}"
         )
-        projected_geoms = []
-        for idx, contour in enumerate(contours):
-            try:
-                geom = shape(contour["geometry"])
-                transformed = transform(proj.transform, geom)
-                if transformed.is_empty:
-                    logger.warning(f"Contour {idx} became empty after projection")
-                projected_geoms.append(transformed)
-            except Exception as e:
-                logger.error(f"Projection pre-check failed for contour: {e}")
-                continue
-            except Exception as e:
-                logger.error(f"Projection pre-check failed for contour: {e}")
-                continue
-        if not projected_geoms:
-            return [], (proj, None, 0.0)
-        merged = unary_union(projected_geoms)
-        center = merged.centroid
-        rot_angle = _grid_convergence_angle_from_geometry(projected_geoms)
+
+        # Use stable center: projection of target center_lon/lat
+        utm_cx, utm_cy = proj.transform(center_lon, center_lat)
+        center = shapely.geometry.Point(utm_cx, utm_cy)
+
+        # Deterministic rotation angle (Grid Convergence)
+        # Approximate by checking displacement when moving North
+        utm_nx, utm_ny = proj.transform(center_lon, center_lat + 0.01)
+        rot_angle = math.degrees(math.atan2(utm_nx - utm_cx, utm_ny - utm_cy))
+
+        logger.info(
+            f"Stable projection parameters: Origin={center}, Angle={rot_angle:.4f}"
+        )
 
     projected_contours = []
     for i, contour in enumerate(contours):

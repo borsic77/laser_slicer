@@ -140,18 +140,107 @@ def mosaic_and_crop(
     if not tif_paths:
         raise ValueError("No elevation tiles provided for mosaicing.")
 
-    src_files = [
-        rasterio.open(f"/vsigzip/{p}") if p.endswith(".gz") else rasterio.open(p)
-        for p in tif_paths
-    ]
+    # Pre-process inputs:
+    # If a file is large (like SRTM background) and we only need a small slice,
+    # we should crop it to 'bounds' *before* merging.
+    # Otherwise, merging a 1x1 degree SRTM tile at 2m (Swiss) resolution creates a 50GB array -> SIGKILL.
+
+    from rasterio.io import MemoryFile
+    from rasterio.windows import from_bounds as window_from_bounds
+
+    # We need to manage the lifecycle of MemoryFiles so they don't close before merge
+    memfiles = []
+
+    src_files = []
+
+    # Pad bounds slightly to avoid edge artifacts
+    pad = 0.001  # ~100m
+    padded_bounds = (bounds[0] - pad, bounds[1] - pad, bounds[2] + pad, bounds[3] + pad)
+
+    for p in tif_paths:
+        src = rasterio.open(f"/vsigzip/{p}") if p.endswith(".gz") else rasterio.open(p)
+
+        # Check if file is "large" (e.g. SRTM) and significantly larger than our bounds
+        # SRTM is 1x1 deg. Slice is usually 0.05 deg.
+        # Simple heuristic: if src bounds area > 10x target bounds area -> Crop it.
+        src_area = (src.bounds.right - src.bounds.left) * (
+            src.bounds.top - src.bounds.bottom
+        )
+        target_area = (padded_bounds[2] - padded_bounds[0]) * (
+            padded_bounds[3] - padded_bounds[1]
+        )
+
+        if src_area > 10 * target_area:
+            try:
+                # Calculate window
+                win = window_from_bounds(*padded_bounds, transform=src.transform)
+
+                # Clip window to actual file dimensions
+                win = win.intersection(
+                    rasterio.windows.Window(0, 0, src.width, src.height)
+                )
+
+                if win.width > 0 and win.height > 0:
+                    logger.debug(f"Pre-cropping large raster {p} to {win}")
+                    data = src.read(window=win)
+                    win_transform = rasterio.windows.transform(win, src.transform)
+
+                    # Create in-memory file for the cropped chunk
+                    memfile = MemoryFile()
+                    dst = memfile.open(
+                        driver="GTiff",
+                        height=int(win.height),
+                        width=int(win.width),
+                        count=src.count,
+                        dtype=src.dtypes[0],
+                        crs=src.crs,
+                        transform=win_transform,
+                        nodata=src.nodata,
+                    )
+                    dst.write(data)
+                    memfiles.append(memfile)  # Keep alive
+                    # Close original source, append new source
+                    src.close()
+                    src_files.append(dst)
+                else:
+                    logger.debug(
+                        f"Raster {p} does not intersect target bounds, skipping."
+                    )
+                    src.close()
+            except Exception as e:
+                logger.warning(f"Failed to pre-crop {p}: {e}. Using full file.")
+                src_files.append(src)
+        else:
+            src_files.append(src)
+
+    # Determine target resolution
+    # By default, merge uses the res of the first file.
+    # Since we prepend SRTM (low res) to fallback, we MUST scan for the highest resolution (smallest pixel)
+    # and enforce it.
+
+    # helper to mean of x_res and y_res
+    def get_avg_res(src):
+        return (abs(src.res[0]) + abs(src.res[1])) / 2
+
+    # Find the source with the finest resolution (smallest number)
+    if src_files:
+        best_src = min(src_files, key=get_avg_res)
+        native_res = best_src.res
+        logger.info(
+            f"Mosaic selected best resolution: {native_res} from source index {src_files.index(best_src)}"
+        )
+    else:
+        # Should be unreachable due to check above
+        native_res = (None, None)
 
     res = None
     if downsample_factor > 1 and src_files:
-        # Get native resolution from first file
-        # src.res is (width_res, height_res) usually positive
-        rx, ry = src_files[0].res
+        rx, ry = native_res
         res = (rx * downsample_factor, ry * downsample_factor)
         logger.debug(f"Downsampling mosaic by {downsample_factor}x. Target res: {res}")
+    elif src_files:
+        # Force the best resolution found (in case first file is low-res SRTM)
+        res = native_res
 
     mosaic, transform = merge(src_files, res=res)
 

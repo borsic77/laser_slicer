@@ -156,10 +156,18 @@ def download_elevation_tiles_for_bounds(
     bounds: Tuple[float, float, float, float],
 ) -> List[str]:
     """Download elevation tiles, preferring SwissALTI3D when in Switzerland."""
-    if within_swiss_bounds(bounds):
-        tiles = download_alti3d_tiles_for_bounds(bounds)
-        if tiles:
-            return tiles
-        logger.info("No SwissALTI3D tiles found, falling back to SRTM.")
+    # Always fetch SRTM as a fallback/background layer to prevent holes
+    srtm_tiles = download_srtm_tiles_for_bounds(bounds)
 
-    return download_srtm_tiles_for_bounds(bounds)
+    if within_swiss_bounds(bounds):
+        swiss_tiles = download_alti3d_tiles_for_bounds(bounds)
+        if swiss_tiles:
+            logger.info(
+                f"Merging {len(swiss_tiles)} SwissALTI3D tiles with {len(srtm_tiles)} SRTM tiles."
+            )
+            # Return SRTM first (background), then Swiss (foreground)
+            # rasterio.merge paints in order, so later files overwrite earlier ones.
+            return srtm_tiles + swiss_tiles
+        logger.info("No SwissALTI3D tiles found, using SRTM only.")
+
+    return srtm_tiles
