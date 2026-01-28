@@ -157,8 +157,26 @@ def run_contour_slicing_job(self, job_id):
             include_buildings=params.get("include_buildings", False),
             include_waterways=params.get("include_waterways", False),
         )
+
         # Main processing
-        layers = csj.run()
+        def update_progress(msg, pct):
+            job.status = "RUNNING"
+            job.progress = pct
+            job.log = msg  # We use the log field to store the current status message "last line" style
+            # Or better, we can prepend it? No, replacing for status line style is better for UI.
+            # But 'log' is usually a persistent log.
+            # Let's append to log, but also maybe redundant?
+            # Actually, the frontend displays `data.log` in a <pre> block.
+            # If we want a dynamic "Status: Downloading...", we can misuse the 'status' field?
+            # No, status is ENUM usually.
+            # The frontend shows "Status: {jobStatus}".
+            # Let's overwrite job.log with just the current message for now, OR make it a growing log.
+            # If we make it a growing log, the frontend shows the whole thing.
+            # Let's append properly.
+            job.log += f"\n[{pct}%] {msg}"
+            job.save(update_fields=["status", "progress", "log"])
+
+        layers = csj.run(progress_callback=update_progress)
         # Save layers to job.params for frontend to fetch (must be JSON serializable!)
         job.params["layers"] = layers
         logger.info(f"Contour job {job_id} completed with {len(layers)} layers.")

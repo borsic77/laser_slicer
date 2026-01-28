@@ -709,10 +709,15 @@ function App() {
             )}
             {jobStatus && (
               <div style={{ margin: "0.5em 0" }}>
-                <strong>Status:</strong> {jobStatus}<br />
-                {jobProgress !== null && <progress value={jobProgress} max={100}>{jobProgress}%</progress>}
+                <div style={{ marginBottom: '5px', fontWeight: 'bold' }}>
+                    {jobLog ? jobLog.split('\n').filter(Boolean).pop()?.replace(/^\[\d+%\]\s*/, '') : jobStatus}
+                </div>
+                {jobProgress !== null && <progress value={jobProgress} max={100} style={{ width: '100%' }}>{jobProgress}%</progress>}
                 {jobLog && (
-                  <pre style={{ fontSize: 'smaller', maxHeight: 100, overflow: 'auto' }}>{jobLog}</pre>
+                  <details>
+                    <summary style={{fontSize: '0.8rem', cursor: 'pointer', color: '#888'}}>Show Full Log</summary>
+                    <pre style={{ fontSize: 'smaller', maxHeight: 100, overflow: 'auto', marginTop: '5px' }}>{jobLog}</pre>
+                  </details>
                 )}
               </div>
             )}

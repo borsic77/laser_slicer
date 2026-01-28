@@ -225,17 +225,28 @@ class ContourSlicingJob:
             logger.warning("Failed to fetch roads: %s", exc, exc_info=True)
             return {}
 
-    def run(self) -> list[dict]:
+    def run(self, progress_callback=None) -> list[dict]:
         """Execute the contour slicing job.
+
+        Args:
+            progress_callback: Optional function(status_msg, percent) to report progress.
 
         Returns:
             A list of contour feature dictionaries prepared for slicing.
         """
+
+        def report(msg, pct):
+            if progress_callback:
+                progress_callback(msg, pct)
+
+        report("Downloading elevation tiles...", 5)
         # Unpack the bounding box coordinates and center
         lon_min, lat_min, lon_max, lat_max = self.bounds
         cx, cy = self.center
         # Download elevation tiles and generate contours
         tile_paths = download_elevation_tiles_for_bounds(self.bounds)
+
+        report("Merging and processing DEM...", 15)
         elevation, transform = mosaic_and_crop(tile_paths, self.bounds)
         # Clean the elevation data
         elevation = clean_srtm_dem(elevation)
@@ -246,6 +257,7 @@ class ContourSlicingJob:
         )
         masked_elevation = fill_nans_in_dem(masked_elevation)
 
+        report("Generating base contours...", 25)
         contours = generate_contours(
             elevation,
             masked_elevation,
@@ -290,6 +302,7 @@ class ContourSlicingJob:
 
         proj_params = (proj, rot_center, rot_angle)
 
+        report(f"Processing {len(contours)} contours in parallel...", 40)
         logger.info(
             f"Starting parallel processing of {len(contours)} contours using billiard..."
         )
@@ -319,10 +332,29 @@ class ContourSlicingJob:
             cpu_count = multiprocessing.cpu_count()
             workers = max(1, cpu_count - 1)
 
+            # Simple manual chunking to report progress during parallel map
+            # We can't use starmap if we want granular progress for each item easily without a callback proxy
+            # But we can chunk it.
+
+            chunk_size = max(1, len(tasks_args) // 10)
+            chunks = [
+                tasks_args[i : i + chunk_size]
+                for i in range(0, len(tasks_args), chunk_size)
+            ]
+
+            total_chunks = len(chunks)
+
             with billiard.Pool(processes=workers) as pool:
-                # Use starmap to unpack arguments
-                results = pool.starmap(process_and_scale_single_contour, tasks_args)
-                processed_contours = [r for r in results if r is not None]
+                for i, chunk in enumerate(chunks):
+                    # report progress based on chunks
+                    current_pct = 40 + int(50 * (i / total_chunks))
+                    report(
+                        f"Slicing contours... (Batch {i + 1}/{total_chunks})",
+                        current_pct,
+                    )
+
+                    results = pool.starmap(process_and_scale_single_contour, chunk)
+                    processed_contours.extend([r for r in results if r is not None])
 
         except Exception as exc:
             logger.error(f"Parallel execution failed: {exc}.", exc_info=True)
@@ -332,6 +364,7 @@ class ContourSlicingJob:
         processed_contours.sort(key=lambda x: x["elevation"])
         contours = processed_contours
 
+        report("Finalizing OSM features...", 90)
         logger.debug(
             f"Parallel processing complete. {len(contours)} valid contours remaining."
         )
