@@ -35,6 +35,7 @@ output/
 *.svg
 
 doc/
+DEPLOY.md
 
 
 # VS Code

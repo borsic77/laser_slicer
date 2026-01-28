@@ -576,7 +576,7 @@ def test_mosaic_and_crop_lat_swap(monkeypatch):
     # Provide a dummy raster with proper shape, test lat_min > lat_max
     from core.utils.dem import mosaic_and_crop
 
-    def fake_merge(src_files):
+    def fake_merge(src_files, **kwargs):
         arr = np.ones((1, 5, 5))
         # Use a real affine transform (which is a tuple)
         transform = rasterio.transform.from_origin(0, 5, 1, 1)
@@ -604,6 +604,18 @@ def test_mosaic_and_crop_lat_swap(monkeypatch):
         def close(self):
             pass
 
+    monkeypatch.setattr("core.utils.dem.from_bounds", fake_from_bounds)
+    from collections import namedtuple
+
+    Bounds = namedtuple("Bounds", ["left", "bottom", "right", "top"])
+
+    class DummySrc:
+        bounds = Bounds(0, 0, 10, 10)
+        res = (1, 1)
+
+        def close(self):
+            pass
+
     monkeypatch.setattr("rasterio.open", lambda *a, **k: DummySrc())
     # Should succeed and return array, even with swapped lats
     array, transform = mosaic_and_crop(["dummy"], (0, 5, 5, 0))  # lat_min > lat_max
@@ -616,7 +628,7 @@ def test_mosaic_and_crop_orientation_warning(monkeypatch):
 
     # Simulate transform.e > 0
 
-    def fake_merge(src_files):
+    def fake_merge(src_files, **kwargs):
         arr = np.ones((1, 5, 5))
         # Use a real affine transform (which is a tuple)
         transform = rasterio.transform.from_origin(0, 5, 1, 1)
@@ -639,7 +651,14 @@ def test_mosaic_and_crop_orientation_warning(monkeypatch):
     )
 
     # Patch rasterio.open
+    from collections import namedtuple
+
+    Bounds = namedtuple("Bounds", ["left", "bottom", "right", "top"])
+
     class DummySrc:
+        bounds = Bounds(0, 0, 10, 10)
+        res = (1, 1)
+
         def close(self):
             pass
 
@@ -650,16 +669,25 @@ def test_mosaic_and_crop_orientation_warning(monkeypatch):
 
 
 def test_mosaic_and_crop_from_bounds_error(monkeypatch):
+    # Patch rasterio.open to return a dummy object
+    # Patch rasterio.open to return a dummy object
+    from collections import namedtuple
+
     from core.utils.dem import mosaic_and_crop
 
-    # Patch rasterio.open to return a dummy object
+    Bounds = namedtuple("Bounds", ["left", "bottom", "right", "top"])
+
     class DummySrc:
-        pass
+        bounds = Bounds(0, 0, 10, 10)
+        res = (1, 1)
+
+        def close(self):
+            pass
 
     monkeypatch.setattr("rasterio.open", lambda *a, **k: DummySrc())
 
     # Simulate merge to return a valid array and transform
-    def fake_merge(src_files):
+    def fake_merge(src_files, **kwargs):
         arr = np.ones((1, 5, 5))
         import rasterio.transform
 

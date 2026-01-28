@@ -15,13 +15,7 @@ from core.utils.download_clip_elevation_tiles import (
     download_elevation_tiles_for_bounds,
 )
 from core.utils.geocoding import compute_utm_bounds_from_wgs84
-from core.utils.geometry_ops import (
-    clip_contours_to_bbox,
-    filter_small_features,
-    project_geometry,
-    scale_and_center_contours_to_substrate,
-    smooth_geometry,
-)
+from core.utils.geometry_ops import project_geometry
 from core.utils.osm_features import (
     fetch_buildings,
     fetch_roads,
@@ -62,8 +56,26 @@ def _geometry_feature_count(geom):
 
 class ContourSlicingJob:
     """Class to handle the slicing of elevation data into contour layers.
+
     This class is responsible for downloading elevation data, generating contours,
     and preparing the data for slicing into layers.
+
+    Attributes:
+        bounds (tuple): Bounding box (lon_min, lat_min, lon_max, lat_max).
+        height (float): Target height of the model per layer in mm (determines scale if fixed height).
+        num_layers (int): Number of layers to generate.
+        simplify (float): Tolerance in meters for simplifying geometry.
+        substrate_size (float): Side length of the substrate in mm.
+        layer_thickness (float): Thickness of the material in mm.
+        center (tuple): Center coordinate (lon, lat).
+        smoothing (int): Gaussian smoothing factor for the DEM.
+        min_area (float): Minimum area in degrees^2 to keep a polygon.
+        min_feature_width (float): Minimum feature width in mm for cleaning.
+        fixed_elevation (float | None): Optional fixed elevation for water/lake.
+        water_polygon (Polygon | None): Water body geometry if applicable.
+        include_roads (bool): Whether to fetch and include roads.
+        include_buildings (bool): Whether to fetch and include buildings.
+        include_waterways (bool): Whether to fetch and include rivers/streams.
     """
 
     def __init__(
@@ -293,7 +305,6 @@ class ContourSlicingJob:
         # billiard is Celery's fork of multiprocessing that handles this safely.
         import billiard
 
-        from core.utils.geocoding import compute_utm_bounds_from_wgs84
         from core.utils.parallel_ops import process_and_scale_single_contour
 
         utm_bounds = compute_utm_bounds_from_wgs84(

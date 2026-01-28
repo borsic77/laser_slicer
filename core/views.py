@@ -16,9 +16,9 @@ from core.tasks import (  # New: see below
     run_elevation_range_job,
     run_svg_export_job,
 )
+from core.utils.dem import sample_elevation
 from core.utils.download_clip_elevation_tiles import ensure_tile_downloaded
 from core.utils.geocoding import geocode_address
-from core.utils.dem import sample_elevation
 from core.utils.waterbody import fetch_waterbody_polygon
 
 logger = logging.getLogger(__name__)
@@ -37,7 +37,7 @@ def safe_api(view_func):
     def wrapper(*args, **kwargs):
         try:
             return view_func(*args, **kwargs)
-        except Exception as e:
+        except Exception:
             logger.exception(f"API failure in {view_func.__name__}")
             return Response({"error": "An unexpected error occurred."}, status=500)
 
@@ -220,6 +220,17 @@ def get_all_job_models():
 @api_view(["GET"])
 @safe_api
 def job_status(request, job_id):
+    """Retrieve the status of a specific job by its ID.
+
+    Searches for the job ID across all job models (ContourJob, ElevationJob, SVGJob).
+
+    Args:
+        request (Request): The incoming request.
+        job_id (str): UUID of the job to check.
+
+    Returns:
+        Response: JSON object containing job status, progress, logs, and result URL.
+    """
     job = None
     for model in get_all_job_models():
         try:

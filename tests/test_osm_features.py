@@ -1,7 +1,8 @@
+import sys
+import types
+
 import geopandas as gpd
 from shapely.geometry import LineString, Polygon
-import types
-import sys
 
 # Insert a dummy 'celery' module so importing core does not fail
 celery_mod = types.ModuleType("celery")
@@ -28,8 +29,8 @@ celery_mod.Celery = DummyCelery
 sys.modules.setdefault("celery", celery_mod)
 
 from core.utils.osm_features import (
-    fetch_roads,
     fetch_buildings,
+    fetch_roads,
     fetch_waterways,
 )
 
@@ -39,9 +40,10 @@ def test_fetch_roads(monkeypatch):
         {
             "geometry": [LineString([(0, 0), (1, 0)])],
             "highway": ["residential"],
-        }
+        },
+        crs="EPSG:4326",
     )
-    monkeypatch.setattr("osmnx.geometries_from_polygon", lambda p, tags=None: gdf)
+    monkeypatch.setattr("osmnx.features_from_polygon", lambda p, tags=None: gdf)
     result = fetch_roads((0, 0, 1, 1))
     assert isinstance(result, dict) and "residential" in result
     geom = result["residential"]
@@ -49,16 +51,20 @@ def test_fetch_roads(monkeypatch):
 
 
 def test_fetch_buildings(monkeypatch):
-    gdf = gpd.GeoDataFrame({"geometry": [Polygon([(0, 0), (1, 0), (1, 1), (0, 0)])]})
-    monkeypatch.setattr("osmnx.geometries_from_polygon", lambda p, tags=None: gdf)
+    gdf = gpd.GeoDataFrame(
+        {"geometry": [Polygon([(0, 0), (1, 0), (1, 1), (0, 0)])]}, crs="EPSG:4326"
+    )
+    monkeypatch.setattr("osmnx.features_from_polygon", lambda p, tags=None: gdf)
     result = fetch_buildings((0, 0, 1, 1))
     assert result.geom_type == "MultiPolygon"
     assert len(result.geoms) == 1
 
 
 def test_fetch_waterways(monkeypatch):
-    gdf = gpd.GeoDataFrame({"geometry": [LineString([(0, 0), (1, 1)])]})
-    monkeypatch.setattr("osmnx.geometries_from_polygon", lambda p, tags=None: gdf)
+    gdf = gpd.GeoDataFrame(
+        {"geometry": [LineString([(0, 0), (1, 1)])]}, crs="EPSG:4326"
+    )
+    monkeypatch.setattr("osmnx.features_from_polygon", lambda p, tags=None: gdf)
     result = fetch_waterways((0, 0, 1, 1))
     assert result.geom_type == "MultiLineString"
     assert len(result.geoms) == 1

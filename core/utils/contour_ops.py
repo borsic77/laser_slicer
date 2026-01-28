@@ -130,11 +130,11 @@ def _extract_level_polygons(
     """Convert matplotlib contour output to Shapely polygons.
 
     Args:
-        cs: A ``QuadContourSet`` returned by ``contourf``.
-        min_area: Minimum area to keep (in source units, likely deg²).
+        cs (QuadContourSet): A matplotlib ``QuadContourSet`` returned by ``contourf``.
+        min_area (float): Minimum area to keep (in source units, likely deg²).
 
     Returns:
-        List of ``(level, polygons)`` tuples.
+        List[Tuple[float, List[Polygon]]]: List of ``(level, polygons)`` tuples.
     """
     level_polys: list[tuple[float, list[Polygon]]] = []
     if hasattr(cs, "collections"):

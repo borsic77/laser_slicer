@@ -34,6 +34,22 @@ Live site: [laserslicer.legradic.ch](https://laserslicer.legradic.ch)
 
 ---
 
+## High-Level Architecture
+
+The application defines a clear pipeline for generating laser-cuttable maps:
+
+1.  **Frontend (React + Vite)**: User selects an area and configures slicing parameters (layer height, substrate size).
+2.  **API (Django)**: Receives the job request and creates a record in the database (`ContourJob`).
+3.  **Task Queue (Celery + Redis)**: The heavy processing is offloaded to background workers.
+4.  **Worker Logic**:
+    *   **Elevation Fetch**: Downloads SRTM 30m DEM tiles or high-res SwissALTI3D data.
+    *   **OSM Geometry**: Fetches roads, buildings, and waterways/waterbodies from Overpass/OSM.
+    *   **Contour Generation**: Uses `matplotlib` (marching squares) or `gdal` to create vector contours from the DEM.
+    *   **Geometry Processing**: Uses `shapely` for cleaning, simplifying, orienting, and subtracting layers (e.g., carving out water).
+5.  **Result**: The final layers are optimized and exported as a ZIP of **SVG** files, stored in the media volume.
+
+---
+
 ## Quick Start (Docker)
 
 ```bash
@@ -115,7 +131,7 @@ See [Developer Startup Guide](dev_startup.md) for setup instructions.
 - [x] Introduce roads and houses as extra layer
 - [x] Add waterways overlay
 - [x] Export STL for 3‑D printing
-- [ ] CI/CD (workflow dispatch to Docker Hub)
+
 
 ---
 

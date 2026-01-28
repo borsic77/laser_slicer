@@ -36,7 +36,7 @@ def test_contour_slicing_job_run(monkeypatch):
         recorded["download"] = bounds
         return ["tile1"]
 
-    def fake_mosaic(paths, bounds):
+    def fake_mosaic(paths, bounds, **kwargs):
         recorded["mosaic"] = (paths, bounds)
         arr = np.ones((2, 2), dtype=float)
         transform = rasterio.transform.from_origin(0, 2, 1, 1)
@@ -45,7 +45,7 @@ def test_contour_slicing_job_run(monkeypatch):
     fake_contours = [
         {
             "elevation": 100.0,
-            "geometry": mapping(Polygon([(0, 0), (1, 0), (1, 1), (0, 0)])),
+            "geometry": mapping(Polygon([(-2, -2), (2, -2), (2, 2), (-2, 2)])),
             "closed": True,
         }
     ]
@@ -74,28 +74,40 @@ def test_contour_slicing_job_run(monkeypatch):
     )
     monkeypatch.setattr(
         "core.services.contour_generator.project_geometry",
-        lambda c, cx, cy, simplify_tolerance=0, existing_transform=None: (c, None),
+        lambda c, cx, cy, simplify_tolerance=0, existing_transform=None: (
+            c,
+            ("proj", (0, 0), 0),
+        ),
     )
-    monkeypatch.setattr(
-        "core.services.contour_generator.smooth_geometry", lambda c, s: c
-    )
+    # Obsolete patches removed for smooth_geometry, clip_contours, scale, filter_small_features
     monkeypatch.setattr(
         "core.services.contour_generator.compute_utm_bounds_from_wgs84",
         lambda *a: (0, 0, 1, 1),
     )
     monkeypatch.setattr(
-        "core.services.contour_generator.clip_contours_to_bbox", lambda c, b: c
-    )
-    monkeypatch.setattr(
-        "core.services.contour_generator.scale_and_center_contours_to_substrate",
-        lambda c, size, b: c,
-    )
-    monkeypatch.setattr(
-        "core.services.contour_generator.filter_small_features", lambda c, a, w: c
-    )
-    monkeypatch.setattr(
         "core.services.contour_generator._log_contour_info", lambda *a, **k: None
     )
+    monkeypatch.setattr(
+        "core.utils.parallel_ops.process_and_scale_single_contour",
+        lambda c, *args: c,
+    )
+
+    class FakePool:
+        def __init__(self, processes=None):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            pass
+
+        def starmap(self, func, iterable):
+            # func is the mock lambda c, *args: c
+            # iterable is a list of tuples (chunks of arguments)
+            return [func(*args) for args in iterable]
+
+    monkeypatch.setattr("billiard.Pool", FakePool)
 
     job = ContourSlicingJob(
         bounds=(0.0, 0.0, 1.0, 1.0),
@@ -122,7 +134,7 @@ def test_contour_slicing_job_run(monkeypatch):
 
 
 def test_contour_slicing_job_with_osm(monkeypatch):
-    poly = Polygon([(0, 0), (1, 0), (1, 1), (0, 0)])
+    poly = Polygon([(-2, -2), (2, -2), (2, 2), (-2, 2)])
     ml = shapely.geometry.MultiLineString([[(0, 0.75), (1, 0.75)]])
 
     monkeypatch.setattr(
@@ -131,7 +143,7 @@ def test_contour_slicing_job_with_osm(monkeypatch):
     )
     monkeypatch.setattr(
         "core.services.contour_generator.mosaic_and_crop",
-        lambda p, b: (np.ones((1, 1)), None),
+        lambda p, b, **k: (np.ones((1, 1)), None),
     )
     monkeypatch.setattr("core.services.contour_generator.clean_srtm_dem", lambda x: x)
     monkeypatch.setattr(
@@ -140,27 +152,22 @@ def test_contour_slicing_job_with_osm(monkeypatch):
     )
     monkeypatch.setattr(
         "core.services.contour_generator.project_geometry",
-        lambda c, cx, cy, simplify_tolerance=0, existing_transform=None: (c, None),
+        lambda c, cx, cy, simplify_tolerance=0, existing_transform=None: (
+            c,
+            ("proj", (0, 0), 0),
+        ),
     )
-    monkeypatch.setattr(
-        "core.services.contour_generator.smooth_geometry", lambda c, s: c
-    )
+    # Obsolete patches removed
     monkeypatch.setattr(
         "core.services.contour_generator.compute_utm_bounds_from_wgs84",
         lambda *a: (0, 0, 1, 1),
     )
     monkeypatch.setattr(
-        "core.services.contour_generator.clip_contours_to_bbox", lambda c, b: c
-    )
-    monkeypatch.setattr(
-        "core.services.contour_generator.scale_and_center_contours_to_substrate",
-        lambda c, size, b: c,
-    )
-    monkeypatch.setattr(
-        "core.services.contour_generator.filter_small_features", lambda c, a, w: c
-    )
-    monkeypatch.setattr(
         "core.services.contour_generator._log_contour_info", lambda *a, **k: None
+    )
+    monkeypatch.setattr(
+        "core.utils.parallel_ops.process_and_scale_single_contour",
+        lambda c, *args: c,
     )
     monkeypatch.setattr(
         "core.services.contour_generator.fetch_roads",
@@ -171,6 +178,21 @@ def test_contour_slicing_job_with_osm(monkeypatch):
         "core.services.contour_generator.fetch_buildings",
         lambda b: shapely.geometry.MultiPolygon([poly]),
     )
+
+    class FakePool:
+        def __init__(self, processes=None):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            pass
+
+        def starmap(self, func, iterable):
+            return [func(*args) for args in iterable]
+
+    monkeypatch.setattr("billiard.Pool", FakePool)
 
     job = ContourSlicingJob(
         bounds=(0, 0, 1, 1),
@@ -204,7 +226,7 @@ def test_contour_slicing_job_empty_osm(monkeypatch):
     )
     monkeypatch.setattr(
         "core.services.contour_generator.mosaic_and_crop",
-        lambda p, b: (np.ones((1, 1)), None),
+        lambda p, b, **k: (np.ones((1, 1)), None),
     )
     monkeypatch.setattr("core.services.contour_generator.clean_srtm_dem", lambda x: x)
     monkeypatch.setattr(
@@ -213,27 +235,22 @@ def test_contour_slicing_job_empty_osm(monkeypatch):
     )
     monkeypatch.setattr(
         "core.services.contour_generator.project_geometry",
-        lambda c, cx, cy, simplify_tolerance=0, existing_transform=None: (c, None),
+        lambda c, cx, cy, simplify_tolerance=0, existing_transform=None: (
+            c,
+            ("proj", (0, 0), 0),
+        ),
     )
-    monkeypatch.setattr(
-        "core.services.contour_generator.smooth_geometry", lambda c, s: c
-    )
+    # Obsolete patches removed
     monkeypatch.setattr(
         "core.services.contour_generator.compute_utm_bounds_from_wgs84",
         lambda *a: (0, 0, 1, 1),
     )
     monkeypatch.setattr(
-        "core.services.contour_generator.clip_contours_to_bbox", lambda c, b: c
-    )
-    monkeypatch.setattr(
-        "core.services.contour_generator.scale_and_center_contours_to_substrate",
-        lambda c, size, b: c,
-    )
-    monkeypatch.setattr(
-        "core.services.contour_generator.filter_small_features", lambda c, a, w: c
-    )
-    monkeypatch.setattr(
         "core.services.contour_generator._log_contour_info", lambda *a, **k: None
+    )
+    monkeypatch.setattr(
+        "core.utils.parallel_ops.process_and_scale_single_contour",
+        lambda c, *args: c,
     )
     monkeypatch.setattr(
         "core.services.contour_generator.fetch_roads",
@@ -247,6 +264,21 @@ def test_contour_slicing_job_empty_osm(monkeypatch):
         "core.services.contour_generator.fetch_buildings",
         lambda b: shapely.geometry.MultiPolygon(),
     )
+
+    class FakePool:
+        def __init__(self, processes=None):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            pass
+
+        def starmap(self, func, iterable):
+            return [func(*args) for args in iterable]
+
+    monkeypatch.setattr("billiard.Pool", FakePool)
 
     job = ContourSlicingJob(
         bounds=(0, 0, 1, 1),
@@ -278,7 +310,7 @@ def test_elevation_range_job(monkeypatch):
         lambda b: ["tile"],
     )
     monkeypatch.setattr(
-        "core.services.elevation_service.mosaic_and_crop", lambda p, b: (arr, None)
+        "core.services.elevation_service.mosaic_and_crop", lambda p, b, **k: (arr, None)
     )
     monkeypatch.setattr("core.services.elevation_service.clean_srtm_dem", lambda x: x)
 
@@ -295,7 +327,7 @@ def test_elevation_range_job_invalid(monkeypatch):
         lambda b: ["tile"],
     )
     monkeypatch.setattr(
-        "core.services.elevation_service.mosaic_and_crop", lambda p, b: (arr, None)
+        "core.services.elevation_service.mosaic_and_crop", lambda p, b, **k: (arr, None)
     )
     monkeypatch.setattr("core.services.elevation_service.clean_srtm_dem", lambda x: x)
 
