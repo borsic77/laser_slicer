@@ -121,17 +121,6 @@ See [Developer Startup Guide](dev_startup.md) for setup instructions.
 | `GET`  | `/api/status/`                  | Basic health check/status         |
 
 
----
-
-
-
-
-## Roadmap
-
-- [x] Introduce roads and houses as extra layer
-- [x] Add waterways overlay
-- [x] Export STL for 3‑D printing
-
 
 ---
 
@@ -161,4 +150,5 @@ Feel free to reach out via [GitHub](https://github.com/borsic77) or [email](mail
 ## Acknowledgements
 
 * NASA / NGA – SRTM data  
+* SwissALTI3D - Elevation data for Switzerland
 * OpenStreetMap & Nominatim  

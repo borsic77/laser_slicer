@@ -74,7 +74,7 @@
 .step-block {
   margin-bottom: 1.5rem;
   padding: 1rem;
-  background-color: rgba(255, 255, 255, 0.03);
+  background-color: rgba(255, 255, 255, 0.03); /* Default (Dark) */
   border-radius: 8px;
 }
 
@@ -105,8 +105,12 @@
   font-size: 0.9em;
   min-width: 60px;
   text-align: center;
-  background-color: white; /* Ensure visibility for colored text */
+  /* Always white bg for swatch readability, or explicit if needed */
+  background-color: white; 
+  color: black;
 }
+
+/* Specific colors for swatches inside style attribute are fine, no change needed */
 
 .modal-footer {
   margin-top: 2rem;
@@ -125,7 +129,7 @@
 }
 
 .close-button-bottom:hover {
-  background-color: #535bf2;
+  background-color: rgba(100, 108, 255, 0.8);
 }
 
 @keyframes fadeIn {
@@ -136,4 +140,19 @@
 @keyframes slideUp {
   from { transform: translateY(20px); opacity: 0; }
   to { transform: translateY(0); opacity: 1; }
+}
+
+/* Light Mode Overrides */
+@media (prefers-color-scheme: light) {
+  .modal-overlay {
+    background-color: rgba(255, 255, 255, 0.4);
+  }
+  
+  .step-block {
+    background-color: rgba(0, 0, 0, 0.03);
+  }
+
+  .modal-content {
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+  }
 }

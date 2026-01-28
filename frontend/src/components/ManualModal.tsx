@@ -54,7 +54,7 @@ function ManualModal({ onClose }: ManualModalProps) {
             <p><strong>Step 2: Configure Slicing</strong><br/>
             Adjust the physical parameters for your model:</p>
             <ul>
-                <li><strong>Number of Layers</strong> / <strong>Height per Layer</strong>: These are linked. Changing one updates the other based on the elevation difference in your area.</li>
+                <li><strong>Number of Layers</strong> / <strong>Height per Layer</strong>: The more layers, the more detailed the model. However beware: SRTM data has a resolution of 30m, so layer heights smaller than 30 m will only work reliably in Switzerland.</li>
                 <li><strong>Substrate & Thickness</strong>: Set these to match your material (e.g., 4mm plywood).</li>
                 <li><strong>Square Output</strong>: Forces the slicing area to be a perfect square, regardless of your screen's aspect ratio.</li>
             </ul>
