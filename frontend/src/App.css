@@ -1,6 +1,10 @@
+header h2 {
+    margin-top: 0.5rem;
+}
+
 #root {
   width: 100%;
-  padding: 2rem;
+  padding: 0.1rem 2rem 2rem 2rem;
   text-align: center;
 }
 
@@ -102,10 +106,14 @@
   border-radius: 8px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 5px;
   text-align: left;
   color: var(--color-sidebar-text);
   border: 1px solid var(--color-border);
+}
+
+.info-sidebar p {
+  margin: 0;
 }
 
 /* Main panel layout */

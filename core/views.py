@@ -108,6 +108,7 @@ def elevation_range(request) -> Response:
     logger.debug("Received elevation range request with data: %s", request.data)
     params = {
         "bounds": request.data["bounds"],
+        "include_bathymetry": bool(request.data.get("include_bathymetry", False)),
     }
     job = ElevationJob.objects.create(params=params, status="PENDING")
     run_elevation_range_job.delay(str(job.id))
@@ -200,6 +201,7 @@ def slice_contours(request):
         "include_roads": bool(request.data.get("include_roads", False)),
         "include_buildings": bool(request.data.get("include_buildings", False)),
         "include_waterways": bool(request.data.get("include_waterways", False)),
+        "include_bathymetry": bool(request.data.get("include_bathymetry", False)),
     }
     # logger.debug("Creating contour slicing job with params: %s", params)
     job = ContourJob.objects.create(params=params, status="PENDING")

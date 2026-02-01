@@ -34,12 +34,15 @@ def process_and_scale_single_contour(
         # 1. Project & Rotate
         # We need to reimplement the core logic of project_geometry here for a single item
         # or use a helper that takes the transformer.
-        # Unpacking proj_params: (proj, center_point, rot_angle)
-        # Note: 'proj' from pyproj might not be picklable depending on version?
-        # Actually pyproj.Transformer IS picklable in recent versions.
-        # But 'center_point' is a shapely Point which IS picklable.
+        # Unpack proj_params: (epsg_code, center_point, rot_angle)
+        epsg_code, rot_center, rot_angle = proj_params
 
-        transformer, rot_center, rot_angle = proj_params
+        # Re-create transformer in the worker process to avoid pickling issues
+        import pyproj
+
+        transformer = pyproj.Transformer.from_crs(
+            "EPSG:4326", f"EPSG:{epsg_code}", always_xy=True
+        )
 
         geom = shape(contour["geometry"])
         # Transform (WGS84 -> UTM)
@@ -109,19 +112,8 @@ def process_and_scale_single_contour(
         )
 
         # 5. Filter Small Features
-        min_area_m2 = (min_area / 1e4) * (
-            scale_factor**2
-        )  # min_area is usually cm^2? Wait.
-        # In filter_small_features input min_area is "cm2".
-        # But we are now in "scaled substrate space" (meters?).
-        # Actually logic in `scale_and_center` puts it in meters relative to substrate center?
-        # WAIT. logic in `filter_small_features` uses `min_area_cm2 / 1e4` -> m^2.
-        # But the geometry `scaled` is in... what units?
-        # substrate_size_mm / 1000.0 -> meters.
-        # So yes, `scaled` is in Real World Meters of the PHYSICAL OBJECT.
-        # So 1 unit = 1 meter of plywood.
-        # min_area_cm2 / 1e4 gives m^2. Correct.
-
+        # target_min_area_m2 = min_area / 1e4 if min_area > 0 else 0.0
+        # FIX LINT: min_area_m2 not used
         target_min_area_m2 = min_area / 1e4 if min_area > 0 else 0.0
 
         # Min width is also in mm, so convert to m
@@ -162,6 +154,11 @@ def process_and_scale_single_contour(
         return result
 
     except Exception as e:
+        import sys
+
+        print(
+            f"Error processing contour {contour.get('elevation')}: {e}", file=sys.stderr
+        )
         # logging might not work well in workers depending on setup, but print works
-        # logger.error(f"Error processing contour {contour.get('elevation')}: {e}")
+        logger.error(f"Error processing contour {contour.get('elevation')}: {e}")
         return None

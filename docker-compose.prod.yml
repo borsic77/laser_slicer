@@ -28,6 +28,7 @@ services:
       - ./media:/app/media    
       - ./data/srtm_cache:/app/data/srtm_cache
       - ./data/alti3d_cache:/app/data/alti3d_cache
+      - ./data/bathy_cache:/app/data/bathy_cache
     depends_on:
       - db
       - redis
@@ -44,6 +45,7 @@ services:
       - ./media:/app/media    
       - ./data/srtm_cache:/app/data/srtm_cache
       - ./data/alti3d_cache:/app/data/alti3d_cache
+      - ./data/bathy_cache:/app/data/bathy_cache
     depends_on:
       - db
       - redis

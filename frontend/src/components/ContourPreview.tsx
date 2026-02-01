@@ -18,7 +18,7 @@
 import { Line, OrbitControls } from '@react-three/drei';
 import { Canvas, useThree } from '@react-three/fiber';
 import type { MultiLineString, MultiPolygon } from 'geojson';
-import React, { useMemo } from 'react';
+import { useMemo } from 'react';
 import * as THREE from 'three';
 
 const ROAD_STYLES: Record<string, { color: string; width: number }> = {
@@ -85,8 +85,26 @@ interface ContourLayer {
 
 interface ContourPreviewProps {
   layers: ContourLayer[]
+  darkMode?: boolean
 }
 
+/**
+ * ContourPreview
+ *
+ * Main component rendering a 3D preview of stacked contour layers.
+ * Sets up the Three.js canvas, computes centroids and extents for camera control,
+ * and stacks layers vertically based on thickness.
+ *
+ * @param layers - Array of contour layers with geometry, elevation, and optional thickness.
+ * @param darkMode - Boolean indicating if dark mode is active.
+ * @returns JSX element containing the 3D preview canvas.
+ *
+ * Uses useMemo hooks to efficiently compute:
+ * - The centroid and extent of all points for camera targeting and scaling.
+ * - The cumulative heights of layers for proper vertical stacking.
+ *
+ * Handles empty layers gracefully by rendering a placeholder box.
+ */
 /**
  * PolygonLayer
  *
@@ -299,23 +317,17 @@ function BuildingLayer({ geometry, z }: { geometry: MultiPolygon; z: number }) {
   )
 }
 
-/**
- * ContourPreview
- *
- * Main component rendering a 3D preview of stacked contour layers.
- * Sets up the Three.js canvas, computes centroids and extents for camera control,
- * and stacks layers vertically based on thickness.
- *
- * @param layers - Array of contour layers with geometry, elevation, and optional thickness.
- * @returns JSX element containing the 3D preview canvas.
- *
- * Uses useMemo hooks to efficiently compute:
- * - The centroid and extent of all points for camera targeting and scaling.
- * - The cumulative heights of layers for proper vertical stacking.
- *
- * Handles empty layers gracefully by rendering a placeholder box.
- */
-export default function ContourPreview({ layers }: ContourPreviewProps) {
+function WaterPlane({ width, height, positionY }: { width: number; height: number; positionY: number }) {
+  // Semi-transparent blue plane
+  return (
+    <mesh position={[0, 0, positionY]} rotation={[0, 0, 0]}>
+       <planeGeometry args={[width, height]} />
+       <meshStandardMaterial color="#00aaff" transparent opacity={0.3} side={THREE.DoubleSide} />
+    </mesh>
+  );
+}
+
+export default function ContourPreview({ layers, darkMode = true }: ContourPreviewProps) {
   // Compute the minimum elevation for potential use (not used currently).
   const minElevation = layers.length > 0 ? Math.min(...layers.map(layer => layer.elevation)) : 0
 
@@ -337,7 +349,9 @@ export default function ContourPreview({ layers }: ContourPreviewProps) {
     const xExtent = Math.max(...xs) - Math.min(...xs);
     const yExtent = Math.max(...ys) - Math.min(...ys);
     const xyExtent = Math.max(xExtent, yExtent);
-    return { allPoints: points, cx, cy, xyExtent };
+    // Also return bounds for screen fit
+    const bounds = { minX: Math.min(...xs), maxX: Math.max(...xs), minY: Math.min(...ys), maxY: Math.max(...ys) };
+    return { allPoints: points, cx, cy, xyExtent, bounds };
   }, [layers]);
 
   /**
@@ -358,15 +372,54 @@ export default function ContourPreview({ layers }: ContourPreviewProps) {
   const totalHeight = layers.reduce((sum, l) => sum + (l.thickness ?? 0.003), 0)
 
   const validLayerCount = layers.length;
-  console.log(`Rendering ${validLayerCount} valid contour layers.`);
+  // console.log(`Rendering ${validLayerCount} valid contour layers.`);
+
+  // Calculate extents for color interpolation
+  const waterStats = useMemo(() => {
+    const bathyLayers = layers.filter(l => l.elevation < 0);
+    if (!bathyLayers.length) return { min: 0, max: 0 };
+    const elevations = bathyLayers.map(l => l.elevation);
+    return { min: Math.min(...elevations), max: Math.max(...elevations) };
+  }, [layers]);
+
+  const landStats = useMemo(() => {
+    const landLayers = layers.filter(l => l.elevation >= 0);
+    if (!landLayers.length) return { min: 0, max: 0 };
+    const elevations = landLayers.map(l => l.elevation);
+    return { min: Math.min(...elevations), max: Math.max(...elevations) };
+  }, [layers]);
+
+  // Color Constants
+  const colors = useMemo(() => {
+    // ... existing color logic ...
+      // Dark Mode Palette (Brighter colors to stand out against dark bg)
+      if (darkMode) {
+          return {
+              bg: '#111',
+              waterDeep: new THREE.Color('#1E90FF'),  // Dodger Blue
+              waterShallow: new THREE.Color('#00FFFF'), // Aqua
+              landLow: new THREE.Color('#98FB98'),    // Pale Green
+              landHigh: new THREE.Color('#F4A460'),   // Sandy Brown
+              waterPlane: '#00FFFF', // Aqua
+          }
+      } 
+      // Light Mode Palette (Darker colors to stand out against white bg)
+      else {
+          return {
+              bg: '#fff',
+              waterDeep: new THREE.Color('#00008B'),  // Dark Blue
+              waterShallow: new THREE.Color('#40E0D0'), // Turquoise
+              landLow: new THREE.Color('#228B22'),    // Forest Green
+              landHigh: new THREE.Color('#8B4513'),   // Saddle Brown
+              waterPlane: '#00aaff', // Original blue
+          }
+      }
+  }, [darkMode]);
+
 
   return (
-    <div style={{ height: '400px', width: '100%', background: '#111' }}>
-      {/*
-        Three.js Canvas setup with orthographic camera for consistent scaling.
-        Ambient and directional lights provide basic illumination.
-        CameraController centers the view based on layers.
-      */}
+    <div style={{ height: '400px', width: '100%', background: colors.bg, borderRadius: '8px', overflow: 'hidden' }}>
+      {/* Three.js Canvas setup ... */}
       <Canvas
         style={{ width: '100%', height: '100%' }}
         orthographic camera={{ zoom: 600, position: [0, 0, 1] }}>
@@ -374,10 +427,7 @@ export default function ContourPreview({ layers }: ContourPreviewProps) {
           <directionalLight position={[0.5, 0.5, 1]} intensity={0.6} castShadow={false} />
           <CameraController layers={layers} />
 
-          {/*
-            Render placeholder box if no layers are provided.
-            This helps indicate an empty or loading state visually.
-          */}
+          {/* Render placeholder box if no layers are provided. */}
           {layers.length === 0 && (
             <mesh>
               <boxGeometry args={[1, 1, 1]} />
@@ -385,12 +435,30 @@ export default function ContourPreview({ layers }: ContourPreviewProps) {
             </mesh>
           )}
 
-          {/*
-            Map over each layer to render its extruded polygon mesh.
-            Layers are stacked vertically using the cumulative heights computed earlier.
-          */}
+          {/* Map over each layer to render its extruded polygon mesh. */}
           {layers.map((layer, idx) => {
             const positionY = cumulativeHeights[idx]
+            
+            // Calculate color based on relative elevation within its group (land or water)
+            let colorHex = "#888888"; // Default gray
+            if (layer.elevation < 0) {
+              // Bathymetry
+              // Deepest point (min) -> t=0 (Deep Color)
+              // Shallowest point (max) -> t=1 (Shallow Color)
+              const range = waterStats.max - waterStats.min || 1;
+              const t = (layer.elevation - waterStats.min) / range;
+              const c = colors.waterDeep.clone().lerp(colors.waterShallow, t);
+              colorHex = '#' + c.getHexString();
+            } else {
+              // Land
+              // Lowest point (min) -> t=0 (Low Color)
+              // Highest point (max) -> t=1 (High Color)
+              const range = landStats.max - landStats.min || 1;
+              const t = (layer.elevation - landStats.min) / range;
+              const c = colors.landLow.clone().lerp(colors.landHigh, t);
+              colorHex = '#' + c.getHexString();
+            }
+
             return (
               <PolygonLayer
                 key={`layer-${idx}`}
@@ -401,9 +469,12 @@ export default function ContourPreview({ layers }: ContourPreviewProps) {
                 cy={cy}
                 positionY={positionY}
                 thickness={layer.thickness ?? 0.003}
+                color={colorHex}
               />
             )
           })}
+          
+
 
           {/*
             Render additional features like roads and buildings if available in the layer.
@@ -411,8 +482,8 @@ export default function ContourPreview({ layers }: ContourPreviewProps) {
           */}
           {layers.map((layer, idx) => {
             const z = cumulativeHeights[idx]
-            console.log(`Layer ${idx} roads:`, layer.roads)
-            console.log(`Layer ${idx} buildings:`, layer.buildings)
+            // console.log(`Layer ${idx} roads:`, layer.roads)
+            // console.log(`Layer ${idx} buildings:`, layer.buildings)
             return (
               <group key={`extras-${idx}`}>
                 {layer.roads && <RoadLines roads={layer.roads} z={z + (layer.thickness ?? 0.003) + 0.001} />}
@@ -428,10 +499,28 @@ export default function ContourPreview({ layers }: ContourPreviewProps) {
             Commented-out plane mesh could be used as a ground plane if needed.
           */}
           <axesHelper args={[0.2]} />
-          {/* <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]}>
-            <planeGeometry args={[200, 200]} />
-            <meshStandardMaterial color="#222" />
-          </mesh> */}
+          
+          {/* Render Water Plane if we have negative elevations */}
+          {minElevation < 0 && (
+            // Find z-position where elevation crosses 0
+            // Since layers are sorted, we find the first layer with elevation >= 0
+            // and use its Z position.
+            (() => {
+              const seaLevelIndex = layers.findIndex(l => l.elevation >= 0);
+              const z = seaLevelIndex >= 0 ? cumulativeHeights[seaLevelIndex] : cumulativeHeights[cumulativeHeights.length - 1];
+              // Use extent of data for plane size
+              const width = xyExtent * 1.5; 
+              // Center it on cx, cy
+              return (
+                 <group position={[cx, cy, 0]}>
+                    <mesh position={[0, 0, z]} rotation={[0, 0, 0]}>
+                       <planeGeometry args={[width, width]} />
+                       <meshStandardMaterial color={colors.waterPlane} transparent opacity={0.3} side={THREE.DoubleSide} />
+                    </mesh>
+                 </group>
+              );
+            })()
+          )}
       </Canvas>
     </div>
   )

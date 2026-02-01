@@ -180,6 +180,7 @@ function App() {
   const [includeRoads, setIncludeRoads] = useState(false);
   const [includeBuildings, setIncludeBuildings] = useState(false);
   const [includeWaterways, setIncludeWaterways] = useState(false);
+  const [includeBathymetry, setIncludeBathymetry] = useState(false);
 
 
   // Poll elevation job
@@ -324,7 +325,12 @@ function App() {
         lon_min: bounds[0][1],
         lat_max: bounds[1][0],
         lon_max: bounds[1][1],
-      }
+      },
+      include_bathymetry: includeBathymetry, // Pass from current state or closure? 
+      // Note: useEffect closure might capture old state if not in dependency.
+      // fetchElevationRange is called in useEffect[bounds]. Need to ensure includeBathymetry is up to date.
+      // Better to accept it as arg or use ref? 
+      // Actually simpler: add includeBathymetry to useEffect dependency.
     };
     const res = await fetchWithCsrf(`${API_URL}/api/elevation-range/`, {
       method: "POST",
@@ -368,7 +374,7 @@ function App() {
     return () => {
       controller.abort();
     };
-  }, [bounds]);
+  }, [bounds, includeBathymetry]);
 
   // Reset fixed elevation when bounds change to avoid out-of-bounds slices
   useEffect(() => {
@@ -465,6 +471,7 @@ function App() {
       include_roads: includeRoads,
       include_buildings: includeBuildings,
       include_waterways: includeWaterways,
+      include_bathymetry: includeBathymetry,
 
     };
     if (fixedElevationEnabled && typeof fixedElevation === 'number') {
@@ -535,16 +542,53 @@ function App() {
     };
   }, []);
 
+  // Theme state
+  const [darkMode, setDarkMode] = useState(() => {
+    if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+       return true;
+    }
+    return true; // Default to dark if unknown, matching current aesthetic
+  });
+
+  useEffect(() => {
+    const handler = (e: MediaQueryListEvent) => setDarkMode(e.matches);
+    const media = window.matchMedia('(prefers-color-scheme: dark)');
+    media.addEventListener('change', handler);
+    return () => media.removeEventListener('change', handler);
+  }, []);
+
+  // Update body styles when darkMode changes
+  useEffect(() => {
+    if (darkMode) {
+      document.body.style.backgroundColor = '#242424';
+      document.body.style.color = 'rgba(255, 255, 255, 0.87)';
+    } else {
+      document.body.style.backgroundColor = '#ffffff';
+      document.body.style.color = '#213547';
+    }
+  }, [darkMode]);
+
   return (
-    <div className="container">
-      <header>
+    <div className={`container ${darkMode ? 'dark-mode' : 'light-mode'}`} style={{
+        // Basic theme variables injection
+        '--color-background': darkMode ? '#242424' : '#ffffff',
+        '--color-text': darkMode ? 'rgba(255, 255, 255, 0.87)' : '#213547',
+        '--color-sidebar-bg': darkMode ? '#1a1a1a' : '#f0f0f0',
+        '--color-sidebar-text': darkMode ? '#ffffff' : '#000000',
+        '--color-input-bg': darkMode ? '#333' : '#fff',
+        '--color-input-text': darkMode ? '#fff' : '#000',
+        '--color-border': darkMode ? '#444' : '#ccc',
+    } as React.CSSProperties}>
+      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <h2>Laser Contour Map Generator</h2>
+        <button 
+           onClick={() => setDarkMode(!darkMode)}
+           style={{ padding: '5px 10px', fontSize: '0.8rem', width: 'auto' }}
+        >
+          {darkMode ? '☀️ Light' : '🌙 Dark'}
+        </button>
       </header>
       <div className="content-wrapper">
-        {/* ─────────────── Sidebar Controls Section ───────────────
-            Contains all user controls for address input, geocoding,
-            and all slicer/geometry parameters. Changes here update
-            state and drive slicing/export logic. */}
         <div className="sidebar">
           <button onClick={() => setShowManual(true)}>Show Help</button>
           <div className="controls">
@@ -772,7 +816,7 @@ function App() {
           </div>
           <div id="preview-3d">
             <h2>3D Preview</h2>
-            { slicing ? <p>⏳ Slicing in progress...</p> : (contourLayers.length > 0 ? <ContourPreview layers={contourLayers} /> : <p>No contours available.</p>) }
+            { slicing ? <p>⏳ Slicing in progress...</p> : (contourLayers.length > 0 ? <ContourPreview layers={contourLayers} darkMode={darkMode} /> : <p>No contours available.</p>) }
           </div>
         </div>
         {/* ─────────────── Info Sidebar Section ───────────────
@@ -791,6 +835,14 @@ function App() {
           <p><strong>Lowest Elevation:</strong> {elevationStats ? `${elevationStats.min.toFixed(0)} m` : '…'}</p>
           <p><strong>Highest Elevation:</strong> {elevationStats ? `${elevationStats.max.toFixed(0)} m` : '…'}</p>
           <hr style={{ width: '100%', border: 'none', borderTop: '1px solid #ccc', margin: '1em 0' }} />
+          
+          <h2>Bathymetry</h2>
+          <label style={{display:'block'}}>
+            <input type="checkbox" checked={includeBathymetry} onChange={e => setIncludeBathymetry(e.target.checked)} /> Include Ocean Data
+          </label>
+
+          <hr style={{ width: '100%', border: 'none', borderTop: '1px solid #ccc', margin: '1em 0' }} />
+
           <h2>OSM features</h2>
           <label style={{display:'block'}}>
             <input type="checkbox" checked={includeRoads} onChange={e => setIncludeRoads(e.target.checked)} /> Roads

@@ -9,8 +9,14 @@ from shapely.geometry import (
     shape,
 )
 
+from core.services.bathymetry_service import BathymetryFetcher
 from core.utils.contour_ops import generate_contours
-from core.utils.dem import clean_srtm_dem, fill_nans_in_dem, mosaic_and_crop
+from core.utils.dem import (
+    clean_srtm_dem,
+    fill_nans_in_dem,
+    merge_srtm_and_etopo,
+    mosaic_and_crop,
+)
 from core.utils.download_clip_elevation_tiles import (
     download_elevation_tiles_for_bounds,
 )
@@ -95,6 +101,7 @@ class ContourSlicingJob:
         include_roads: bool = False,
         include_buildings: bool = False,
         include_waterways: bool = False,
+        include_bathymetry: bool = False,
     ):
         """Initialize the ContourSlicingJob with parameters.
         Args:
@@ -145,6 +152,7 @@ class ContourSlicingJob:
         self.include_roads = include_roads
         self.include_buildings = include_buildings
         self.include_waterways = include_waterways
+        self.include_bathymetry = include_bathymetry
 
     def _prepare_osm_feature_geom(
         self,
@@ -260,13 +268,44 @@ class ContourSlicingJob:
 
         report("Merging and processing DEM...", 15)
         elevation, transform = mosaic_and_crop(tile_paths, self.bounds)
+
+        if self.include_bathymetry:
+            report("Fetching global bathymetry (ETOPO)...", 18)
+            try:
+                fetcher = BathymetryFetcher()
+                etopo_data = fetcher.fetch_elevation_for_bounds(self.bounds)
+                logger.info(
+                    f"ETOPO fetched stats: min={etopo_data.min():.2f}, max={etopo_data.max():.2f}"
+                )
+
+                report("Merging SRTM and ETOPO...", 20)
+                elevation = merge_srtm_and_etopo(elevation, etopo_data)
+            except Exception as e:
+                logger.error(
+                    f"Failed to fetch/merge bathymetry: {e}. Falling back to SRTM only.",
+                    exc_info=True,
+                )
+                # Continue with SRTM only
+
         # Clean the elevation data
-        elevation = clean_srtm_dem(elevation)
+        # If bathymetry is disabled, we clamp the ocean/voids to 0 to provide a flat base.
+        if self.include_bathymetry:
+            min_valid = -11000
+        else:
+            # Enforce flat ocean: Treat SRTM voids (-32768) and negative noise as a fixed negative value.
+            # We use -1.0 (instead of 0) to ensure the coastline (at 0m) is generated as a distinct cut.
+            # This creates a "base layer" for the water at -1.0m, and the land starts at 0.0m.
+            COAST_OFFSET = -1.0
+            elevation[elevation == -32768] = COAST_OFFSET
+            elevation[elevation < 0] = COAST_OFFSET
+            min_valid = COAST_OFFSET
+
+        elevation = clean_srtm_dem(elevation, min_valid=min_valid)
         # elevation = robust_local_outlier_mask(elevation)
         logger.debug("Elevation max, min: %.2f, %.2f", elevation.max(), elevation.min())
-        masked_elevation = np.ma.masked_where(
-            ~np.isfinite(elevation) | (elevation <= -32768), elevation
-        )
+
+        # Create mask for filling NaNs (clean_srtm_dem produces NaNs for invalid values)
+        masked_elevation = np.ma.masked_invalid(elevation)
         masked_elevation = fill_nans_in_dem(masked_elevation)
 
         report("Generating base contours...", 25)

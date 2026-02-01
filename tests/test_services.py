@@ -66,7 +66,9 @@ def test_contour_slicing_job_run(monkeypatch):
         fake_download,
     )
     monkeypatch.setattr("core.services.contour_generator.mosaic_and_crop", fake_mosaic)
-    monkeypatch.setattr("core.services.contour_generator.clean_srtm_dem", lambda x: x)
+    monkeypatch.setattr(
+        "core.services.contour_generator.clean_srtm_dem", lambda x, **k: x
+    )
     # robust_local_outlier_mask is commented out in code, so no need to mock it
 
     monkeypatch.setattr(
@@ -145,7 +147,9 @@ def test_contour_slicing_job_with_osm(monkeypatch):
         "core.services.contour_generator.mosaic_and_crop",
         lambda p, b, **k: (np.ones((1, 1)), None),
     )
-    monkeypatch.setattr("core.services.contour_generator.clean_srtm_dem", lambda x: x)
+    monkeypatch.setattr(
+        "core.services.contour_generator.clean_srtm_dem", lambda x, **k: x
+    )
     monkeypatch.setattr(
         "core.services.contour_generator.generate_contours",
         lambda *a, **k: [{"elevation": 0, "geometry": mapping(poly), "closed": True}],
@@ -228,7 +232,9 @@ def test_contour_slicing_job_empty_osm(monkeypatch):
         "core.services.contour_generator.mosaic_and_crop",
         lambda p, b, **k: (np.ones((1, 1)), None),
     )
-    monkeypatch.setattr("core.services.contour_generator.clean_srtm_dem", lambda x: x)
+    monkeypatch.setattr(
+        "core.services.contour_generator.clean_srtm_dem", lambda x, **k: x
+    )
     monkeypatch.setattr(
         "core.services.contour_generator.generate_contours",
         lambda *a, **k: [{"elevation": 0, "geometry": mapping(poly), "closed": True}],
@@ -312,7 +318,9 @@ def test_elevation_range_job(monkeypatch):
     monkeypatch.setattr(
         "core.services.elevation_service.mosaic_and_crop", lambda p, b, **k: (arr, None)
     )
-    monkeypatch.setattr("core.services.elevation_service.clean_srtm_dem", lambda x: x)
+    monkeypatch.setattr(
+        "core.services.elevation_service.clean_srtm_dem", lambda x, **k: x
+    )
 
     job = ElevationRangeJob((0, 0, 1, 1))
     result = job.run()
@@ -329,7 +337,9 @@ def test_elevation_range_job_invalid(monkeypatch):
     monkeypatch.setattr(
         "core.services.elevation_service.mosaic_and_crop", lambda p, b, **k: (arr, None)
     )
-    monkeypatch.setattr("core.services.elevation_service.clean_srtm_dem", lambda x: x)
+    monkeypatch.setattr(
+        "core.services.elevation_service.clean_srtm_dem", lambda x, **k: x
+    )
 
     job = ElevationRangeJob((0, 0, 1, 1))
     with pytest.raises(ElevationDataError):

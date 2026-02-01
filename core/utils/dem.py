@@ -31,6 +31,70 @@ def clean_srtm_dem(
     return arr
 
 
+def merge_srtm_and_etopo(srtm_dem: np.ndarray, etopo_dem: np.ndarray) -> np.ndarray:
+    """Merge high-res SRTM (Land) with lower-res ETOPO (Ocean).
+
+    Args:
+        srtm_dem: High resolution land data (contains 0/NaN for ocean).
+        etopo_dem: Global bathymetry data (lower resolution).
+
+    Returns:
+        Combined DEM with SRTM on land and upsampled ETOPO in ocean.
+    """
+    # Safety check
+    if etopo_dem.size == 0:
+        return srtm_dem
+    if srtm_dem.size == 0:
+        return etopo_dem
+
+    # 1. Upsample ETOPO to match SRTM shape
+    # We use order=3 (cubic) for smoothness
+    zoom_factors = (
+        srtm_dem.shape[0] / etopo_dem.shape[0],
+        srtm_dem.shape[1] / etopo_dem.shape[1],
+    )
+    etopo_upsampled = scipy.ndimage.zoom(etopo_dem, zoom_factors, order=3)
+
+    # Handle slight rounding mismatches in shape
+    if etopo_upsampled.shape != srtm_dem.shape:
+        # Resize/Crop to exact match
+        # If smaller, we might have an issue, but zoom usually gets close.
+        # Simplest: zoom creates exact shape if we pass output shape? No.
+        # Let's crop or pad.
+        diff_h = etopo_upsampled.shape[0] - srtm_dem.shape[0]
+        diff_w = etopo_upsampled.shape[1] - srtm_dem.shape[1]
+
+        if diff_h > 0:
+            etopo_upsampled = etopo_upsampled[:-diff_h, :]
+        if diff_w > 0:
+            etopo_upsampled = etopo_upsampled[:, :-diff_w]
+
+        # If smaller (rare with float division), pad with edge values
+        if (
+            etopo_upsampled.shape[0] < srtm_dem.shape[0]
+            or etopo_upsampled.shape[1] < srtm_dem.shape[1]
+        ):
+            # Just resize with simpler method or re-zoom?
+            # Fallback: simple broadcast/pad?
+            # Actually, let's just use the srtm shape as target for a simpler interpolation if possible.
+            # But keeping it simple:
+            padded = np.zeros_like(srtm_dem)
+            h = min(etopo_upsampled.shape[0], srtm_dem.shape[0])
+            w = min(etopo_upsampled.shape[1], srtm_dem.shape[1])
+            padded[:h, :w] = etopo_upsampled[:h, :w]
+            etopo_upsampled = padded
+
+    # 2. Simple Merge: Use SRTM where possible, otherwise ETOPO
+    # SRTM represents ocean/sea-level with 0 and voids with -32768
+    is_missing = (srtm_dem == -32768) | (srtm_dem == 0) | np.isnan(srtm_dem)
+
+    final_dem = srtm_dem.copy()
+    # Filling holes and sea-level with ETOPO bathymetry/elevation
+    final_dem[is_missing] = etopo_upsampled[is_missing]
+
+    return final_dem
+
+
 def robust_local_outlier_mask(
     arr: np.ndarray, window: int = 5, thresh: float = 5.0
 ) -> np.ndarray:

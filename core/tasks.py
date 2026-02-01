@@ -156,6 +156,7 @@ def run_contour_slicing_job(self, job_id):
             include_roads=params.get("include_roads", False),
             include_buildings=params.get("include_buildings", False),
             include_waterways=params.get("include_waterways", False),
+            include_bathymetry=params.get("include_bathymetry", False),
         )
 
         # Main processing

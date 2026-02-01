@@ -101,10 +101,24 @@ def _create_contourf_levels(
             "Elevation data contains only NaN values. Check bounds or source data."
         )
 
+    # Ensure 0.0 is always a candidate level if the range spans it
+    # We do this by ensuring proper alignment or explicit inclusion.
+
     if num_layers is not None:
         levels = np.linspace(min_elev, max_elev, num_layers + 1).tolist()
+        # If we span across 0, ensure 0 is strictly present to define coastline
+        if min_elev < 0 < max_elev:
+            levels.append(0.0)
     else:
-        levels = np.arange(min_elev, max_elev + tol, interval).tolist()
+        # Align grid to interval multiples (e.g. ... -10, 0, 10 ...)
+        # This ensures 0.0 is hit naturally if interval divides coordinates
+        start = np.floor(min_elev / interval) * interval
+        levels = np.arange(start, max_elev + tol, interval).tolist()
+
+        # Explicitly ensure 0 is in the list if within range, just in case of float precision
+        if min_elev < 0 < max_elev:
+            levels.append(0.0)
+
     if fixed_elevation is not None:
         if min(levels) < fixed_elevation:
             v = fixed_elevation - 3.1
@@ -114,7 +128,16 @@ def _create_contourf_levels(
             v = fixed_elevation + 3.1
             if not any(abs(v - lvl) < 1e-4 for lvl in levels):
                 levels.append(v)
+
+    # Filter levels to only those within actual data range (plus a small margin)
+    # This prevents creating empty layers below/above actual data due to grid alignment
+    # But we MUST keep at least one level below 0 if min_elev < 0
+    # The 'start' alignment might have added levels below min_elev.
+
     levels = sorted(set(round(lvl, 6) for lvl in levels))
+    # Filter out levels strictly outside valid range (mostly for the ones added by floor alignment)
+    # However, keeping them doesn't hurt (contourf handles it).
+
     logger.debug(
         "Elevation data ranges from %s, %s \nContour levels boundaries are: %s",
         min_elev,

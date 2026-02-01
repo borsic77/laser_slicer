@@ -198,7 +198,10 @@ def project_geometry(
         Tuple of the projected contours and a transformation descriptor.
     """
     if existing_transform is not None:
-        proj, center, rot_angle = existing_transform
+        epsg_code, center, rot_angle = existing_transform
+        proj = pyproj.Transformer.from_crs(
+            "EPSG:4326", f"EPSG:{epsg_code}", always_xy=True
+        )
     else:
         zone_number = int((center_lon + 180) / 6) + 1
         is_northern = center_lat >= 0
@@ -266,7 +269,7 @@ def project_geometry(
                 exc,
             )
             continue
-    return projected_contours, (proj, center, rot_angle)
+    return projected_contours, (epsg_code, center, rot_angle)
 
 
 def clip_contours_to_bbox(

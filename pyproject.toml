@@ -19,6 +19,7 @@ dependencies = [
     "geojson>=3.2.0",
     "gunicorn>=23.0.0",
     "matplotlib>=3.10.3",
+    "netcdf4>=1.7.3",
     "numpy>=2.2.5",
     "osmnx>=2.0.4",
     "psycopg2-binary>=2.9.10",
@@ -29,6 +30,7 @@ dependencies = [
     "scipy>=1.15.3",
     "shapely>=2.1.0",
     "svgwrite>=1.4.3",
+    "xarray>=2025.6.1",
 ]
 
 [dependency-groups]
