@@ -99,7 +99,8 @@ def run_elevation_range_job(self, job_id):
             float(bounds_dict["lon_max"]),
             float(bounds_dict["lat_max"]),
         )
-        result = ElevationRangeJob(bounds).run()
+        include_bathymetry = params.get("include_bathymetry", False)
+        result = ElevationRangeJob(bounds, include_bathymetry=include_bathymetry).run()
         job.status = "SUCCESS"
         job.finished_at = timezone.now()
         job.progress = 100

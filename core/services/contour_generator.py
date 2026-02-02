@@ -278,8 +278,10 @@ class ContourSlicingJob:
                     f"ETOPO fetched stats: min={etopo_data.min():.2f}, max={etopo_data.max():.2f}"
                 )
 
-                report("Merging SRTM and ETOPO...", 20)
-                elevation = merge_srtm_and_etopo(elevation, etopo_data)
+                report("Merging SRTM and High-Res Bathymetry...", 20)
+                elevation = merge_srtm_and_etopo(
+                    elevation, etopo_data, bounds=self.bounds, transform=transform
+                )
             except Exception as e:
                 logger.error(
                     f"Failed to fetch/merge bathymetry: {e}. Falling back to SRTM only.",
@@ -365,7 +367,9 @@ class ContourSlicingJob:
                 cx,
                 cy,
                 self.simplify,
-                self.smoothing,
+                # Scale smoothing for geometric buffer: slider (0-200) -> radius (0-20m)
+                # Raw value was too aggressive (50m buffer for value 50).
+                max(0, float(self.smoothing) / 10.0),
                 utm_bounds,
                 self.substrate_size,
                 self.min_area,

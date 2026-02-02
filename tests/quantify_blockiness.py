@@ -1,7 +1,9 @@
 import os
 import sys
+from pathlib import Path
 
 import django
+import matplotlib.pyplot as plt
 import numpy as np
 from shapely.geometry import LineString, MultiPolygon, Polygon, shape
 
@@ -68,8 +70,21 @@ def calculate_blockiness(geometry):
                 # If width is ~5000m and substrate is 400mm. Scale is 0.08 mm/m.
                 # 100m block -> 8mm line.
 
-                is_horizontal = dy < (length * 0.05)  # 5% deviation allowed
+                is_horizontal = dy < (length * 0.05)
                 is_vertical = dx < (length * 0.05)
+
+                # NEW: Filter out bounding box edges (perfectly straight and at the limits)
+                # Bounds are roughly (-0.2 to 0.2)
+                # Let's count only segments that are NOT on the outer frame
+                margin = 0.001
+                if (
+                    abs(p1[0]) > 0.199
+                    or abs(p2[0]) > 0.199
+                    or abs(p1[1]) > 0.199
+                    or abs(p2[1]) > 0.199
+                ):
+                    # This segment is likely on the bbox boundary
+                    continue
 
                 if is_horizontal or is_vertical:
                     long_aligned_length += length
@@ -105,7 +120,7 @@ def run_test():
         substrate_size_mm=400,
         layer_thickness_mm=5,
         center=(center_lon, center_lat),
-        smoothing=0,  # Raw
+        smoothing=0,
         min_area=0,
         min_feature_width_mm=0,
         include_bathymetry=True,
@@ -151,6 +166,22 @@ def run_test():
 
     score = calculate_blockiness(geom)
     print(f"Blockiness Score (LAAS %): {score:.2f}%")
+
+    # Final visual check: Save a plot of the coastline
+    output_dir = Path("/app/data/debug")
+    output_dir.mkdir(parents=True, exist_ok=True)
+    fig, ax = plt.subplots(figsize=(10, 10))
+    if hasattr(geom, "geoms"):
+        for g in geom.geoms:
+            x, y = g.exterior.xy
+            ax.plot(x, y, color="black", linewidth=0.5)
+    else:
+        x, y = geom.exterior.xy
+        ax.plot(x, y, color="black", linewidth=0.5)
+    ax.set_title(f"Coastline (0m) - Blockiness: {score:.2f}%")
+    ax.set_aspect("equal")
+    plt.savefig(output_dir / "coastline_smoothness_check.png")
+    print(f"Saved visual check to {output_dir / 'coastline_smoothness_check.png'}")
 
     if score > 20.0:
         print("FAIL: Coastline is too blocky.")

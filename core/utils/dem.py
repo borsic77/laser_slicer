@@ -31,66 +31,108 @@ def clean_srtm_dem(
     return arr
 
 
-def merge_srtm_and_etopo(srtm_dem: np.ndarray, etopo_dem: np.ndarray) -> np.ndarray:
-    """Merge high-res SRTM (Land) with lower-res ETOPO (Ocean).
+def merge_srtm_and_etopo(
+    srtm_dem: np.ndarray,
+    etopo_dem: np.ndarray,
+    bounds: tuple[float, float, float, float] | None = None,
+    transform: rasterio.Affine | None = None,
+) -> np.ndarray:
+    """Merge high-res SRTM (Land) with high-res Bathymetry (Ocean) using OSM masking.
 
     Args:
-        srtm_dem: High resolution land data (contains 0/NaN for ocean).
-        etopo_dem: Global bathymetry data (lower resolution).
+        srtm_dem: High resolution land data (SRTM).
+        etopo_dem: Bathymetry data (GEBCO/ETOPO/EMODnet).
+        bounds: Optional (lon_min, lat_min, lon_max, lat_max) for OSM masking.
+        transform: Optional Affine transform matching srtm_dem.
 
     Returns:
-        Combined DEM with SRTM on land and upsampled ETOPO in ocean.
+        Combined DEM with SRTM on land and upsampled bathymetry in ocean,
+        seamlessly blended at the coastline.
     """
+    from core.services.osm_service import fetch_coastline_mask
+
     # Safety check
     if etopo_dem.size == 0:
         return srtm_dem
     if srtm_dem.size == 0:
         return etopo_dem
 
-    # 1. Upsample ETOPO to match SRTM shape
-    # We use order=3 (cubic) for smoothness
+    # 1. Upsample Bathymetry to match SRTM shape
     zoom_factors = (
         srtm_dem.shape[0] / etopo_dem.shape[0],
         srtm_dem.shape[1] / etopo_dem.shape[1],
     )
-    etopo_upsampled = scipy.ndimage.zoom(etopo_dem, zoom_factors, order=3)
+    bathy_upsampled = scipy.ndimage.zoom(etopo_dem, zoom_factors, order=3)
 
-    # Handle slight rounding mismatches in shape
-    if etopo_upsampled.shape != srtm_dem.shape:
+    if bathy_upsampled.shape != srtm_dem.shape:
         # Resize/Crop to exact match
-        # If smaller, we might have an issue, but zoom usually gets close.
-        # Simplest: zoom creates exact shape if we pass output shape? No.
-        # Let's crop or pad.
-        diff_h = etopo_upsampled.shape[0] - srtm_dem.shape[0]
-        diff_w = etopo_upsampled.shape[1] - srtm_dem.shape[1]
-
+        diff_h = bathy_upsampled.shape[0] - srtm_dem.shape[0]
+        diff_w = bathy_upsampled.shape[1] - srtm_dem.shape[1]
         if diff_h > 0:
-            etopo_upsampled = etopo_upsampled[:-diff_h, :]
+            bathy_upsampled = bathy_upsampled[:-diff_h, :]
+        elif diff_h < 0:
+            bathy_upsampled = np.pad(
+                bathy_upsampled, ((0, -diff_h), (0, 0)), mode="edge"
+            )
+
         if diff_w > 0:
-            etopo_upsampled = etopo_upsampled[:, :-diff_w]
+            bathy_upsampled = bathy_upsampled[:, :-diff_w]
+        elif diff_w < 0:
+            bathy_upsampled = np.pad(
+                bathy_upsampled, ((0, 0), (0, -diff_w)), mode="edge"
+            )
 
-        # If smaller (rare with float division), pad with edge values
-        if (
-            etopo_upsampled.shape[0] < srtm_dem.shape[0]
-            or etopo_upsampled.shape[1] < srtm_dem.shape[1]
-        ):
-            # Just resize with simpler method or re-zoom?
-            # Fallback: simple broadcast/pad?
-            # Actually, let's just use the srtm shape as target for a simpler interpolation if possible.
-            # But keeping it simple:
-            padded = np.zeros_like(srtm_dem)
-            h = min(etopo_upsampled.shape[0], srtm_dem.shape[0])
-            w = min(etopo_upsampled.shape[1], srtm_dem.shape[1])
-            padded[:h, :w] = etopo_upsampled[:h, :w]
-            etopo_upsampled = padded
+    # 2. OSM Land Masking (The "Cookie-Cutter")
+    if bounds and transform:
+        is_land = fetch_coastline_mask(bounds, srtm_dem.shape, transform)
+        # Ensure it's a bool mask
+        is_land = is_land.astype(bool)
+    else:
+        logger.warning(
+            "No bounds/transform provided to merge_srtm_and_etopo. Falling back to value-based masking."
+        )
+        is_land = (srtm_dem > 0) & (~np.isnan(srtm_dem)) & (srtm_dem != -32768)
 
-    # 2. Simple Merge: Use SRTM where possible, otherwise ETOPO
-    # SRTM represents ocean/sea-level with 0 and voids with -32768
-    is_missing = (srtm_dem == -32768) | (srtm_dem == 0) | np.isnan(srtm_dem)
+    # 3. Distance-based Blending at Coastline
+    # We want SRTM to transition to 0.0 at the coast, and Bathy to do the same.
+    # We'll use a 100m blend (approx 3-4 pixels at 30m).
+    pixel_res = 30.0  # Approximate
+    blend_dist_m = 100.0
+    blend_width_pixels = blend_dist_m / pixel_res
 
-    final_dem = srtm_dem.copy()
-    # Filling holes and sea-level with ETOPO bathymetry/elevation
-    final_dem[is_missing] = etopo_upsampled[is_missing]
+    # Distance Transform: Distance in pixels to the nearest "Sea" (0 in is_land)
+    dist_to_sea = scipy.ndimage.distance_transform_edt(is_land)
+    # Blend Weight: 0.0 at sea, 1.0 deep inland (>100m)
+    land_weight = np.clip(dist_to_sea / blend_width_pixels, 0, 1)
+
+    # Similar for sea: Distance in pixels to nearest "Land"
+    dist_to_land = scipy.ndimage.distance_transform_edt(~is_land)
+    # Blend Weight: 0.0 at land, 1.0 deep sea (>100m)
+    sea_weight = np.clip(dist_to_land / blend_width_pixels, 0, 1)
+
+    # 4. Final Merge
+    # Forced Coastline Point: 0.0m
+    # Combine:
+    # - Deep Land: SRTM
+    # - Near Coast Land: SRTM blended with 0.0
+    # - Near Coast Sea: 0.0 blended with Bathy
+    # - Deep Sea: Bathy
+
+    # Clean SRTM/Bathy local copies for merging
+    srtm_clean = srtm_dem.copy()
+    srtm_clean[(srtm_dem == -32768) | np.isnan(srtm_dem)] = 0.0
+
+    bathy_clean = bathy_upsampled.copy()
+    bathy_clean[np.isnan(bathy_clean)] = 0.0
+
+    final_dem = np.zeros_like(srtm_dem)
+
+    # Calculate merged values
+    # Land area: Blend SRTM towards 0.0 as we approach the coast
+    final_dem[is_land] = srtm_clean[is_land] * land_weight[is_land]
+
+    # Sea area: Blend Bathy towards 0.0 as we approach the coast
+    final_dem[~is_land] = bathy_clean[~is_land] * sea_weight[~is_land]
 
     return final_dem
 
