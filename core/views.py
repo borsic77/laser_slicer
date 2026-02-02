@@ -16,8 +16,7 @@ from core.tasks import (  # New: see below
     run_elevation_range_job,
     run_svg_export_job,
 )
-from core.utils.dem import sample_elevation
-from core.utils.download_clip_elevation_tiles import ensure_tile_downloaded
+from core.utils.dem import ensure_tile_downloaded, sample_elevation
 from core.utils.geocoding import geocode_address
 from core.utils.waterbody import fetch_waterbody_polygon
 

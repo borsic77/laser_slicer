@@ -13,12 +13,10 @@ from core.services.bathymetry_service import BathymetryFetcher
 from core.utils.contour_ops import generate_contours
 from core.utils.dem import (
     clean_srtm_dem,
+    download_elevation_tiles_for_bounds,
     fill_nans_in_dem,
     merge_srtm_and_etopo,
     mosaic_and_crop,
-)
-from core.utils.download_clip_elevation_tiles import (
-    download_elevation_tiles_for_bounds,
 )
 from core.utils.geocoding import compute_utm_bounds_from_wgs84
 from core.utils.geometry_ops import project_geometry
@@ -245,25 +243,15 @@ class ContourSlicingJob:
             logger.warning("Failed to fetch roads: %s", exc, exc_info=True)
             return {}
 
-    def run(self, progress_callback=None) -> list[dict]:
-        """Execute the contour slicing job.
-
-        Args:
-            progress_callback: Optional function(status_msg, percent) to report progress.
-
-        Returns:
-            A list of contour feature dictionaries prepared for slicing.
-        """
+    def _fetch_and_prep_dem(self, progress_callback=None):
+        """Fetch, merge, and clean DEM data including bathymetry."""
 
         def report(msg, pct):
             if progress_callback:
                 progress_callback(msg, pct)
 
         report("Downloading elevation tiles...", 5)
-        # Unpack the bounding box coordinates and center
-        lon_min, lat_min, lon_max, lat_max = self.bounds
-        cx, cy = self.center
-        # Download elevation tiles and generate contours
+        # Download elevation tiles
         tile_paths = download_elevation_tiles_for_bounds(self.bounds)
 
         report("Merging and processing DEM...", 15)
@@ -287,7 +275,6 @@ class ContourSlicingJob:
                     f"Failed to fetch/merge bathymetry: {e}. Falling back to SRTM only.",
                     exc_info=True,
                 )
-                # Continue with SRTM only
 
         # Clean the elevation data
         # If bathymetry is disabled, we clamp the ocean/voids to 0 to provide a flat base.
@@ -296,33 +283,33 @@ class ContourSlicingJob:
         else:
             # Enforce flat ocean: Treat SRTM voids (-32768) and negative noise as a fixed negative value.
             # We use -1.0 (instead of 0) to ensure the coastline (at 0m) is generated as a distinct cut.
-            # This creates a "base layer" for the water at -1.0m, and the land starts at 0.0m.
             COAST_OFFSET = -1.0
             elevation[elevation == -32768] = COAST_OFFSET
             elevation[elevation < 0] = COAST_OFFSET
             min_valid = COAST_OFFSET
 
         elevation = clean_srtm_dem(elevation, min_valid=min_valid)
-        # elevation = robust_local_outlier_mask(elevation)
         logger.debug("Elevation max, min: %.2f, %.2f", elevation.max(), elevation.min())
 
         # Create mask for filling NaNs (clean_srtm_dem produces NaNs for invalid values)
         masked_elevation = np.ma.masked_invalid(elevation)
         masked_elevation = fill_nans_in_dem(masked_elevation)
 
-        report("Generating base contours...", 25)
+        return elevation, masked_elevation, transform
+
+    def _generate_base_contours(
+        self, elevation, masked_elevation, transform, progress_callback=None
+    ):
+        if progress_callback:
+            progress_callback("Generating base contours...", 25)
         contours = generate_contours(
-            masked_elevation_data=masked_elevation,  # The filled/clean version
-            elevation_data=elevation,  # The raw version (though new impl uses this for thresholding, so maybe we want the clean one?)
-            # Actually, looking at new impl:
-            # `data_filled = elevation_data.copy(); data_filled[np.isnan] = -inf`
-            # So passing raw `elevation` as `elevation_data` is fine, it handles NaNs internally.
+            masked_elevation_data=masked_elevation,
+            elevation_data=elevation,
             transform=transform,
             interval=self.height,
             simplify=float(self.simplify) / 100000.0,
             debug_image_path=settings.DEBUG_IMAGE_PATH,
             center=self.center,
-            # scale removed
             bounds=self.bounds,
             fixed_elevation=self.fixed_elevation,
             num_layers=self.num_layers,
@@ -332,13 +319,16 @@ class ContourSlicingJob:
             dem_smoothing=max(0, float(self.smoothing) / 5.0),
         )
         _log_contour_info(contours, "After Contour Generation")
+        return contours
 
-        # Establish projection parameters once on main thread
-        # We use the center point to define a stable origin and rotation (Grid Convergence)
-        # Calling project_geometry with [] will initialize it from cx, cy
-        _, (proj, rot_center, rot_angle) = project_geometry(
-            [], cx, cy, simplify_tolerance=0.0
-        )
+    def _run_post_processing(
+        self, contours, proj_params, utm_bounds, cx, cy, progress_callback=None
+    ):
+        """Run parallel post-processing on contours (projection, cleanup)."""
+
+        def report(msg, pct):
+            if progress_callback:
+                progress_callback(msg, pct)
 
         # Prepare arguments for parallel execution
         # Use billiard.Pool because Celery workers are daemonic and cannot spawn children with standard multiprocessing
@@ -346,12 +336,6 @@ class ContourSlicingJob:
         import billiard
 
         from core.utils.parallel_ops import process_and_scale_single_contour
-
-        utm_bounds = compute_utm_bounds_from_wgs84(
-            lon_min, lat_min, lon_max, lat_max, cx, cy
-        )
-
-        proj_params = (proj, rot_center, rot_angle)
 
         report(f"Processing {len(contours)} contours in parallel...", 40)
         logger.info(
@@ -366,8 +350,6 @@ class ContourSlicingJob:
                 cx,
                 cy,
                 self.simplify,
-                # Scale smoothing for geometric buffer: slider (0-200) -> radius (0-20m)
-                # Raw value was too aggressive (50m buffer for value 50).
                 max(0, float(self.smoothing) / 10.0),
                 utm_bounds,
                 self.substrate_size,
@@ -379,33 +361,25 @@ class ContourSlicingJob:
 
         processed_contours = []
         try:
-            # billiard handles daemon processes properly
             import multiprocessing
 
             cpu_count = multiprocessing.cpu_count()
             workers = max(1, cpu_count - 1)
-
-            # Simple manual chunking to report progress during parallel map
-            # We can't use starmap if we want granular progress for each item easily without a callback proxy
-            # But we can chunk it.
 
             chunk_size = max(1, len(tasks_args) // 10)
             chunks = [
                 tasks_args[i : i + chunk_size]
                 for i in range(0, len(tasks_args), chunk_size)
             ]
-
             total_chunks = len(chunks)
 
             with billiard.Pool(processes=workers) as pool:
                 for i, chunk in enumerate(chunks):
-                    # report progress based on chunks
                     current_pct = 40 + int(50 * (i / total_chunks))
                     report(
                         f"Slicing contours... (Batch {i + 1}/{total_chunks})",
                         current_pct,
                     )
-
                     results = pool.starmap(process_and_scale_single_contour, chunk)
                     processed_contours.extend([r for r in results if r is not None])
 
@@ -415,14 +389,10 @@ class ContourSlicingJob:
 
         # Sort by elevation
         processed_contours.sort(key=lambda x: x["elevation"])
-        contours = processed_contours
+        return processed_contours
 
-        report("Finalizing OSM features...", 90)
-        logger.debug(
-            f"Parallel processing complete. {len(contours)} valid contours remaining."
-        )
-
-        # Prepare optional OSM features (Roads/Waterways need the 'scale_factor' and 'center' from the now-implicit scaling)
+    def _fetch_osm_features(self, utm_bounds, proj_params, cx, cy):
+        """Fetch and project OSM features (roads, waterways, buildings)."""
         # We need to re-calculate the scale params to process OSM features identically
         # logic duplicated from `scale_and_center_contours_to_substrate`
         substrate_m = self.substrate_size / 1000.0
@@ -433,11 +403,9 @@ class ContourSlicingJob:
         center_y = (miny + maxy) / 2
         scale_factor = substrate_m / max(width, height)
 
-        # ... (rest of OSM processing remains sequential as it's usually fast/small) ...
-
         roads_geom = (
             self._prepare_osm_road_geoms(
-                (proj, rot_center, rot_angle),  # projection
+                proj_params,  # projection
                 center_x,
                 center_y,
                 scale_factor,
@@ -450,7 +418,7 @@ class ContourSlicingJob:
         waterways_geom = (
             self._prepare_osm_feature_geom(
                 fetch_waterways,
-                (proj, rot_center, rot_angle),
+                proj_params,
                 center_x,
                 center_y,
                 scale_factor,
@@ -464,7 +432,7 @@ class ContourSlicingJob:
         buildings_geom = (
             self._prepare_osm_feature_geom(
                 fetch_buildings,
-                (proj, rot_center, rot_angle),
+                proj_params,
                 center_x,
                 center_y,
                 scale_factor,
@@ -474,6 +442,68 @@ class ContourSlicingJob:
             )
             if self.include_buildings
             else None
+        )
+        return roads_geom, waterways_geom, buildings_geom
+
+    def run(self, progress_callback=None) -> list[dict]:
+        """Execute the contour slicing job.
+
+        Args:
+            progress_callback: Optional function(status_msg, percent) to report progress.
+
+        Returns:
+            A list of contour feature dictionaries prepared for slicing.
+        """
+
+        def report(msg, pct):
+            if progress_callback:
+                progress_callback(msg, pct)
+
+        # 1. Fetch and Prepare DEM
+        elevation, masked_elevation, transform = self._fetch_and_prep_dem(
+            progress_callback
+        )
+
+        # Unpack the bounding box coordinates and center (needed for other steps)
+        lon_min, lat_min, lon_max, lat_max = self.bounds
+        cx, cy = self.center
+
+        # 2. Generate Base Contours
+        contours = self._generate_base_contours(
+            elevation, masked_elevation, transform, progress_callback
+        )
+
+        # Establish projection parameters once on main thread
+        # We use the center point to define a stable origin and rotation (Grid Convergence)
+        # Calling project_geometry with [] will initialize it from cx, cy
+        _, (proj, rot_center, rot_angle) = project_geometry(
+            [], cx, cy, simplify_tolerance=0.0
+        )
+
+        # Prepare arguments for parallel execution
+        # Prepare arguments for parallel execution
+        # Use billiard.Pool because Celery workers are daemonic and cannot spawn children with standard multiprocessing
+        # billiard is Celery's fork of multiprocessing that handles this safely.
+
+        utm_bounds = compute_utm_bounds_from_wgs84(
+            lon_min, lat_min, lon_max, lat_max, cx, cy
+        )
+
+        proj_params = (proj, rot_center, rot_angle)
+
+        # 3. Post-Processing (Parallel)
+        contours = self._run_post_processing(
+            contours, proj_params, utm_bounds, cx, cy, progress_callback
+        )
+
+        report("Finalizing OSM features...", 90)
+        logger.debug(
+            f"Parallel processing complete. {len(contours)} valid contours remaining."
+        )
+
+        # Prepare optional OSM features (Roads/Waterways/Buildings)
+        roads_geom, waterways_geom, buildings_geom = self._fetch_osm_features(
+            utm_bounds, proj_params, cx, cy
         )
 
         # Filter small features was already done in parallel step!

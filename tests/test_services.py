@@ -50,9 +50,11 @@ def test_contour_slicing_job_run(monkeypatch):
         }
     ]
 
-    def fake_generate(elev, masked, tr, height, simplify, **kwargs):
+    def fake_generate(
+        masked_elevation_data, elevation_data, transform, interval, simplify, **kwargs
+    ):
         recorded["generate"] = {
-            "height": height,
+            "height": interval,
             "simplify": simplify,
             "center": kwargs.get("center"),
             "bounds": kwargs.get("bounds"),

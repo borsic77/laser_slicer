@@ -5,11 +5,9 @@ import numpy as np
 from core.services.bathymetry_service import BathymetryFetcher
 from core.utils.dem import (
     clean_srtm_dem,
+    download_elevation_tiles_for_bounds,
     merge_srtm_and_etopo,
     mosaic_and_crop,
-)
-from core.utils.download_clip_elevation_tiles import (
-    download_elevation_tiles_for_bounds,
 )
 
 logger = logging.getLogger(__name__)
