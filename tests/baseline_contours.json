@@ -1,0 +1,56 @@
+[
+  {
+    "elevation": 10.0,
+    "area": 1418.7344347710832,
+    "length": 133.54373340475934,
+    "geom_type": "MultiPolygon"
+  },
+  {
+    "elevation": 20.0,
+    "area": 991.2145445111194,
+    "length": 111.62702564253507,
+    "geom_type": "MultiPolygon"
+  },
+  {
+    "elevation": 30.0,
+    "area": 741.4009328761808,
+    "length": 96.54149188266224,
+    "geom_type": "MultiPolygon"
+  },
+  {
+    "elevation": 40.0,
+    "area": 563.933007617466,
+    "length": 84.20338348794856,
+    "geom_type": "MultiPolygon"
+  },
+  {
+    "elevation": 50.0,
+    "area": 426.3649701045733,
+    "length": 73.21899046865622,
+    "geom_type": "MultiPolygon"
+  },
+  {
+    "elevation": 60.0,
+    "area": 313.91877605351357,
+    "length": 62.836066830222826,
+    "geom_type": "MultiPolygon"
+  },
+  {
+    "elevation": 70.0,
+    "area": 218.8762415392015,
+    "length": 52.47538368666582,
+    "geom_type": "MultiPolygon"
+  },
+  {
+    "elevation": 80.0,
+    "area": 136.59119138716127,
+    "length": 41.47042725005061,
+    "geom_type": "MultiPolygon"
+  },
+  {
+    "elevation": 90.0,
+    "area": 63.993939384131615,
+    "length": 28.413085674396882,
+    "geom_type": "MultiPolygon"
+  }
+]

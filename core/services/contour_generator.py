@@ -312,25 +312,24 @@ class ContourSlicingJob:
 
         report("Generating base contours...", 25)
         contours = generate_contours(
-            elevation,
-            masked_elevation,
-            transform,
-            self.height,
-            self.simplify,
+            masked_elevation_data=masked_elevation,  # The filled/clean version
+            elevation_data=elevation,  # The raw version (though new impl uses this for thresholding, so maybe we want the clean one?)
+            # Actually, looking at new impl:
+            # `data_filled = elevation_data.copy(); data_filled[np.isnan] = -inf`
+            # So passing raw `elevation` as `elevation_data` is fine, it handles NaNs internally.
+            transform=transform,
+            interval=self.height,
+            simplify=float(self.simplify) / 100000.0,
             debug_image_path=settings.DEBUG_IMAGE_PATH,
             center=self.center,
-            scale=100,
+            # scale removed
             bounds=self.bounds,
             fixed_elevation=self.fixed_elevation,
             num_layers=self.num_layers,
             water_polygon=self.water_polygon,
-            # We can expose resolution_scale to the API later if needed
             resolution_scale=1.0,
-            # Default noise filtering threshold
             min_area_deg2=1e-10,
-            # Map smoothing slider (0-200) to Gaussian sigma (0.0 - 4.0)
-            # Slider=50 -> sigma=1.0 (approx 2m smoothing on high-res)
-            dem_smoothing=max(0, float(self.smoothing) / 50.0),
+            dem_smoothing=max(0, float(self.smoothing) / 5.0),
         )
         _log_contour_info(contours, "After Contour Generation")
 

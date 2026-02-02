@@ -348,7 +348,17 @@ def mosaic_and_crop(
         # Force the best resolution found (in case first file is low-res SRTM)
         res = native_res
 
-    mosaic, transform = merge(src_files, res=res)
+    # Debug: log bounds and find best dtype
+    best_dtype = rasterio.int16
+    for i, src in enumerate(src_files):
+        logger.debug(
+            f"Source {i} bounds: {src.bounds}, crs: {src.crs}, res: {src.res}, dtype: {src.dtypes[0]}"
+        )
+        if "float" in src.dtypes[0]:
+            best_dtype = rasterio.float32
+
+    logger.debug(f"Mosaic merging with dtype: {best_dtype}")
+    mosaic, transform = merge(src_files, res=res, dtype=best_dtype)
 
     lon_min, lat_min, lon_max, lat_max = bounds
     if lat_min > lat_max:

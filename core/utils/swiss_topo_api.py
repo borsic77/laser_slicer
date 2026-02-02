@@ -108,8 +108,8 @@ def download_swissalti3d_tiles(bounds: Tuple[float, float, float, float]) -> Lis
                     reproject_to_wgs84(local_path, wgs84_path)
                 except Exception as e:
                     logger.error(f"Failed to reproject {local_path}: {e}")
-                    # Fallback to original path, though likely to fail downstream if CRS mismatch
-                    downloaded_paths.append(str(local_path))
+                    # Do NOT fallback to original local_path as it has different CRS (EPSG:2056)
+                    # causing "array too big" errors in merge.
                     continue
 
             downloaded_paths.append(str(wgs84_path))
