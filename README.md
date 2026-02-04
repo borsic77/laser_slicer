@@ -10,6 +10,7 @@ Live site: [laserslicer.legradic.ch](https://laserslicer.legradic.ch)
 * A **browser 3‑D preview** of the stacked model
 * A **Dockerised, reproducible workflow** that runs the heavy lifting in Celery workers
 * **Fixed elevation** tool for clean coastlines and lakes
+* **Bathymetry support** (Ocean Data) using global ETOPO datasets
 * **SRTM noise filtering** for troublesome areas (e.g. Boston)
 
 
@@ -27,7 +28,8 @@ Live site: [laserslicer.legradic.ch](https://laserslicer.legradic.ch)
 | Toggle roads/buildings/waterways overlay | Robust SRTM cleaning & outlier filtering |
 | Toggle roads/buildings/waterways overlay | Fetch OSM roads, buildings & waterways |
 | **Slice** button launches background job | Contour generation with GDAL / Matplotlib |
-| Live **Three.js** 3‑D preview of layers | Optional simplification with Shapely |
+| Live **Three.js** 3‑D preview of layers | **Parallel Processing** for faster slicing |
+| **Download SVGs** – packaged as a ZIP | Optional simplification with Shapely |
 | **Download SVGs** – packaged as a ZIP | SVG export via `svgwrite` |
 | Hot‑reload dev server (`npm run dev`) | **Celery + Redis** task queue |
 | Caddy reverse proxy (HTTPS out‑of‑the‑box) | Single‑command **Docker** deploy |
