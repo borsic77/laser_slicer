@@ -1,5 +1,6 @@
 interface InfoSidebarProps {
     coordinates: [number, number] | null;
+    bounds: [[number, number], [number, number]] | null;
     areaStats: { width: number; height: number } | null;
     elevationStats: { min: number; max: number } | null;
     
@@ -16,17 +17,20 @@ interface InfoSidebarProps {
 
 export default function InfoSidebar(props: InfoSidebarProps) {
     const {
-        coordinates, areaStats, elevationStats,
+        coordinates, bounds, areaStats, elevationStats,
         includeBathymetry, setIncludeBathymetry,
         includeRoads, setIncludeRoads,
         includeWaterways, setIncludeWaterways,
         includeBuildings, setIncludeBuildings
     } = props;
 
+    const centerLat = bounds ? (bounds[0][0] + bounds[1][0]) / 2 : (coordinates ? coordinates[0] : null);
+    const centerLon = bounds ? (bounds[0][1] + bounds[1][1]) / 2 : (coordinates ? coordinates[1] : null);
+
     return (
         <div className="info-sidebar">
           <h2>Area Info</h2>
-          <p><strong>Center:</strong> {coordinates ? `${coordinates[0].toFixed(5)}, ${coordinates[1].toFixed(5)}` : 'N/A'}</p>
+          <p><strong>Center:</strong> {centerLat !== null && centerLon !== null ? `${centerLat.toFixed(5)}, ${centerLon.toFixed(5)}` : 'N/A'}</p>
           <p><strong>Width:</strong> {areaStats ? `${areaStats.width.toFixed(0)} m` : 'N/A'}</p>
           <p><strong>Height:</strong> {areaStats ? `${areaStats.height.toFixed(0)} m` : 'N/A'}</p>
           <p><strong>Lowest Elevation:</strong> {elevationStats ? `${elevationStats.min.toFixed(0)} m` : '…'}</p>

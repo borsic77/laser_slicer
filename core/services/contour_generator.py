@@ -1,28 +1,16 @@
 import concurrent.futures
 import logging
-import time
-from typing import List, Tuple
 
 import numpy as np
 import shapely
 from django.conf import settings
-from PIL import Image, ImageOps
-from rasterio.transform import from_origin
 from shapely.geometry import (
     box,
     mapping,
     shape,
 )
 
-from core.services.bathymetry_service import BathymetryFetcher
 from core.utils.contour_ops import generate_contours
-from core.utils.dem import (
-    clean_srtm_dem,
-    download_elevation_tiles_for_bounds,
-    fill_nans_in_dem,
-    merge_srtm_and_etopo,
-    mosaic_and_crop,
-)
 from core.utils.geocoding import compute_utm_bounds_from_wgs84
 from core.utils.geometry_ops import project_geometry
 from core.utils.osm_features import (
@@ -35,6 +23,10 @@ from core.utils.osm_features import (
 )
 
 logger = logging.getLogger(__name__)
+
+OCEAN_LEVEL_THRESHOLD = (
+    15.0  # Meters. Water bodies above this are considered "Inland" and kept as-is.
+)
 
 
 def _log_contour_info(contours, process_step: str = "Contour Generation"):
@@ -339,10 +331,26 @@ class ContourSlicingJob:
                 if not np.issubdtype(land_raw.dtype, np.floating):
                     land_raw = land_raw.astype(np.float32)
 
-                # Set water pixels to NaN
-                land_raw[water_mask_dest.astype(bool)] = np.nan
+                # Set water pixels to NaN ONLY if they are likely Ocean (low elevation)
+                # Inland rivers/lakes (high elevation) should NOT be masked out.
+                # We use the raw SRTM data for this check.
+
+                # Identify where:
+                # 1. OSM says Water (mask_dest is True)
+                # 2. SRTM says Elevation < Threshold (likely Ocean/Coast)
+                # We use a broad threshold (15m) to catch tidal zones and low-lying deltas.
+                # High altitude lakes will have elevation >> 15m and thus be skipped.
+
+                # Note: SRTM voids are -32768, which is < 15, so voids in lakes will unfortunately be masked.
+                # But ETOPO fill will likely be 0 or negative, which is acceptable for a "void" lake.
+
+                ocean_candidates = water_mask_dest.astype(bool) & (
+                    land_raw < OCEAN_LEVEL_THRESHOLD
+                )
+
+                land_raw[ocean_candidates] = np.nan
                 logger.info(
-                    "OSM Water Mask applied: Land pixels forced to NaN where Tiles indicate Water."
+                    f"OSM Water Mask applied: {np.count_nonzero(ocean_candidates)} pixels forced to NaN (Elevation < {OCEAN_LEVEL_THRESHOLD}m)."
                 )
 
             except Exception as e:
@@ -369,8 +377,10 @@ class ContourSlicingJob:
             if self.use_osm_water_mask and "water_mask_dest" in locals():
                 mask_bool = water_mask_dest.astype(bool)
                 # Identify "Bad Ocean" (Water mask says Yes, Elevation says Land > -0.1m)
-                # We use -0.1 to allow for near-zero blended coastlines.
-                bad_ocean = mask_bool & (elevation > -0.1)
+                # We also check elevation < Threshold to avoid flattening inland rivers.
+                bad_ocean = (
+                    mask_bool & (elevation > -0.1) & (elevation < OCEAN_LEVEL_THRESHOLD)
+                )
                 count = np.count_nonzero(bad_ocean)
 
                 if count > 0:

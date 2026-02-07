@@ -232,6 +232,7 @@ function App() {
 
         <InfoSidebar
             coordinates={coordinates}
+            bounds={bounds}
             areaStats={areaStats}
             elevationStats={elevationStats}
             includeBathymetry={includeBathymetry} setIncludeBathymetry={setIncludeBathymetry}
