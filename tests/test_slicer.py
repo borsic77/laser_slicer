@@ -296,48 +296,41 @@ def test_clean_geometry_strict_geom_collection_multi_poly():
 
 
 def test_save_debug_contour_polygon_polygon(monkeypatch, tmp_path):
-    # Set DEBUG_IMAGE_PATH
     import os
-    from pathlib import Path
 
     from shapely.geometry import Polygon
 
-    from core.utils import contour_ops
+    # Patch at the source module level
+    monkeypatch.setattr("core.utils.contour_ops.DEBUG", True)
+    monkeypatch.setattr("core.utils.contour_ops.DEBUG_IMAGE_PATH", str(tmp_path))
+
+    # Import function *after* patching (though runtime lookup should work)
     from core.utils.contour_ops import save_debug_contour_polygon
 
-    # Mock settings.DEBUG_IMAGE_PATH as well if it's used directly
-    monkeypatch.setattr(
-        "core.utils.contour_ops.settings.DEBUG_IMAGE_PATH", Path(tmp_path)
-    )
-    monkeypatch.setattr("core.utils.contour_ops.DEBUG", True)
-    contour_ops.DEBUG_IMAGE_PATH = str(tmp_path)
-    contour_ops.DEBUG = True
-    poly = Polygon([(0, 0), (1, 0), (1, 1), (0, 1)])
-    save_debug_contour_polygon(poly, 100, "testpoly")
+    poly = Polygon([(0, 0), (1, 0), (1, 1), (0, 1), (0, 0)])
+    save_debug_contour_polygon(poly, 100.0, "testpoly")
+
     expected = os.path.join(str(tmp_path), "testpoly_elev_100.0.png")
     assert os.path.exists(expected)
 
 
 def test_save_debug_contour_polygon_multipolygon(monkeypatch, tmp_path):
     import os
-    from pathlib import Path
 
     from shapely.geometry import MultiPolygon, Polygon
 
-    from core.utils import contour_ops
+    # Patch at the source module level
+    monkeypatch.setattr("core.utils.contour_ops.DEBUG", True)
+    monkeypatch.setattr("core.utils.contour_ops.DEBUG_IMAGE_PATH", str(tmp_path))
+
     from core.utils.contour_ops import save_debug_contour_polygon
 
-    # Mock settings.DEBUG_IMAGE_PATH as well if it's used directly
-    monkeypatch.setattr(
-        "core.utils.contour_ops.settings.DEBUG_IMAGE_PATH", Path(tmp_path)
-    )
-    monkeypatch.setattr("core.utils.contour_ops.DEBUG", True)
-    contour_ops.DEBUG_IMAGE_PATH = str(tmp_path)
-    contour_ops.DEBUG = True
-    poly1 = Polygon([(0, 0), (1, 0), (1, 1), (0, 1)])
-    poly2 = Polygon([(2, 2), (3, 2), (3, 3), (2, 3)])
+    poly1 = Polygon([(0, 0), (1, 0), (1, 1), (0, 1), (0, 0)])
+    poly2 = Polygon([(2, 2), (3, 2), (3, 3), (2, 3), (2, 2)])
     multi = MultiPolygon([poly1, poly2])
-    save_debug_contour_polygon(multi, 200, "testmulti")
+
+    save_debug_contour_polygon(multi, 200.0, "testmulti")
+
     expected = os.path.join(str(tmp_path), "testmulti_elev_200.0.png")
     assert os.path.exists(expected)
 

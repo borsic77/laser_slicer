@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [3.0.0] - 2026-02-04
+## [3.0.0] - 2026-02-07
 
 ### Major Features
 - **Global Bathymetry (Oceans)**:
@@ -19,6 +19,8 @@ All notable changes to this project will be documented in this file.
 ### Fixes
 - **Robustness**: Improved handling of NODATA values in coastal transitions.
 - **Elevation Service**: Dynamic valid range handling (automatically extends to negative values when bathymetry is enabled).
+
+## [2.1] - 2026-01-28
 
 ### Features
 - **Parallel Processing**: Significant performance boost by parallelizing contour processing using `billiard`.
@@ -39,7 +41,7 @@ All notable changes to this project will be documented in this file.
 - **Tests**: Fixed test suite failures related to missing imports and mocking.
 - **Robustness**: Improved contour polygon cleaning and error handling during elevation fetching.
 
-## [2.0] - 2026-01-27
+## [2.0.0] - 2026-01-27
 
 ### Summary
 - Previous stable release.

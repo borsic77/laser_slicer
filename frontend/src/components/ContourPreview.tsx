@@ -235,7 +235,6 @@ function PolygonLayer({
   }
   areaEstimate = Math.abs(areaEstimate / 2);
 
-  console.log(`Shape[${index}] estimated area:`, areaEstimate);
 
   // Skip rendering if shape is degenerate or too small, preventing unnecessary processing.
   if (shapes.length === 0 || pathPoints.length < 3 || areaEstimate < 1e-10) {
@@ -257,7 +256,6 @@ function PolygonLayer({
     console.error(`Failed to extrude layer ${index}:`, err);
     return null;
   }
-  // console.log(`Extruded geometry [${index}]`, geom);
 
   return (
     <group position={[0, 0, positionY]}>
@@ -372,7 +370,6 @@ export default function ContourPreview({ layers, darkMode = true }: ContourPrevi
   const totalHeight = layers.reduce((sum, l) => sum + (l.thickness ?? 0.003), 0)
 
   const validLayerCount = layers.length;
-  // console.log(`Rendering ${validLayerCount} valid contour layers.`);
 
   // Calculate extents for color interpolation
   const waterStats = useMemo(() => {
@@ -482,8 +479,6 @@ export default function ContourPreview({ layers, darkMode = true }: ContourPrevi
           */}
           {layers.map((layer, idx) => {
             const z = cumulativeHeights[idx]
-            // console.log(`Layer ${idx} roads:`, layer.roads)
-            // console.log(`Layer ${idx} buildings:`, layer.buildings)
             return (
               <group key={`extras-${idx}`}>
                 {layer.roads && <RoadLines roads={layer.roads} z={z + (layer.thickness ?? 0.003) + 0.001} />}

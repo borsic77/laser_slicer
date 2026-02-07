@@ -64,20 +64,16 @@ def test_contour_slicing_job_run(monkeypatch):
         return fake_contours
 
     monkeypatch.setattr(
-        "core.services.contour_generator.download_elevation_tiles_for_bounds",
+        "core.utils.dem.download_elevation_tiles_for_bounds",
         fake_download,
     )
-    monkeypatch.setattr("core.services.contour_generator.mosaic_and_crop", fake_mosaic)
-    monkeypatch.setattr(
-        "core.services.contour_generator.clean_srtm_dem", lambda x, **k: x
-    )
+    monkeypatch.setattr("core.utils.dem.mosaic_and_crop", fake_mosaic)
+    monkeypatch.setattr("core.utils.dem.clean_srtm_dem", lambda x, **k: x)
     # robust_local_outlier_mask is commented out in code, so no need to mock it
 
+    monkeypatch.setattr("core.utils.contour_ops.generate_contours", fake_generate)
     monkeypatch.setattr(
-        "core.services.contour_generator.generate_contours", fake_generate
-    )
-    monkeypatch.setattr(
-        "core.services.contour_generator.project_geometry",
+        "core.utils.geometry_ops.project_geometry",
         lambda c, cx, cy, simplify_tolerance=0, existing_transform=None: (
             c,
             ("proj", (0, 0), 0),
@@ -85,7 +81,7 @@ def test_contour_slicing_job_run(monkeypatch):
     )
     # Obsolete patches removed for smooth_geometry, clip_contours, scale, filter_small_features
     monkeypatch.setattr(
-        "core.services.contour_generator.compute_utm_bounds_from_wgs84",
+        "core.utils.geocoding.compute_utm_bounds_from_wgs84",
         lambda *a: (0, 0, 1, 1),
     )
     monkeypatch.setattr(
@@ -142,22 +138,20 @@ def test_contour_slicing_job_with_osm(monkeypatch):
     ml = shapely.geometry.MultiLineString([[(0, 0.75), (1, 0.75)]])
 
     monkeypatch.setattr(
-        "core.services.contour_generator.download_elevation_tiles_for_bounds",
+        "core.utils.dem.download_elevation_tiles_for_bounds",
         lambda b: ["tile"],
     )
     monkeypatch.setattr(
-        "core.services.contour_generator.mosaic_and_crop",
+        "core.utils.dem.mosaic_and_crop",
         lambda p, b, **k: (np.ones((1, 1)), None),
     )
+    monkeypatch.setattr("core.utils.dem.clean_srtm_dem", lambda x, **k: x)
     monkeypatch.setattr(
-        "core.services.contour_generator.clean_srtm_dem", lambda x, **k: x
-    )
-    monkeypatch.setattr(
-        "core.services.contour_generator.generate_contours",
+        "core.utils.contour_ops.generate_contours",
         lambda *a, **k: [{"elevation": 0, "geometry": mapping(poly), "closed": True}],
     )
     monkeypatch.setattr(
-        "core.services.contour_generator.project_geometry",
+        "core.utils.geometry_ops.project_geometry",
         lambda c, cx, cy, simplify_tolerance=0, existing_transform=None: (
             c,
             ("proj", (0, 0), 0),
@@ -165,7 +159,7 @@ def test_contour_slicing_job_with_osm(monkeypatch):
     )
     # Obsolete patches removed
     monkeypatch.setattr(
-        "core.services.contour_generator.compute_utm_bounds_from_wgs84",
+        "core.utils.geocoding.compute_utm_bounds_from_wgs84",
         lambda *a: (0, 0, 1, 1),
     )
     monkeypatch.setattr(
@@ -176,12 +170,12 @@ def test_contour_slicing_job_with_osm(monkeypatch):
         lambda c, *args: c,
     )
     monkeypatch.setattr(
-        "core.services.contour_generator.fetch_roads",
+        "core.utils.osm_features.fetch_roads",
         lambda b: {"residential": ml},
     )
-    monkeypatch.setattr("core.services.contour_generator.fetch_waterways", lambda b: ml)
+    monkeypatch.setattr("core.utils.osm_features.fetch_waterways", lambda b: ml)
     monkeypatch.setattr(
-        "core.services.contour_generator.fetch_buildings",
+        "core.utils.osm_features.fetch_buildings",
         lambda b: shapely.geometry.MultiPolygon([poly]),
     )
 
@@ -227,22 +221,20 @@ def test_contour_slicing_job_empty_osm(monkeypatch):
     poly = Polygon([(0, 0), (1, 0), (1, 1), (0, 0)])
 
     monkeypatch.setattr(
-        "core.services.contour_generator.download_elevation_tiles_for_bounds",
+        "core.utils.dem.download_elevation_tiles_for_bounds",
         lambda b: ["tile"],
     )
     monkeypatch.setattr(
-        "core.services.contour_generator.mosaic_and_crop",
+        "core.utils.dem.mosaic_and_crop",
         lambda p, b, **k: (np.ones((1, 1)), None),
     )
+    monkeypatch.setattr("core.utils.dem.clean_srtm_dem", lambda x, **k: x)
     monkeypatch.setattr(
-        "core.services.contour_generator.clean_srtm_dem", lambda x, **k: x
-    )
-    monkeypatch.setattr(
-        "core.services.contour_generator.generate_contours",
+        "core.utils.contour_ops.generate_contours",
         lambda *a, **k: [{"elevation": 0, "geometry": mapping(poly), "closed": True}],
     )
     monkeypatch.setattr(
-        "core.services.contour_generator.project_geometry",
+        "core.utils.geometry_ops.project_geometry",
         lambda c, cx, cy, simplify_tolerance=0, existing_transform=None: (
             c,
             ("proj", (0, 0), 0),
@@ -250,7 +242,7 @@ def test_contour_slicing_job_empty_osm(monkeypatch):
     )
     # Obsolete patches removed
     monkeypatch.setattr(
-        "core.services.contour_generator.compute_utm_bounds_from_wgs84",
+        "core.utils.geocoding.compute_utm_bounds_from_wgs84",
         lambda *a: (0, 0, 1, 1),
     )
     monkeypatch.setattr(
@@ -261,15 +253,15 @@ def test_contour_slicing_job_empty_osm(monkeypatch):
         lambda c, *args: c,
     )
     monkeypatch.setattr(
-        "core.services.contour_generator.fetch_roads",
+        "core.utils.osm_features.fetch_roads",
         lambda b: {},
     )
     monkeypatch.setattr(
-        "core.services.contour_generator.fetch_waterways",
+        "core.utils.osm_features.fetch_waterways",
         lambda b: shapely.geometry.MultiLineString(),
     )
     monkeypatch.setattr(
-        "core.services.contour_generator.fetch_buildings",
+        "core.utils.osm_features.fetch_buildings",
         lambda b: shapely.geometry.MultiPolygon(),
     )
 
@@ -314,15 +306,11 @@ def test_elevation_range_job(monkeypatch):
     """ElevationRangeJob.run returns min and max elevations."""
     arr = np.array([[100, 200], [300, 400]], dtype=float)
     monkeypatch.setattr(
-        "core.services.elevation_service.download_elevation_tiles_for_bounds",
+        "core.utils.dem.download_elevation_tiles_for_bounds",
         lambda b: ["tile"],
     )
-    monkeypatch.setattr(
-        "core.services.elevation_service.mosaic_and_crop", lambda p, b, **k: (arr, None)
-    )
-    monkeypatch.setattr(
-        "core.services.elevation_service.clean_srtm_dem", lambda x, **k: x
-    )
+    monkeypatch.setattr("core.utils.dem.mosaic_and_crop", lambda p, b, **k: (arr, None))
+    monkeypatch.setattr("core.utils.dem.clean_srtm_dem", lambda x, **k: x)
 
     job = ElevationRangeJob((0, 0, 1, 1))
     result = job.run()
@@ -333,15 +321,11 @@ def test_elevation_range_job_invalid(monkeypatch):
     """ElevationRangeJob.run raises ElevationDataError when DEM is invalid."""
     arr = np.array([[np.nan, np.nan]])
     monkeypatch.setattr(
-        "core.services.elevation_service.download_elevation_tiles_for_bounds",
+        "core.utils.dem.download_elevation_tiles_for_bounds",
         lambda b: ["tile"],
     )
-    monkeypatch.setattr(
-        "core.services.elevation_service.mosaic_and_crop", lambda p, b, **k: (arr, None)
-    )
-    monkeypatch.setattr(
-        "core.services.elevation_service.clean_srtm_dem", lambda x, **k: x
-    )
+    monkeypatch.setattr("core.utils.dem.mosaic_and_crop", lambda p, b, **k: (arr, None))
+    monkeypatch.setattr("core.utils.dem.clean_srtm_dem", lambda x, **k: x)
 
     job = ElevationRangeJob((0, 0, 1, 1))
     with pytest.raises(ElevationDataError):
