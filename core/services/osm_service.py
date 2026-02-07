@@ -5,6 +5,7 @@ import osmnx as ox
 import rasterio
 import rasterio.features
 import requests
+from django.conf import settings
 from shapely.geometry import LineString, MultiPolygon, Polygon, box
 from shapely.ops import polygonize, unary_union
 

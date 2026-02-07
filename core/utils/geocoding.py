@@ -114,5 +114,39 @@ def compute_utm_bounds_from_wgs84(
     return (utm_minx, utm_miny, utm_maxx, utm_maxy)
 
 
+import math
+
+
+def compute_bounds_from_center_and_size(
+    lat: float, lon: float, width_m: float, height_m: float
+) -> tuple[float, float, float, float]:
+    """Compute WGS84 bounds (lon_min, lat_min, lon_max, lat_max) from center and size in meters.
+
+    Args:
+        lat (float): Center latitude.
+        lon (float): Center longitude.
+        width_m (float): Width of the area in meters.
+        height_m (float): Height of the area in meters.
+
+    Returns:
+        tuple[float, float, float, float]: (lon_min, lat_min, lon_max, lat_max)
+    """
+    # Earth circumference approx 40075 km
+    # 1 deg lat ~= 111.32 km
+    lat_deg_per_m = 1.0 / 111320.0
+    # 1 deg lon ~= 111.32 km * cos(lat)
+    lon_deg_per_m = 1.0 / (111320.0 * math.cos(math.radians(lat)))
+
+    half_width_deg = (width_m / 2.0) * lon_deg_per_m
+    half_height_deg = (height_m / 2.0) * lat_deg_per_m
+
+    return (
+        lon - half_width_deg,
+        lat - half_height_deg,
+        lon + half_width_deg,
+        lat + half_height_deg,
+    )
+
+
 DEBUG_IMAGE_PATH = settings.DEBUG_IMAGE_PATH
 DEBUG = settings.DEBUG

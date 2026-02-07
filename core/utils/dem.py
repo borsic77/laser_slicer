@@ -41,22 +41,22 @@ def clean_srtm_dem(
 def merge_srtm_and_etopo(
     srtm_dem: np.ndarray,
     etopo_dem: np.ndarray,
-    bounds: tuple[float, float, float, float] | None = None,
+    land_mask: np.ndarray | None = None,
     transform: rasterio.Affine | None = None,
 ) -> np.ndarray:
-    """Merge high-res SRTM (Land) with high-res Bathymetry (Ocean) using OSM masking.
+    """Merge high-res SRTM (Land) with high-res Bathymetry (Ocean) using a land mask.
 
     Args:
         srtm_dem: High resolution land data (SRTM).
         etopo_dem: Bathymetry data (GEBCO/ETOPO/EMODnet).
-        bounds: Optional (lon_min, lat_min, lon_max, lat_max) for OSM masking.
-        transform: Optional Affine transform matching srtm_dem.
+        land_mask: Optional boolean mask where True indicates Land.
+                   If not provided, falls back to (srtm > 0).
+        transform: Optional Affine transform (unused now, kept for compatibility/future).
 
     Returns:
         Combined DEM with SRTM on land and upsampled bathymetry in ocean,
         seamlessly blended at the coastline.
     """
-    from core.services.osm_service import fetch_coastline_mask
 
     # Safety check
     if etopo_dem.size == 0:
@@ -89,33 +89,40 @@ def merge_srtm_and_etopo(
                 bathy_upsampled, ((0, 0), (0, -diff_w)), mode="edge"
             )
 
-    # 2. OSM Land Masking (The "Cookie-Cutter")
-    if bounds and transform:
-        is_land = fetch_coastline_mask(bounds, srtm_dem.shape, transform)
-        # Ensure it's a bool mask
-        is_land = is_land.astype(bool)
+    # 2. Land Masking
+    if land_mask is not None:
+        # Use provided mask (e.g. from OSM Tiles)
+        is_land = land_mask.astype(bool)
     else:
-        logger.warning(
-            "No bounds/transform provided to merge_srtm_and_etopo. Falling back to value-based masking."
+        # Fallback: SRTM positive and valid
+        logger.debug(
+            "No land_mask provided to merge_srtm_and_etopo. Falling back to value-based masking (srtm > 0)."
         )
         is_land = (srtm_dem > 0) & (~np.isnan(srtm_dem)) & (srtm_dem != -32768)
 
     # 3. Distance-based Blending at Coastline
-    # We want SRTM to transition to 0.0 at the coast, and Bathy to do the same.
-    # We'll use a 100m blend (approx 3-4 pixels at 30m).
-    pixel_res = 30.0  # Approximate
-    blend_dist_m = 100.0
-    blend_width_pixels = blend_dist_m / pixel_res
+    if land_mask is not None:
+        # If we have a high-quality explicit mask, we do NOT want to blend.
+        # Blending would "smear" the coastline and deviate from the mask.
+        # We want an exact match: Land is Land, Water is Water.
+        land_weight = is_land.astype(np.float32)  # 1.0 where Land, 0.0 where Water
+        sea_weight = (~is_land).astype(np.float32)  # 1.0 where Water, 0.0 where Land
+    else:
+        # We want SRTM to transition to 0.0 at the coast, and Bathy to do the same.
+        # We'll use a 100m blend (approx 3-4 pixels at 30m).
+        pixel_res = 30.0  # Approximate
+        blend_dist_m = 100.0
+        blend_width_pixels = blend_dist_m / pixel_res
 
-    # Distance Transform: Distance in pixels to the nearest "Sea" (0 in is_land)
-    dist_to_sea = scipy.ndimage.distance_transform_edt(is_land)
-    # Blend Weight: 0.0 at sea, 1.0 deep inland (>100m)
-    land_weight = np.clip(dist_to_sea / blend_width_pixels, 0, 1)
+        # Distance Transform: Distance in pixels to the nearest "Sea" (0 in is_land)
+        dist_to_sea = scipy.ndimage.distance_transform_edt(is_land)
+        # Blend Weight: 0.0 at sea, 1.0 deep inland (>100m)
+        land_weight = np.clip(dist_to_sea / blend_width_pixels, 0, 1)
 
-    # Similar for sea: Distance in pixels to nearest "Land"
-    dist_to_land = scipy.ndimage.distance_transform_edt(~is_land)
-    # Blend Weight: 0.0 at land, 1.0 deep sea (>100m)
-    sea_weight = np.clip(dist_to_land / blend_width_pixels, 0, 1)
+        # Similar for sea: Distance in pixels to nearest "Land"
+        dist_to_land = scipy.ndimage.distance_transform_edt(~is_land)
+        # Blend Weight: 0.0 at land, 1.0 deep sea (>100m)
+        sea_weight = np.clip(dist_to_land / blend_width_pixels, 0, 1)
 
     # 4. Final Merge
     # Forced Coastline Point: 0.0m
@@ -559,3 +566,27 @@ def download_elevation_tiles_for_bounds(
         logger.info("No SwissALTI3D tiles found, using SRTM only.")
 
     return srtm_tiles
+
+
+def get_elevation_stats_fast(
+    bounds: Tuple[float, float, float, float],
+) -> Tuple[float, float]:
+    """
+    Get approximate min and max elevation for the given bounds using SRTM data.
+    Uses downsampling for speed.
+    """
+    # Force SRTM only
+    tiles = download_srtm_tiles_for_bounds(bounds)
+    if not tiles:
+        return 0.0, 0.0
+
+    # Downsample significantly for speed (e.g. 10x = 1/100th of pixels)
+    mosaic, _ = mosaic_and_crop(tiles, bounds, downsample_factor=10)
+
+    # Filter invalid values
+    valid_mask = (mosaic > -10000) & (mosaic < 10000)
+    if not valid_mask.any():
+        return 0.0, 0.0
+
+    valid_data = mosaic[valid_mask]
+    return float(valid_data.min()), float(valid_data.max())

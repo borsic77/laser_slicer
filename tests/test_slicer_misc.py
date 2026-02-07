@@ -3,15 +3,14 @@ import os
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "tests.django_settings_stub")
 
 import pytest
-from shapely.geometry import Polygon, box, mapping
 from shapely.affinity import rotate
+from shapely.geometry import Polygon, box, mapping
 
-from core.utils.contour_ops import _plot_contour_layers
+from core.services.svg_zip_generator import generate_svg_layers, zip_svgs
 from core.utils.geometry_ops import (
     _grid_convergence_angle_from_geometry,
     clip_contours_to_bbox,
 )
-from core.services.svg_zip_generator import generate_svg_layers, zip_svgs
 
 
 def test_grid_convergence_angle_simple():
@@ -47,14 +46,6 @@ def test_clip_contours_to_bbox():
         for c in clipped
     ]
     assert all(p.bounds[0] >= 0 and p.bounds[2] <= 4 for p in polys)
-
-
-def test_plot_contour_layers_creates_image(tmp_path):
-    poly = box(0, 0, 1, 1)
-    layers = [{"elevation": 0, "geometry": mapping(poly), "closed": True}]
-    _plot_contour_layers(layers, (0, 2), (0, 2), str(tmp_path))
-    expected = tmp_path / "closed_contours.png"
-    assert expected.exists() and expected.stat().st_size > 0
 
 
 def test_generate_and_zip_svgs(tmp_path):

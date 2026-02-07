@@ -7,7 +7,7 @@ All notable changes to this project will be documented in this file.
 ### Major Features
 - **Global Bathymetry (Oceans)**:
     - Added support for underwater terrain generation using **GEBCO / ETOPO 2022** databases.
-    - New "Include Ocean Data" toggle allows users to slice through ocean floors down to -11,000m.
+    - New "Ocean Bathymetry" toggle allows users to slice through ocean floors down to -11,000m.
     - Implemented **Coastline Fusion**: Seamless blending of SRTM (Land) with Bathymetry (Ocean) using Zero-Crossing separation.
     - Added **Regional Prototypes**: Validated integration for EMODnet (Europe), NOAA Great Lakes (US), and SwissBATHY3D.
 

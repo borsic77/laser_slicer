@@ -59,6 +59,7 @@ if not DEBUG:
 TILE_CACHE_DIR = Path(get_env("TILE_CACHE_DIR", BASE_DIR / "data" / "srtm_cache"))
 ALTI3D_CACHE_DIR = Path(get_env("ALTI3D_CACHE_DIR", BASE_DIR / "data" / "alti3d_cache"))
 BATHY_CACHE_DIR = Path(get_env("BATHY_CACHE_DIR", BASE_DIR / "data" / "bathy_cache"))
+OSM_CACHE_DIR = Path(get_env("OSM_CACHE_DIR", BASE_DIR / "data" / "osm_cache"))
 ALTI3D_DOWNLOADER = get_env("ALTI3D_DOWNLOADER", "alti3d-downloader")
 DEBUG_IMAGE_PATH = Path(get_env("DEBUG_IMAGE_PATH", BASE_DIR / "data" / "debug_images"))
 SVG_TMP_DIR = Path(get_env("SVG_TMP_DIR", BASE_DIR / "tmp" / "svg_tmp"))

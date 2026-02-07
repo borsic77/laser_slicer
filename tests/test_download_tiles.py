@@ -1,6 +1,6 @@
 import pytest
 
-from core.utils.download_clip_elevation_tiles import (
+from core.utils.dem import (
     download_srtm_tiles_for_bounds,
     ensure_tile_downloaded,
     get_srtm_tile_path,
@@ -28,9 +28,7 @@ def test_download_srtm_tiles_for_bounds(monkeypatch, switzerland_bounds):
         called["bounds"] = bounds
         return [f"/fake/path/srtm_{b}.hgt.gz" for b in bounds]
 
-    monkeypatch.setattr(
-        "core.utils.download_clip_elevation_tiles._download_tiles", fake_download_tiles
-    )
+    monkeypatch.setattr("core.utils.dem._download_tiles", fake_download_tiles)
     paths = download_srtm_tiles_for_bounds(switzerland_bounds)
     assert isinstance(paths, list)
     assert all(p.startswith("/fake/path/srtm_") for p in paths)
@@ -44,9 +42,7 @@ def test_download_srtm_tiles_for_antimeridian(monkeypatch, antimeridian_bounds):
         calls.append(bounds)
         return [f"/fake/path/srtm_{bounds[0]}.hgt.gz"]
 
-    monkeypatch.setattr(
-        "core.utils.download_clip_elevation_tiles._download_tiles", fake_download_tiles
-    )
+    monkeypatch.setattr("core.utils.dem._download_tiles", fake_download_tiles)
 
     # Only return True for the initial call, then False after splitting
     original_bounds = antimeridian_bounds
@@ -55,7 +51,7 @@ def test_download_srtm_tiles_for_antimeridian(monkeypatch, antimeridian_bounds):
         return bounds == original_bounds
 
     monkeypatch.setattr(
-        "core.utils.download_clip_elevation_tiles.is_antimeridian_crossing",
+        "core.utils.dem.is_antimeridian_crossing",
         fake_is_antimeridian_crossing,
     )
 
@@ -93,13 +89,15 @@ def test_get_srtm_tile_path(tmp_path):
         (-16.2, -179.9, (-180, -17, -179, -16), "S17W180.hgt.gz"),
     ],
 )
-def test_ensure_tile_downloaded(monkeypatch, tmp_path, lat, lon, expected_bounds, filename):
+def test_ensure_tile_downloaded(
+    monkeypatch, tmp_path, lat, lon, expected_bounds, filename
+):
     def fake_download(bounds):
         assert bounds == expected_bounds
         return [str(tmp_path / filename)]
 
     monkeypatch.setattr(
-        "core.utils.download_clip_elevation_tiles.download_srtm_tiles_for_bounds",
+        "core.utils.dem.download_srtm_tiles_for_bounds",
         fake_download,
     )
 

@@ -1,5 +1,11 @@
 """Compatibility wrapper importing helpers from dedicated modules."""
 
+from .contour_ops import (
+    _compute_layer_bands,
+    _create_levels,
+    generate_contours,
+    save_debug_contour_polygon,
+)
 from .dem import (
     clean_srtm_dem,
     fill_nans_in_dem,
@@ -19,15 +25,6 @@ from .geometry_ops import (
     smooth_geometry,
     walk_bbox_between,
 )
-from .contour_ops import (
-    _create_contourf_levels,
-    _extract_level_polygons,
-    _prepare_meshgrid,
-    _plot_contour_layers,
-    _compute_layer_bands,
-    generate_contours,
-    save_debug_contour_polygon,
-)
 
 __all__ = [
     "clean_srtm_dem",
@@ -45,10 +42,7 @@ __all__ = [
     "scale_and_center_contours_to_substrate",
     "smooth_geometry",
     "walk_bbox_between",
-    "_create_contourf_levels",
-    "_extract_level_polygons",
-    "_prepare_meshgrid",
-    "_plot_contour_layers",
+    "_create_levels",
     "_compute_layer_bands",
     "generate_contours",
     "save_debug_contour_polygon",

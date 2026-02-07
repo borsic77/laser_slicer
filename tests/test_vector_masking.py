@@ -14,7 +14,7 @@ import rasterio
 from core.services.osm_service import fetch_coastline_mask
 
 
-def test_la_gomera_mask():
+def test_la_gomera_mask(tmp_path):
     # Bounds for a part of La Gomera
     bounds = (-17.35, 28.08, -17.31, 28.11)
     res = 0.000277777777778
@@ -27,7 +27,7 @@ def test_la_gomera_mask():
     mask = fetch_coastline_mask(bounds, shape, transform)
     print(f"Mask generated. Land Pixels: {np.sum(mask)} / {mask.size}")
 
-    output_dir = Path("/app/data/debug")
+    output_dir = tmp_path / "data" / "debug"
     output_dir.mkdir(parents=True, exist_ok=True)
     plt.imsave(output_dir / "test_mask_gomera.png", mask, cmap="Greys")
 

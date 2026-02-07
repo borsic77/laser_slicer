@@ -35,7 +35,7 @@ export default function InfoSidebar(props: InfoSidebarProps) {
           
           <h2>Bathymetry</h2>
           <label style={{display:'block'}}>
-            <input type="checkbox" checked={includeBathymetry} onChange={e => setIncludeBathymetry(e.target.checked)} /> Include Ocean Data
+            <input type="checkbox" checked={includeBathymetry} onChange={e => setIncludeBathymetry(e.target.checked)} /> Ocean Bathymetry
           </label>
 
           <hr style={{ width: '100%', border: 'none', borderTop: '1px solid #ccc', margin: '1em 0' }} />

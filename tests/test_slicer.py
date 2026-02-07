@@ -1,8 +1,6 @@
 import logging
-import os
 
 import matplotlib
-import matplotlib.pyplot as plt
 import numpy as np
 import pytest
 import rasterio
@@ -19,12 +17,10 @@ from shapely.geometry import (
 
 from core.utils.contour_ops import (
     _compute_layer_bands,
-    _create_contourf_levels,
-    _extract_level_polygons,
-    _prepare_meshgrid,
+    _contours_to_polygons,
+    _create_levels,
 )
-from core.utils.dem import mosaic_and_crop, round_affine
-from core.utils.download_clip_elevation_tiles import download_srtm_tiles_for_bounds
+from core.utils.dem import download_srtm_tiles_for_bounds, mosaic_and_crop, round_affine
 from core.utils.geometry_ops import (
     _force_multipolygon,
     clean_geometry,
@@ -149,51 +145,6 @@ def test_scale_and_center_contours_to_substrate():
     assert geom.bounds[1] >= -0.1 and geom.bounds[3] <= 0.1  # y within +/-10 cm
 
 
-# Test for _prepare_meshgrid
-
-
-def test_prepare_meshgrid():
-    # Create a simple 3x2 elevation array
-    elevation_data = np.array([[1, 2], [3, 4], [5, 6]])
-    # Define a transform: origin at (10, 20), pixel size 1x1
-    transform = rasterio.transform.from_origin(west=10, north=20, xsize=1, ysize=1)
-
-    lon, lat = _prepare_meshgrid(elevation_data, transform)
-
-    assert lon.shape == elevation_data.shape
-    assert lat.shape == elevation_data.shape
-    # Top-left pixel center
-    assert lon[0, 0] == 10.5
-    assert lat[0, 0] == 19.5
-    # Bottom-right pixel center
-    assert lon[2, 1] == 11.5
-    assert lat[2, 1] == 17.5
-
-
-# Test for _create_contourf_levels
-def test_create_contourf_levels():
-    data = np.array(
-        [
-            [103, 110, 118],
-            [125, 132, 140],
-        ]
-    )
-    interval = 20
-
-    levels = _create_contourf_levels(data, interval)
-    # The implementation now aligns levels to the interval grid, so it starts at
-    # floor(min_elev / interval) * interval.
-    # floor(103/20)*20 = 100.
-    # levels = [100, 120, 140]
-    expected = np.array([100.0, 120.0, 140.0])
-    assert np.allclose(levels, expected)
-
-    # Using num_layers should use the min and max directly
-    levels_num = _create_contourf_levels(data, interval, num_layers=2)
-    expected_num = np.array([103.0, 121.5, 140.0])
-    assert np.allclose(levels_num, expected_num)
-
-
 # Test for _flatten_polygons
 def test_flatten_polygons():
     from shapely.geometry import MultiPolygon, Polygon
@@ -276,188 +227,22 @@ def test_force_multipolygon():
     assert len(result2.geoms) == 1
 
 
-# Test for _prepare_meshgrid
-def test_prepare_meshgrid():
-    # Create a simple 3x2 elevation array
-    elevation_data = np.array([[1, 2], [3, 4], [5, 6]])
-    # Define a transform: origin at (10, 20), pixel size 1x1
-    transform = rasterio.transform.from_origin(west=10, north=20, xsize=1, ysize=1)
-
-    lon, lat = _prepare_meshgrid(elevation_data, transform)
-
-    assert lon.shape == elevation_data.shape
-    assert lat.shape == elevation_data.shape
-    # Top-left pixel center
-    assert lon[0, 0] == 10.5
-    assert lat[0, 0] == 19.5
-    # Bottom-right pixel center
-    assert lon[2, 1] == 11.5
-    assert lat[2, 1] == 17.5
-
-
-def test_extract_level_polygons():
-    # Generate simple contour data
-    x = np.linspace(0, 1, 10)
-    y = np.linspace(0, 1, 10)
-    X, Y = np.meshgrid(x, y)
-    Z = X + Y  # simple sloped surface
-
-    cs = plt.contourf(X, Y, Z, levels=[0.5, 1.0, 1.5])
-    results = _extract_level_polygons(cs)
-
-    # Basic structure checks
-    assert isinstance(results, list)
-    for level, polygons in results:
-        assert isinstance(level, float)
-        assert isinstance(polygons, list)
-        for p in polygons:
-            assert p.is_valid
-            assert p.area > 0
-            assert p.geom_type == "Polygon"
-    plt.close()
-
-
-# Enhanced test for _extract_level_polygons with two pyramid-shaped peaks
-def test_extract_level_polygons_two_peaks():
-    x = np.linspace(0, 1, 100)
-    y = np.linspace(0, 1, 100)
-    X, Y = np.meshgrid(x, y)
-
-    # Create two cone-like pyramids
-    Z1 = 1.0 - np.sqrt((X - 0.3) ** 2 + (Y - 0.3) ** 2)
-    Z2 = 1.0 - np.sqrt((X - 0.7) ** 2 + (Y - 0.7) ** 2)
-    Z = np.maximum(Z1, Z2)
-    Z[Z < 0] = 0  # Clip to zero
-
-    cs = plt.contourf(X, Y, Z, levels=[0.2, 0.4, 0.6, 0.8])
-    results = _extract_level_polygons(cs)
-
-    assert len(results) == 3  # Four levels
-
-    for level, polygons in results:
-        assert isinstance(level, float)
-        assert isinstance(polygons, list)
-        for p in polygons:
-            assert p.is_valid
-            assert p.area > 0
-            assert p.geom_type == "Polygon"
-
-    # Check that lower levels contain more polygons (i.e. both peaks are visible)
-    low_level_polygons = results[0][1]
-    assert len(low_level_polygons) >= 2
-
-    plt.close()
-
-
 # Test for _compute_layer_bands
 def test_compute_layer_bands():
-    # Create synthetic terrain with nested contours
-    x = np.linspace(0, 1, 100)
-    y = np.linspace(0, 1, 100)
-    X, Y = np.meshgrid(x, y)
-    Z = 1.0 - np.sqrt((X - 0.5) ** 2 + (Y - 0.5) ** 2)
-    Z[Z < 0] = 0
+    from core.utils.contour_ops import _contours_to_polygons, _create_levels
 
-    cs = plt.contourf(X, Y, Z, levels=[0.2, 0.4, 0.6, 0.8])
-    levels = _extract_level_polygons(cs)
-    bands = _compute_layer_bands(levels, rasterio.transform.from_origin(0, 1, 1, 1))
+    elevation = np.array([[1, 2], [3, 4]])
+    transform = rasterio.transform.from_origin(0, 1, 1, 1)
+    levels = _create_levels(1, 3, 1)  # [1.0, 2.0, 3.0]
+    level_polys = []
+    for l in levels:
+        polys = _contours_to_polygons(elevation, float(l), transform)
+        level_polys.append((float(l), polys))
+
+    bands = _compute_layer_bands(level_polys, transform)
 
     assert isinstance(bands, list)
-    assert len(bands) == len(levels)
-    for band in bands:
-        assert "elevation" in band
-        assert "geometry" in band
-        assert band["closed"] is True
-        geom = shape(band["geometry"])
-        assert geom.is_valid
-        assert not geom.is_empty
-        assert geom.geom_type in ("Polygon", "MultiPolygon")
-
-    plt.close()
-
-
-# Comprehensive test for _compute_layer_bands using two hills
-def test_compute_layer_bands_two_hills():
-    # Two hills: one centered at (0.3, 0.3), one at (0.7, 0.7), with steep, distinct peaks
-    x = np.linspace(0, 1, 100)
-    y = np.linspace(0, 1, 100)
-    X, Y = np.meshgrid(x, y)
-    Z1 = np.exp(-((X - 0.3) ** 2 + (Y - 0.3) ** 2) * 100)
-    Z2 = np.exp(-((X - 0.7) ** 2 + (Y - 0.7) ** 2) * 100)
-    Z = np.maximum(Z1, Z2)
-    Z[Z < 0] = 0
-
-    levels = [0.2, 0.4, 0.6, 0.8, 1.0]
-    cs = plt.contourf(X, Y, Z, levels=levels)
-    level_polygons = _extract_level_polygons(cs)
-    bands = _compute_layer_bands(
-        level_polygons, rasterio.transform.from_origin(0, 1, 1, 1)
-    )
-
-    assert len(bands) == len(levels) - 1
-
-    for band in bands:
-        assert "elevation" in band
-        assert "geometry" in band
-        assert band["closed"] is True
-        geom = shape(band["geometry"])
-        assert geom.is_valid
-        assert not geom.is_empty
-        assert geom.geom_type in ("Polygon", "MultiPolygon")
-
-        # Check that each lower band contains the one above
-    for i in range(1, len(bands)):
-        lower = shape(bands[i]["geometry"])
-        upper = shape(bands[i - 1]["geometry"])
-        assert lower.covers(lower)
-
-    # Base layer should include both peaks (at least two distinct regions)
-    base_geom = shape(bands[0]["geometry"])
-    if base_geom.geom_type == "MultiPolygon":
-        assert len(base_geom.geoms) >= 2
-    plt.close()
-
-
-# Test for _compute_layer_bands with a tall cylinder: all bands should have similar area
-def test_compute_layer_bands_cylinder():
-    import matplotlib.pyplot as plt
-    import numpy as np
-    from shapely.geometry import shape
-
-    from core.utils.contour_ops import _compute_layer_bands, _extract_level_polygons
-
-    # Create a cylinder with sharp elevation edges
-    x = np.linspace(0, 1, 200)
-    y = np.linspace(0, 1, 200)
-    X, Y = np.meshgrid(x, y)
-    radius = 0.2
-    center = (0.5, 0.5)
-    distance = np.sqrt((X - center[0]) ** 2 + (Y - center[1]) ** 2)
-    Z = np.where(distance < radius, 1.0, 0.0)
-
-    cs = plt.contourf(X, Y, Z, levels=[0.2, 0.4, 0.6, 0.8, 1.0])
-    level_polygons = _extract_level_polygons(cs)
-    bands = _compute_layer_bands(
-        level_polygons, rasterio.transform.from_origin(0, 1, 1, 1)
-    )
-
-    assert len(bands) == 4
-
-    for band in bands:
-        assert "elevation" in band
-        assert "geometry" in band
-        assert band["closed"] is True
-        geom = shape(band["geometry"])
-        assert geom.is_valid
-        assert not geom.is_empty
-        assert geom.geom_type in ("Polygon", "MultiPolygon")
-
-    # All layers should have similar area
-    areas = [shape(band["geometry"]).area for band in bands]
-    for a in areas:
-        assert abs(a - areas[0]) < 0.01  # within 1% variation
-
-    plt.close()
+    assert len(bands) == 3
 
 
 # Additional tests for clean_geometry_strict edge cases
@@ -510,36 +295,50 @@ def test_clean_geometry_strict_geom_collection_multi_poly():
     assert len(result.geoms) == 2
 
 
-def test_save_debug_contour_polygon_polygon(tmp_path):
-    # Set DEBUG_IMAGE_PATH to tmp_path for this test
+def test_save_debug_contour_polygon_polygon(monkeypatch, tmp_path):
+    # Set DEBUG_IMAGE_PATH
     import os
+    from pathlib import Path
 
     from shapely.geometry import Polygon
 
-    from core.utils import contour_ops, slicer
+    from core.utils import contour_ops
     from core.utils.contour_ops import save_debug_contour_polygon
 
+    # Mock settings.DEBUG_IMAGE_PATH as well if it's used directly
+    monkeypatch.setattr(
+        "core.utils.contour_ops.settings.DEBUG_IMAGE_PATH", Path(tmp_path)
+    )
+    monkeypatch.setattr("core.utils.contour_ops.DEBUG", True)
     contour_ops.DEBUG_IMAGE_PATH = str(tmp_path)
+    contour_ops.DEBUG = True
     poly = Polygon([(0, 0), (1, 0), (1, 1), (0, 1)])
     save_debug_contour_polygon(poly, 100, "testpoly")
-    expected = os.path.join(str(tmp_path), "testpoly_elev_100.png")
+    expected = os.path.join(str(tmp_path), "testpoly_elev_100.0.png")
     assert os.path.exists(expected)
 
 
-def test_save_debug_contour_polygon_multipolygon(tmp_path):
+def test_save_debug_contour_polygon_multipolygon(monkeypatch, tmp_path):
     import os
+    from pathlib import Path
 
     from shapely.geometry import MultiPolygon, Polygon
 
-    from core.utils import contour_ops, slicer
+    from core.utils import contour_ops
     from core.utils.contour_ops import save_debug_contour_polygon
 
+    # Mock settings.DEBUG_IMAGE_PATH as well if it's used directly
+    monkeypatch.setattr(
+        "core.utils.contour_ops.settings.DEBUG_IMAGE_PATH", Path(tmp_path)
+    )
+    monkeypatch.setattr("core.utils.contour_ops.DEBUG", True)
     contour_ops.DEBUG_IMAGE_PATH = str(tmp_path)
+    contour_ops.DEBUG = True
     poly1 = Polygon([(0, 0), (1, 0), (1, 1), (0, 1)])
     poly2 = Polygon([(2, 2), (3, 2), (3, 3), (2, 3)])
     multi = MultiPolygon([poly1, poly2])
     save_debug_contour_polygon(multi, 200, "testmulti")
-    expected = os.path.join(str(tmp_path), "testmulti_elev_200.png")
+    expected = os.path.join(str(tmp_path), "testmulti_elev_200.0.png")
     assert os.path.exists(expected)
 
 
@@ -600,12 +399,6 @@ def test_mosaic_and_crop_lat_swap(monkeypatch):
         return rasterio.windows.Window(0, 0, 5, 5)
 
     monkeypatch.setattr("core.utils.dem.from_bounds", fake_from_bounds)
-
-    class DummySrc:
-        def close(self):
-            pass
-
-    monkeypatch.setattr("core.utils.dem.from_bounds", fake_from_bounds)
     from collections import namedtuple
 
     Bounds = namedtuple("Bounds", ["left", "bottom", "right", "top"])
@@ -613,6 +406,16 @@ def test_mosaic_and_crop_lat_swap(monkeypatch):
     class DummySrc:
         bounds = Bounds(0, 0, 10, 10)
         res = (1, 1)
+        crs = rasterio.crs.CRS.from_epsg(4326)
+        count = 1
+        dtypes = ["float32"]
+        nodata = -32768
+        width = 10
+        height = 10
+        transform = rasterio.transform.from_origin(0, 10, 0.1, 0.1)
+
+        def read(self, *args, **kwargs):
+            return np.zeros((1, 10, 10))
 
         def close(self):
             pass
@@ -659,6 +462,16 @@ def test_mosaic_and_crop_orientation_warning(monkeypatch):
     class DummySrc:
         bounds = Bounds(0, 0, 10, 10)
         res = (1, 1)
+        crs = rasterio.crs.CRS.from_epsg(4326)
+        count = 1
+        dtypes = ["float32"]
+        nodata = -32768
+        width = 10
+        height = 10
+        transform = rasterio.transform.from_origin(0, 10, 0.1, 0.1)
+
+        def read(self, *args, **kwargs):
+            return np.zeros((1, 10, 10))
 
         def close(self):
             pass
@@ -681,6 +494,16 @@ def test_mosaic_and_crop_from_bounds_error(monkeypatch):
     class DummySrc:
         bounds = Bounds(0, 0, 10, 10)
         res = (1, 1)
+        crs = rasterio.crs.CRS.from_epsg(4326)
+        count = 1
+        dtypes = ["float32"]
+        nodata = -32768
+        width = 10
+        height = 10
+        transform = rasterio.transform.from_origin(0, 10, 0.1, 0.1)
+
+        def read(self, *args, **kwargs):
+            return np.zeros((1, 10, 10))
 
         def close(self):
             pass

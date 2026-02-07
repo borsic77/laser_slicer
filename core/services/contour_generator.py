@@ -1,8 +1,13 @@
+import concurrent.futures
 import logging
+import time
+from typing import List, Tuple
 
 import numpy as np
 import shapely
 from django.conf import settings
+from PIL import Image, ImageOps
+from rasterio.transform import from_origin
 from shapely.geometry import (
     box,
     mapping,
@@ -100,6 +105,7 @@ class ContourSlicingJob:
         include_buildings: bool = False,
         include_waterways: bool = False,
         include_bathymetry: bool = False,
+        use_osm_water_mask: bool = True,
     ):
         """Initialize the ContourSlicingJob with parameters.
         Args:
@@ -120,15 +126,17 @@ class ContourSlicingJob:
             include_waterways (bool): Whether to include rivers, streams and canals.
         """
         self.bounds = bounds
-        self.height = height_per_layer
+        self.height_per_layer = height_per_layer
         self.num_layers = num_layers
-        self.simplify = simplify
-        self.substrate_size = substrate_size_mm
-        self.layer_thickness = layer_thickness_mm
+        self.simplify_tolerance = simplify
+        self.substrate_size_mm = substrate_size_mm
+        self.layer_thickness_mm = layer_thickness_mm
         self.center = center
-        self.smoothing = smoothing
+        self.smoothing_sigma = smoothing
         self.min_area = min_area
-        self.min_feature_width = min_feature_width_mm
+        self.min_feature_width_mm = min_feature_width_mm
+        self.include_bathymetry = include_bathymetry
+        self.use_osm_water_mask = use_osm_water_mask
         self.fixed_elevation = fixed_elevation
         self.water_polygon = shape(water_polygon) if water_polygon else None
         if water_polygon:
@@ -245,38 +253,135 @@ class ContourSlicingJob:
 
     def _fetch_and_prep_dem(self, progress_callback=None):
         """Fetch, merge, and clean DEM data including bathymetry."""
+        from core.services.bathymetry_service import BathymetryFetcher
+        from core.utils.dem import (
+            clean_srtm_dem,
+            download_elevation_tiles_for_bounds,
+            fill_nans_in_dem,
+            merge_srtm_and_etopo,
+            mosaic_and_crop,
+        )
 
         def report(msg, pct):
             if progress_callback:
                 progress_callback(msg, pct)
 
         report("Downloading elevation tiles...", 5)
-        # Download elevation tiles
+        # 1. Fetch Land DEM (SRTM)
         tile_paths = download_elevation_tiles_for_bounds(self.bounds)
 
         report("Merging and processing DEM...", 15)
-        elevation, transform = mosaic_and_crop(tile_paths, self.bounds)
+        land_raw, transform = mosaic_and_crop(tile_paths, self.bounds)
 
+        # 2. Fetch Bathymetry (if needed)
+        bathy_raw = None
         if self.include_bathymetry:
             report("Fetching global bathymetry (ETOPO)...", 18)
             try:
                 fetcher = BathymetryFetcher()
-                etopo_data = fetcher.fetch_elevation_for_bounds(self.bounds)
+                bathy_raw = fetcher.fetch_elevation_for_bounds(self.bounds)
                 logger.info(
-                    f"ETOPO fetched stats: min={etopo_data.min():.2f}, max={etopo_data.max():.2f}"
-                )
-
-                report("Merging SRTM and High-Res Bathymetry...", 20)
-                elevation = merge_srtm_and_etopo(
-                    elevation, etopo_data, bounds=self.bounds, transform=transform
+                    f"ETOPO fetched stats: min={bathy_raw.min():.2f}, max={bathy_raw.max():.2f}"
                 )
             except Exception as e:
                 logger.error(
-                    f"Failed to fetch/merge bathymetry: {e}. Falling back to SRTM only.",
+                    f"Failed to fetch bathymetry: {e}. Falling back to SRTM only.",
                     exc_info=True,
                 )
 
-        # Clean the elevation data
+        # 3. Apply Water Masking (OSM Tiles)
+        if self.use_osm_water_mask:
+            try:
+                logger.info("Applying OSM Water Mask from Tiles...")
+                from rasterio.warp import Resampling, reproject
+
+                from core.utils.osm_tiles import (
+                    TILE_PROVIDERS,
+                    fetch_osm_static_image,
+                    generate_water_mask_from_tiles,
+                )
+
+                # Use CartoDB Voyager No Labels for cleaner mask (no text)
+                provider = "cartodb_voyager_nolabels"
+                water_color = TILE_PROVIDERS[provider]["water_color"]
+
+                # Fetch tiles
+                # Zoom 15 is good balance of detail and speed
+                osm_img, src_transform, src_crs = fetch_osm_static_image(
+                    self.bounds, zoom=15, provider=provider
+                )
+
+                # Generate mask (True=Water, False=Land)
+                # Note: We still apply morphological closing in generate_water_mask_from_tiles
+                # which is good for any remaining small artifacts.
+                water_mask_src = generate_water_mask_from_tiles(
+                    osm_img, water_color=water_color
+                )
+
+                # Reproject mask to match land_raw (SRTM)
+                # Use uint8 for rasterio compatibility (GDAL Byte)
+                water_mask_dest = np.zeros(land_raw.shape, dtype=np.uint8)
+
+                # We need to reproject the boolean mask.
+                # Converting to uint8 for reprojection is safer.
+                reproject(
+                    source=water_mask_src.astype(np.uint8),
+                    destination=water_mask_dest,
+                    src_transform=src_transform,
+                    src_crs=src_crs,
+                    dst_transform=transform,
+                    dst_crs="EPSG:4326",
+                    resampling=Resampling.nearest,
+                )
+
+                # Apply Mask: Where Mask is True (Water), set Land to NaN so it gets filled/merged with Bathy later
+                # Ensure land_raw can hold NaNs
+                if not np.issubdtype(land_raw.dtype, np.floating):
+                    land_raw = land_raw.astype(np.float32)
+
+                # Set water pixels to NaN
+                land_raw[water_mask_dest.astype(bool)] = np.nan
+                logger.info(
+                    "OSM Water Mask applied: Land pixels forced to NaN where Tiles indicate Water."
+                )
+
+            except Exception as e:
+                logger.error(f"Failed to apply OSM water mask: {e}", exc_info=True)
+
+        # 4. Merge SRTM and Bathymetry
+        if self.include_bathymetry and bathy_raw is not None:
+            report("Merging SRTM and High-Res Bathymetry...", 20)
+            # If we used the OSM Tile Mask, we pass it as the land mask (Inverse of Water Mask)
+            # This ensures merge_srtm_and_etopo uses the EXACT same mask.
+            land_mask = None
+            if self.use_osm_water_mask and "water_mask_dest" in locals():
+                # water_mask_dest is 1 for Water, 0 for Land.
+                # merge_srtm_and_etopo expects land_mask where True = Land.
+                land_mask = water_mask_dest == 0
+
+            elevation = merge_srtm_and_etopo(
+                land_raw, bathy_raw, land_mask=land_mask, transform=transform
+            )
+
+            # Enforce Water Mask on Merged Data
+            # If we have a water mask, any pixel in it MUST be underwater.
+            # ETOPO/Bathymetry might be positive (land) due to resolution issues.
+            if self.use_osm_water_mask and "water_mask_dest" in locals():
+                mask_bool = water_mask_dest.astype(bool)
+                # Identify "Bad Ocean" (Water mask says Yes, Elevation says Land > -0.1m)
+                # We use -0.1 to allow for near-zero blended coastlines.
+                bad_ocean = mask_bool & (elevation > -0.1)
+                count = np.count_nonzero(bad_ocean)
+
+                if count > 0:
+                    elevation[bad_ocean] = -5.0
+                    logger.info(
+                        f"Enforced water mask: {count} pixels clamped to -5.0m to prevent 'Vanishing Island' artifacts."
+                    )
+        else:
+            elevation = land_raw
+
+        # 5. Clean the elevation data
         # If bathymetry is disabled, we clamp the ocean/voids to 0 to provide a flat base.
         if self.include_bathymetry:
             min_valid = -11000
@@ -306,8 +411,8 @@ class ContourSlicingJob:
             masked_elevation_data=masked_elevation,
             elevation_data=elevation,
             transform=transform,
-            interval=self.height,
-            simplify=float(self.simplify) / 100000.0,
+            interval=self.height_per_layer,
+            simplify=float(self.simplify_tolerance) / 100000.0,
             debug_image_path=settings.DEBUG_IMAGE_PATH,
             center=self.center,
             bounds=self.bounds,
@@ -316,7 +421,7 @@ class ContourSlicingJob:
             water_polygon=self.water_polygon,
             resolution_scale=1.0,
             min_area_deg2=1e-10,
-            dem_smoothing=max(0, float(self.smoothing) / 5.0),
+            dem_smoothing=max(0, float(self.smoothing_sigma) / 5.0),
         )
         _log_contour_info(contours, "After Contour Generation")
         return contours
@@ -349,12 +454,12 @@ class ContourSlicingJob:
                 proj_params,
                 cx,
                 cy,
-                self.simplify,
-                max(0, float(self.smoothing) / 10.0),
+                self.simplify_tolerance,
+                max(0, float(self.smoothing_sigma) / 10.0),
                 utm_bounds,
-                self.substrate_size,
+                self.substrate_size_mm,
                 self.min_area,
-                self.min_feature_width,
+                self.min_feature_width_mm,
             )
             for c in contours
         ]
@@ -395,7 +500,7 @@ class ContourSlicingJob:
         """Fetch and project OSM features (roads, waterways, buildings)."""
         # We need to re-calculate the scale params to process OSM features identically
         # logic duplicated from `scale_and_center_contours_to_substrate`
-        substrate_m = self.substrate_size / 1000.0
+        substrate_m = self.substrate_size_mm / 1000.0
         minx, miny, maxx, maxy = utm_bounds
         width = maxx - minx
         height = maxy - miny
@@ -403,46 +508,64 @@ class ContourSlicingJob:
         center_y = (miny + maxy) / 2
         scale_factor = substrate_m / max(width, height)
 
-        roads_geom = (
-            self._prepare_osm_road_geoms(
-                proj_params,  # projection
-                center_x,
-                center_y,
-                scale_factor,
-                cx,
-                cy,
-            )
-            if self.include_roads
-            else {}
-        )
-        waterways_geom = (
-            self._prepare_osm_feature_geom(
-                fetch_waterways,
-                proj_params,
-                center_x,
-                center_y,
-                scale_factor,
-                cx,
-                cy,
-                "waterway",
-            )
-            if self.include_waterways
-            else None
-        )
-        buildings_geom = (
-            self._prepare_osm_feature_geom(
-                fetch_buildings,
-                proj_params,
-                center_x,
-                center_y,
-                scale_factor,
-                cx,
-                cy,
-                "building",
-            )
-            if self.include_buildings
-            else None
-        )
+        import concurrent.futures
+
+        roads_geom = {}
+        waterways_geom = None
+        buildings_geom = None
+
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            futures = {}
+
+            if self.include_roads:
+                futures["roads"] = executor.submit(
+                    self._prepare_osm_road_geoms,
+                    proj_params,
+                    center_x,
+                    center_y,
+                    scale_factor,
+                    cx,
+                    cy,
+                )
+
+            if self.include_waterways:
+                futures["waterways"] = executor.submit(
+                    self._prepare_osm_feature_geom,
+                    fetch_waterways,
+                    proj_params,
+                    center_x,
+                    center_y,
+                    scale_factor,
+                    cx,
+                    cy,
+                    "waterway",
+                )
+
+            if self.include_buildings:
+                futures["buildings"] = executor.submit(
+                    self._prepare_osm_feature_geom,
+                    fetch_buildings,
+                    proj_params,
+                    center_x,
+                    center_y,
+                    scale_factor,
+                    cx,
+                    cy,
+                    "building",
+                )
+
+            for key, future in futures.items():
+                try:
+                    result = future.result()
+                    if key == "roads":
+                        roads_geom = result
+                    elif key == "waterways":
+                        waterways_geom = result
+                    elif key == "buildings":
+                        buildings_geom = result
+                except Exception as e:
+                    logger.error(f"Failed to fetch {key}: {e}", exc_info=True)
+
         return roads_geom, waterways_geom, buildings_geom
 
     def run(self, progress_callback=None) -> list[dict]:
@@ -518,7 +641,7 @@ class ContourSlicingJob:
 
         for idx, contour in enumerate(contours):
             # Recalculate thickness (was done in sequential loop)
-            contour["thickness"] = self.layer_thickness / 1000.0
+            contour["thickness"] = self.layer_thickness_mm / 1000.0
 
             # OSM intersections (still sequential, usually fast)
             if self.include_roads or self.include_waterways or self.include_buildings:
