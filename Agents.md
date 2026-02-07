@@ -5,6 +5,13 @@
 
 ---
 
+## 0 Important files to read
+
+- [AGENTS.md](AGENTS.md) - This file
+- [README.md](README.md) - Project README
+- [DEPLOY.md](DEPLOY.md) - Deployment guide
+- doc/AGENT_ONBOARDING.md - Agent onboarding guide
+
 ## 1 Preferred operating mode
 
 | Tool | Default approval mode | Notes |

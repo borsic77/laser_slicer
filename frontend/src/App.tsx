@@ -5,7 +5,7 @@
  * Refactored to use modular components, services, and hooks.
  */
 
-import { useEffect, useReducer, useState } from 'react';
+import React, { useEffect, useReducer, useState } from 'react';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import './App.css';
@@ -20,6 +20,8 @@ import { useElevationJob } from './hooks/useElevationJob';
 import { useSlicingJob } from './hooks/useSlicingJob';
 import { initialSlicerParams, slicerReducer } from './reducers/slicerReducer';
 import { api } from './services/api';
+
+const MapControllerMemo = React.memo(MapController);
 
 function App() {
   // Theme state
@@ -55,7 +57,7 @@ function App() {
   // Params State
   const [params, dispatch] = useReducer(slicerReducer, initialSlicerParams);
   const [simplify, setSimplify] = useState(0);
-  const [smoothing, setSmoothing] = useState(0);
+  const [smoothing, setSmoothing] = useState(5);
   const [minArea, setMinArea] = useState(0);
   const [minFeatureWidth, setMinFeatureWidth] = useState(0);
   
@@ -213,7 +215,7 @@ function App() {
 
         <div className="main-panel">
           <div className="map-container">
-            <MapController
+            <MapControllerMemo
                 coordinates={coordinates}
                 setBounds={setBounds}
                 squareOutput={params.squareOutput}
