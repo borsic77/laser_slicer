@@ -57,6 +57,17 @@ services:
 #       - caddy_data:/data
 #       - caddy_config:/config
 #     depends_on: [ backend ]
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile.prod
+      args:
+        VITE_API_URL: "${VITE_API_URL}"
+    ports:
+      - "4173:4173"
+    depends_on:
+      - backend
+
 volumes:
   pgdata:
 
