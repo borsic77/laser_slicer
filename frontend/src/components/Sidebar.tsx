@@ -132,6 +132,10 @@ export default function Sidebar(props: SidebarProps) {
                 Enable fixed elevation
               </label>              
                   
+            {/* Advanced Settings Group */}
+            <details className="advanced-settings-group" style={{ marginBottom: '10px' }}>
+              <summary style={{ cursor: 'pointer', marginBottom: '10px', fontWeight: 500 }}>Advanced Settings</summary>
+              
             <label title="Reduce geometry complexity">
               Simplify:
               <input
@@ -204,6 +208,7 @@ export default function Sidebar(props: SidebarProps) {
                   />
                 </label>
             </div>
+            </details>
             <label style={{ flexDirection: 'row', alignItems: 'center' }}>
               <input
                 type="checkbox"

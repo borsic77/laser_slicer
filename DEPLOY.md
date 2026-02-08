@@ -32,8 +32,13 @@ docker compose -f docker-compose.prod.yml up -d --build
 Since the frontend is built inside the `caddy` image in the *reverse-proxy* stack, you must rebuild that container to see UI changes.
 
 ```bash
+# 1. Pull latest code in the main repo
+cd /srv/docker/laser_slicer
+git pull
+
+# 2. Go to the proxy folder and rebuild the caddy container
 cd /srv/docker/reverse-proxy
-# Force rebuild of the caddy image which contains the frontend build
+# --no-cache is CRITICAL because the build context is outside this folder
 docker compose build --no-cache caddy
-docker compose up -d caddy
+docker compose up -d --force-recreate caddy
 ```

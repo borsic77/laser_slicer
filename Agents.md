@@ -62,13 +62,18 @@ Agents should run linters before proposing commits or PRs.
 ## 5 Testing protocol
 
 ```bash
+```bash
 pytest -q           # run tests
 ```
 Use `pytest-snapshots` for SVG fixtures.
 Failing tests block merges.
 Add tests alongside new code.
 
-## 6 Commit & PR etiquette
+## 6 Mobile Testing
+To test on mobile, use `npm run dev -- --host` or edit `vite.config.ts` to enable network access.
+See [doc/MOBILE_TESTING_GUIDE.md](doc/MOBILE_TESTING_GUIDE.md) for details.
+
+## 7 Commit & PR etiquette
 - Conventional Commits (`feat:`, `fix:`, `chore:` …)
 - PR description must list:
   1. Purpose / linked issue

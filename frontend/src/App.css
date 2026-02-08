@@ -154,3 +154,58 @@ header h2 {
 .map-container {
   height: 400px;
 }
+
+/* Mobile Responsiveness */
+@media (max-width: 768px) {
+  #root {
+    padding: 0.5rem;
+  }
+
+  .content-wrapper {
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .sidebar, .info-sidebar {
+    width: 100%;
+    order: 2; /* Move sidebars below map */
+  }
+
+  /* Specific order: Map first, then Controls, then Info */
+  .main-panel {
+    order: 1;
+    width: 100%;
+  }
+  
+  .sidebar {
+    order: 2;
+  }
+
+  .info-sidebar {
+    order: 3;
+    display: none; /* Optional: hide info on mobile to save space, or keep it */
+  }
+  
+  /* Show info sidebar if needed, or maybe put it at the very bottom */
+  .info-sidebar {
+      display: flex; 
+  }
+
+  .map-container {
+    height: 60vh; /* Taller map on mobile */
+  }
+
+  header h2 {
+    font-size: 1.5rem; /* Smaller title on mobile */
+    text-align: center;
+  }
+  
+  header {
+      flex-direction: column;
+      gap: 10px;
+  }
+
+  .section-group {
+      grid-template-columns: 1fr; /* Stack inputs */
+  }
+}

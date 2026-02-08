@@ -142,6 +142,13 @@
   to { transform: translateY(0); opacity: 1; }
 }
 
+@media (max-width: 768px) {
+  .modal-content {
+    padding: 1.5rem;
+    width: 95%;
+  }
+}
+
 /* Light Mode Overrides */
 @media (prefers-color-scheme: light) {
   .modal-overlay {
