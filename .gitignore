@@ -36,7 +36,7 @@ output/
 
 doc/
 DEPLOY.md
-
+docker-compose.prod.yml
 
 # VS Code
 .vscode/*

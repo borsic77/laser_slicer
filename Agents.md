@@ -9,7 +9,6 @@
 
 - [AGENTS.md](AGENTS.md) - This file
 - [README.md](README.md) - Project README
-- [DEPLOY.md](DEPLOY.md) - Deployment guide
 - doc/AGENT_ONBOARDING.md - Agent onboarding guide
 
 ## 1 Preferred operating mode
@@ -34,7 +33,7 @@
 | `cache/`, `data/`, `tmp/`, `media/`, `job_results/` | 🚫 Generated artefacts – do not commit |
 | `srtm_cache/` | 🚫 Large external data – read only |
 | `logs/`, `db.sqlite3` | 🚫 Ignore completely |
-| `docker-compose*.yml`, `Dockerfile*`, `caddy/` | ✅ May edit, but ask first—production setups depend on them |
+| `docker-compose*.yml`, `Dockerfile*` | ✅ May edit, but ask first—production setups depend on them |
 
 ---
 

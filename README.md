@@ -32,7 +32,7 @@ Live site: [laserslicer.legradic.ch](https://laserslicer.legradic.ch)
 | **Download SVGs** – packaged as a ZIP | Optional simplification with Shapely |
 | **Download SVGs** – packaged as a ZIP | SVG export via `svgwrite` |
 | Hot‑reload dev server (`npm run dev`) | **Celery + Redis** task queue |
-| Caddy reverse proxy (HTTPS out‑of‑the‑box) | Single‑command **Docker** deploy |
+| | Single‑command **Docker** deploy |
 
 ---
 
@@ -56,14 +56,16 @@ The application defines a clear pipeline for generating laser-cuttable maps:
 
 ```bash
 # 1. Clone the repo
-git clone https://github.com/<your‑user>/laser_slicer.git
+git clone https://github.com/borsic77/laser_slicer.git
 cd laser_slicer
 
-# 2. Copy environment template and adjust if needed
-cp env.example .env   # edit DB credentials, secret key …
+# 2. Configure Environment
+# Copy the example environment file. The defaults are set up for Docker,
+# so you only need to change USER_AGENT.
+cp env.example .env
 
 # 3. Fire everything up
-docker compose up --build
+docker compose up --build -d
 ```
 
 Visit **http://localhost:5173** in your browser.
@@ -72,15 +74,7 @@ The API enforces CSRF protection. Ensure your `.env` defines matching
 `DJANGO_CORS_ALLOWED_ORIGINS` and `DJANGO_CSRF_TRUSTED_ORIGINS`
 so the browser can send the `csrftoken` cookie with each request.
 
-### Production
 
-```bash
-docker compose -f docker-compose.prod.yml --env-file .env.docker up -d --build
-```
-
-Caddy terminates TLS on ports 80/443 and proxies `/api` to Django ``backend:8000``.
-
----
 
 ## Local Development (without Docker)
 
@@ -92,7 +86,7 @@ Caddy terminates TLS on ports 80/443 and proxies `/api` to Django ``backend:800
 | Redis       | 7       |
 | GDAL        | 3.6 +   |
 
-See [Developer Startup Guide](dev_startup.md) for setup instructions.
+See the **[Developer Startup Guide](dev_startup.md)** for detailed, step-by-step setup instructions to run the project locally without Docker.
 
 
 ---
@@ -103,7 +97,6 @@ See [Developer Startup Guide](dev_startup.md) for setup instructions.
 .
 ├── core/               # Django project
 ├── frontend/           # Vite + React app
-├── caddy/              # Custom Caddy build
 ├── data/srtm_cache/    # DEM cache (mounted volume)
 ├── docker-compose*.yml
 └── README.md

@@ -59,7 +59,9 @@ cd ~/laser_slicer
 uv venv .venv
 source .venv/bin/activate
 uv sync
-cp .env.example .env         # Make sure your .env is configured for local dev
+uv sync
+cp env.example .env         # Make sure your .env is configured for local dev
+python manage.py migrate
 python manage.py migrate
 python manage.py runserver
 	•	The backend API is now available at http://localhost:8000
@@ -72,7 +74,7 @@ python manage.py runserver
 
 cd ~/laser_slicer
 source .venv/bin/activate
-celery -A config worker -l info
+celery -A core worker -l info
 
 ⸻
 
