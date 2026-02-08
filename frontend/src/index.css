@@ -86,6 +86,8 @@ button:focus-visible {
     --color-sidebar-text: #213547;
     --color-input-bg: #ffffff;
     --color-input-text: #000000;
+    --color-text: #213547;
+    --color-text-light: #213547;
   }
   a:hover {
     color: #747bff;
