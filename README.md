@@ -59,10 +59,15 @@ The application defines a clear pipeline for generating laser-cuttable maps:
 git clone https://github.com/borsic77/laser_slicer.git
 cd laser_slicer
 
-# 2. Configure Environment
-# Copy the example environment file. The defaults are set up for Docker,
-# so you only need to change USER_AGENT.
+# 2. Configure environment files
+# .env       – local-dev settings (VITE_API_URL, optional Django overrides)
 cp env.example .env
+
+# .env.docker – Docker-specific settings (Postgres credentials, USER_AGENT).
+# docker-compose.yml reads this file; without it the db/backend/celery
+# containers will fail to start.
+cp env.docker.example .env.docker
+# Edit USER_AGENT in .env.docker to identify your instance (OSM policy).
 
 # 3. Fire everything up
 docker compose up --build -d
