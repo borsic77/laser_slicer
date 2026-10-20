@@ -301,18 +301,23 @@ class ContourSlicingJob:
             merge_srtm_and_etopo,
             mosaic_and_crop,
         )
+        from core.utils.swiss_topo_api import get_swiss_lake_surface_elevation
 
         def report(msg, pct):
             if progress_callback:
                 progress_callback(msg, pct)
 
         in_great_lakes = is_in_great_lakes(self.bounds)
-        water_surface = (
-            float(get_great_lakes_surface_elevation(self.bounds))
-            if in_great_lakes
-            else 0.0
-        )
+        swiss_lake_elev = get_swiss_lake_surface_elevation(self.bounds)
+        if in_great_lakes:
+            water_surface = float(get_great_lakes_surface_elevation(self.bounds))
+        elif swiss_lake_elev is not None:
+            water_surface = float(swiss_lake_elev)
+        else:
+            water_surface = 0.0
+
         water_threshold = water_surface + OCEAN_LEVEL_THRESHOLD
+        skip_ocean_bathy = swiss_lake_elev is not None
 
         is_real = _is_unmocked_dem_func(
             download_elevation_tiles_for_bounds, "download_elevation_tiles_for_bounds"
@@ -352,7 +357,9 @@ class ContourSlicingJob:
         bathy_future = None
         osm_future = None
 
-        if self.include_bathymetry or self.use_osm_water_mask:
+        if not skip_ocean_bathy and (
+            self.include_bathymetry or self.use_osm_water_mask
+        ):
             with concurrent.futures.ThreadPoolExecutor(max_workers=3) as io_executor:
                 if self.include_bathymetry:
 
@@ -380,22 +387,32 @@ class ContourSlicingJob:
                     )
 
                 report("Downloading elevation tiles...", 5)
-                # 1. Fetch Land DEM (SRTM)
-                tile_paths = download_elevation_tiles_for_bounds(self.bounds)
+                # 1. Fetch Land DEM (SRTM / Swiss)
+                try:
+                    tile_paths = download_elevation_tiles_for_bounds(
+                        self.bounds, include_bathymetry=self.include_bathymetry
+                    )
+                except TypeError:
+                    tile_paths = download_elevation_tiles_for_bounds(self.bounds)
 
                 report("Merging and processing DEM...", 15)
                 land_raw, transform = mosaic_and_crop(tile_paths, self.bounds)
         else:
             report("Downloading elevation tiles...", 5)
-            # 1. Fetch Land DEM (SRTM)
-            tile_paths = download_elevation_tiles_for_bounds(self.bounds)
+            # 1. Fetch Land DEM (SRTM / Swiss)
+            try:
+                tile_paths = download_elevation_tiles_for_bounds(
+                    self.bounds, include_bathymetry=self.include_bathymetry
+                )
+            except TypeError:
+                tile_paths = download_elevation_tiles_for_bounds(self.bounds)
 
             report("Merging and processing DEM...", 15)
             land_raw, transform = mosaic_and_crop(tile_paths, self.bounds)
 
-        # 2. Fetch Bathymetry (if needed)
+        # 2. Fetch Bathymetry (if needed for ocean)
         bathy_raw = None
-        if self.include_bathymetry:
+        if self.include_bathymetry and not skip_ocean_bathy:
             report("Fetching global bathymetry (ETOPO)...", 18)
             if bathy_future is not None:
                 bathy_raw = bathy_future.result()
@@ -569,7 +586,9 @@ class ContourSlicingJob:
         if (
             is_real
             and isinstance(transform, rasterio.Affine)
-            and (not self.include_bathymetry or bathy_raw is not None)
+            and (
+                not self.include_bathymetry or bathy_raw is not None or skip_ocean_bathy
+            )
         ):
             try:
                 cache_dir.mkdir(parents=True, exist_ok=True)
@@ -597,12 +616,20 @@ class ContourSlicingJob:
         self, elevation, masked_elevation, transform, progress_callback=None
     ):
         from core.utils.dem import get_great_lakes_surface_elevation, is_in_great_lakes
+        from core.utils.swiss_topo_api import get_swiss_lake_surface_elevation
 
         if progress_callback:
             progress_callback("Generating base contours...", 25)
         effective_fixed_elev = self.fixed_elevation
-        if effective_fixed_elev is None and is_in_great_lakes(self.bounds):
-            effective_fixed_elev = float(get_great_lakes_surface_elevation(self.bounds))
+        if effective_fixed_elev is None:
+            if is_in_great_lakes(self.bounds):
+                effective_fixed_elev = float(
+                    get_great_lakes_surface_elevation(self.bounds)
+                )
+            else:
+                swiss_lake_elev = get_swiss_lake_surface_elevation(self.bounds)
+                if swiss_lake_elev is not None:
+                    effective_fixed_elev = float(swiss_lake_elev)
         contours = generate_contours(
             masked_elevation_data=masked_elevation,
             elevation_data=elevation,
@@ -868,18 +895,23 @@ class ContourSlicingJob:
         )
 
         from core.utils.dem import get_great_lakes_surface_elevation, is_in_great_lakes
+        from core.utils.swiss_topo_api import get_swiss_lake_surface_elevation
 
-        great_lakes_water_level = (
-            float(get_great_lakes_surface_elevation(self.bounds))
-            if (self.include_bathymetry and is_in_great_lakes(self.bounds))
-            else None
-        )
+        swiss_lake_elev = get_swiss_lake_surface_elevation(self.bounds)
+        active_water_level = None
+        if self.include_bathymetry:
+            if is_in_great_lakes(self.bounds):
+                active_water_level = float(
+                    get_great_lakes_surface_elevation(self.bounds)
+                )
+            elif swiss_lake_elev is not None:
+                active_water_level = float(swiss_lake_elev)
 
         for idx, contour in enumerate(contours):
             # Recalculate thickness (was done in sequential loop)
             contour["thickness"] = self.layer_thickness_mm / 1000.0
-            if great_lakes_water_level is not None:
-                contour["water_level"] = great_lakes_water_level
+            if active_water_level is not None:
+                contour["water_level"] = active_water_level
 
             # OSM intersections (still sequential, usually fast)
             if self.include_roads or self.include_waterways or self.include_buildings:

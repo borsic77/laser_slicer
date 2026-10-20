@@ -194,3 +194,175 @@ def test_great_lakes_merge_srtm_and_etopo():
     np.testing.assert_allclose(merged[:, 0], 185.0, atol=1e-3)
     np.testing.assert_allclose(merged[:, 2], 166.0, atol=1e-3)
     np.testing.assert_allclose(merged[:, 3], 156.0, atol=1e-3)
+
+
+def test_swissbathy3d_lake_detection_and_surface_elevation():
+    """Verify Swiss lake detection and surface datums for all 22 lakes."""
+    from core.utils.swiss_topo_api import (
+        SWISS_BATHY3D_LAKES,
+        get_swiss_bathy3d_lakes_for_bounds,
+        get_swiss_lake_surface_elevation,
+    )
+
+    assert len(SWISS_BATHY3D_LAKES) == 22
+
+    # Rotsee (nested within Lucerne region)
+    rotsee_bounds = (8.305, 47.068, 8.320, 47.074)
+    lakes = get_swiss_bathy3d_lakes_for_bounds(rotsee_bounds)
+    assert any(l["name"] == "Rotsee" for l in lakes)
+    assert get_swiss_lake_surface_elevation(rotsee_bounds) == 419.0
+
+    # Lake Geneva
+    geneva_bounds = (6.50, 46.45, 6.55, 46.50)
+    assert get_swiss_lake_surface_elevation(geneva_bounds) == 372.0
+
+    # Lake Zurich
+    zurich_bounds = (8.55, 47.30, 8.60, 47.35)
+    assert get_swiss_lake_surface_elevation(zurich_bounds) == 406.0
+
+    # Non-Swiss area (Paris)
+    paris_bounds = (2.30, 48.85, 2.35, 48.90)
+    assert get_swiss_bathy3d_lakes_for_bounds(paris_bounds) == []
+    assert get_swiss_lake_surface_elevation(paris_bounds) is None
+
+
+def test_download_swissbathy3d_tiles_offline(tmp_path, monkeypatch):
+    """Test SwissBATHY3D tile extraction and reprojection using a synthetic local archive."""
+    import zipfile
+
+    from core.utils import swiss_topo_api
+
+    # 1. Create a synthetic ESRI ASCII grid in EPSG:2056 covering Rotsee tile (2666, 1213)
+    # xllcorner=2666000, yllcorner=1213000, cellsize=1, 20x20 pixels
+    asc_text = (
+        "ncols 20\n"
+        "nrows 20\n"
+        "xllcorner 2666000\n"
+        "yllcorner 1213000\n"
+        "cellsize 1\n"
+        "nodata_value -3.4028234663852886e+38\n"
+    )
+    # Fill lake bed at 410m depth (surface is 419m)
+    rows = []
+    for _ in range(20):
+        rows.append(" ".join(["410.5"] * 20))
+    asc_content = (asc_text + "\n".join(rows)).encode("ascii")
+
+    # 2. Package into a zip archive
+    zip_path = tmp_path / "mock_rotsee.zip"
+    with zipfile.ZipFile(zip_path, "w") as zf:
+        zf.writestr("swissBATHY3D_CHLV95_LN02_2666_1213.asc", asc_content)
+
+    # 3. Patch cache dir and lake entry
+    cache_dir = tmp_path / "alti3d_cache"
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    monkeypatch.setattr(swiss_topo_api, "ALTI3D_CACHE_DIR", cache_dir)
+
+    # Point HttpRangeFile to read the local mock zip
+    class LocalRangeFile(io.RawIOBase):
+        def __init__(self, path):
+            self._f = open(path, "rb")
+
+        def readable(self):
+            return True
+
+        def seekable(self):
+            return True
+
+        def tell(self):
+            return self._f.tell()
+
+        def seek(self, offset, whence=0):
+            return self._f.seek(offset, whence)
+
+        def readinto(self, b):
+            return self._f.readinto(b)
+
+        def close(self):
+            self._f.close()
+
+    monkeypatch.setattr(
+        swiss_topo_api,
+        "HttpRangeFile",
+        lambda url, timeout=20: LocalRangeFile(zip_path),
+    )
+
+    rotsee_bounds = (8.311, 47.069, 8.315, 47.072)
+    tiles = swiss_topo_api.download_swissbathy3d_tiles(rotsee_bounds)
+    assert len(tiles) >= 1
+    assert all(p.endswith("_wgs84.tif") for p in tiles)
+
+    # Verify GeoTIFF content
+    with rasterio.open(tiles[0]) as src:
+        assert src.crs.to_epsg() == 4326
+        data = src.read(1)
+        valid = data[data > -1000]
+        assert len(valid) > 0
+        np.testing.assert_allclose(valid.mean(), 410.5, atol=0.5)
+
+
+def test_swiss_lake_slicing_water_level(monkeypatch):
+    """Test ContourSlicingJob sets water_level for Swiss lakes when include_bathymetry=True."""
+    from core.services.contour_generator import ContourSlicingJob
+
+    rotsee_bounds = (8.305, 47.068, 8.320, 47.074)
+
+    job = ContourSlicingJob(
+        bounds=rotsee_bounds,
+        height_per_layer=5.0,
+        num_layers=3,
+        simplify=0.0,
+        substrate_size_mm=100.0,
+        layer_thickness_mm=3.0,
+        center=(8.3125, 47.071),
+        smoothing=0,
+        min_area=0.0,
+        min_feature_width_mm=0.0,
+        include_bathymetry=True,
+    )
+
+    # Mock DEM and base contours
+    synth_dem = np.full((10, 10), 415.0, dtype=np.float32)
+    transform = rasterio.transform.from_bounds(*rotsee_bounds, 10, 10)
+    monkeypatch.setattr(
+        job,
+        "_fetch_and_prep_dem",
+        lambda cb=None: (synth_dem, np.ma.masked_invalid(synth_dem), transform),
+    )
+    monkeypatch.setattr(
+        job,
+        "_generate_base_contours",
+        lambda dem, masked, trans, cb=None: [
+            {
+                "elevation": 405.0,
+                "geometry": {
+                    "type": "Polygon",
+                    "coordinates": [[[0, 0], [1, 0], [1, 1], [0, 1], [0, 0]]],
+                },
+            },
+            {
+                "elevation": 415.0,
+                "geometry": {
+                    "type": "Polygon",
+                    "coordinates": [[[0, 0], [1, 0], [1, 1], [0, 1], [0, 0]]],
+                },
+            },
+            {
+                "elevation": 425.0,
+                "geometry": {
+                    "type": "Polygon",
+                    "coordinates": [[[0, 0], [1, 0], [1, 1], [0, 1], [0, 0]]],
+                },
+            },
+        ],
+    )
+    monkeypatch.setattr(
+        job,
+        "_run_post_processing",
+        lambda contours, proj, utm, cx, cy, cb=None: contours,
+    )
+
+    contours = job.run()
+    assert len(contours) == 3
+    # Swiss lake surface elevation for Rotsee is 419.0m
+    assert all(c.get("water_level") == 419.0 for c in contours)

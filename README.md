@@ -9,10 +9,11 @@ Live site: [laserslicer.legradic.ch](https://laserslicer.legradic.ch)
 * A **ZIP archive** of laser-ready SVG files (one per contour layer, with alignment markers and optional vector overlays)
 * An interactive **Three.js 3D preview** of the stacked model (with dark/light mode and translucent water plane)
 * **Multi-tier elevation & bathymetry**:
-  * **SwissALTI3D (2 m)** for Switzerland
+  * **SwissALTI3D (2 m)** and **SwissBATHY3D (2 m)** for Switzerland (covering all 22 mapped Swiss lakes via swisstopo HTTP Range ZIP streaming)
   * **SRTM (30 m)** global land elevation with outlier/noise filtering
   * **NOAA Great Lakes (~90 m)**, **EMODnet Europe (~115 m)**, and **NOAA ETOPO 2022 (~450 m)** underwater bathymetry
 * **OSM Water Masking & Fixed Elevation** tools for crisp coastlines and flat inland lakes
+* **Live Dataset Availability**: Sidebar indicators display which bathymetry dataset is active for the current bounding box
 * A **Dockerised Django + Celery + React workflow** with bounded LRU disk caches
 
 ---
@@ -22,10 +23,10 @@ Live site: [laserslicer.legradic.ch](https://laserslicer.legradic.ch)
 | Front-end (React 19 + TypeScript + Vite) | Back-end (Django 5 + Celery + PostGIS/GDAL) |
 |------------------------------------------|---------------------------------------------|
 | **Leaflet map** – search any address or pan/zoom to select bounds | **Geocoding** & coordinate parsing via Nominatim |
-| Automatic elevation range detection (`min` / `max` m) | **Multi-source DEM & Bathymetry** (SRTM 30m, SwissALTI3D 2m, EMODnet 115m, NOAA Great Lakes 90m & Global 450m) |
+| Automatic elevation range detection (`min` / `max` m) | **Multi-source DEM & Bathymetry** (SRTM 30m, SwissALTI3D 2m, SwissBATHY3D 2m, EMODnet 115m, NOAA Great Lakes 90m & Global 450m) |
 | Parameter panel – layer count/height, substrate size, smoothing, simplification | **OSM Water Masking** from tiles + shoreline blending & IGLD85 Great Lakes datum conversion |
 | Waterbody click tool & optional fixed elevation (inland lakes) | Fetch & clip **OSM roads, buildings & waterways** per visible layer band |
-| Toggle roads, buildings, waterways, bathymetry & water mask | Fast contour generation (`scikit-image` marching squares) & parallel `shapely` post-processing |
+| Toggle roads, buildings, waterways, bathymetry with live dataset indicator | Fast contour generation (`scikit-image` marching squares) & parallel `shapely` post-processing |
 | Live **Three.js / R3F** 3D preview with water plane & dark/light themes | **Prepared-DEM `.npz` cache** & bounded **LRU disk cache eviction** (~3.5 GB cap) |
 | **Download SVGs** – custom layer stroke colors packaged as a ZIP | Background task orchestration via **Celery + Redis** |
 

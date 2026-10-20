@@ -1,3 +1,5 @@
+import { getBathymetryDatasetInfo } from '../utils/bathymetry';
+
 interface InfoSidebarProps {
     coordinates: [number, number] | null;
     bounds: [[number, number], [number, number]] | null;
@@ -26,6 +28,7 @@ export default function InfoSidebar(props: InfoSidebarProps) {
 
     const centerLat = bounds ? (bounds[0][0] + bounds[1][0]) / 2 : (coordinates ? coordinates[0] : null);
     const centerLon = bounds ? (bounds[0][1] + bounds[1][1]) / 2 : (coordinates ? coordinates[1] : null);
+    const bathyInfo = getBathymetryDatasetInfo(bounds, elevationStats);
 
     return (
         <div className="info-sidebar">
@@ -39,8 +42,11 @@ export default function InfoSidebar(props: InfoSidebarProps) {
           
           <h2>Bathymetry</h2>
           <label style={{display:'block'}}>
-            <input type="checkbox" checked={includeBathymetry} onChange={e => setIncludeBathymetry(e.target.checked)} /> Ocean Bathymetry
+            <input type="checkbox" checked={includeBathymetry} onChange={e => setIncludeBathymetry(e.target.checked)} /> Include Bathymetry (Oceans & Lakes)
           </label>
+          <div style={{ fontSize: '0.8rem', color: bathyInfo.available ? 'var(--color-text)' : '#888', marginTop: '6px', lineHeight: '1.3', opacity: bathyInfo.available ? 0.9 : 0.7 }}>
+            {bathyInfo.description}
+          </div>
 
           <hr style={{ width: '100%', border: 'none', borderTop: '1px solid #ccc', margin: '1em 0' }} />
 

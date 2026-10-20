@@ -14,7 +14,10 @@ from filelock import FileLock
 from rasterio.merge import merge
 from rasterio.windows import from_bounds
 
-from core.utils.swiss_topo_api import download_swissalti3d_tiles
+from core.utils.swiss_topo_api import (
+    download_swissalti3d_tiles,
+    download_swissbathy3d_tiles,
+)
 
 try:
     from core.utils.cache_ops import enforce_cache_limit, touch_cache_file
@@ -691,21 +694,25 @@ def download_alti3d_tiles_for_bounds(
 
 def download_elevation_tiles_for_bounds(
     bounds: tuple[float, float, float, float],
+    include_bathymetry: bool = False,
 ) -> list[str]:
-    """Download elevation tiles, preferring SwissALTI3D when in Switzerland."""
+    """Download elevation tiles, preferring SwissBATHY3D and SwissALTI3D when in Switzerland."""
     # Always fetch SRTM as a fallback/background layer to prevent holes
     srtm_tiles = download_srtm_tiles_for_bounds(bounds)
 
     if within_swiss_bounds(bounds):
-        swiss_tiles = download_alti3d_tiles_for_bounds(bounds)
-        if swiss_tiles:
+        swiss_alti_tiles = download_alti3d_tiles_for_bounds(bounds)
+        swiss_bathy_tiles = (
+            download_swissbathy3d_tiles(bounds) if include_bathymetry else []
+        )
+        if swiss_bathy_tiles or swiss_alti_tiles:
             logger.info(
-                f"Merging {len(swiss_tiles)} SwissALTI3D tiles with {len(srtm_tiles)} SRTM tiles."
+                f"Merging {len(swiss_bathy_tiles)} SwissBATHY3D + {len(swiss_alti_tiles)} SwissALTI3D with {len(srtm_tiles)} SRTM tiles."
             )
-            # Return SRTM first (background), then Swiss (foreground)
-            # rasterio.merge paints in order, so later files overwrite earlier ones.
-            return srtm_tiles + swiss_tiles
-        logger.info("No SwissALTI3D tiles found, using SRTM only.")
+            # rasterio.merge defaults to method='first' (first non-nodata pixel wins).
+            # SwissBATHY3D is first, followed by SwissALTI3D, with SRTM as fallback.
+            return swiss_bathy_tiles + swiss_alti_tiles + srtm_tiles
+        logger.info("No SwissALTI3D/SwissBATHY3D tiles found, using SRTM only.")
 
     return srtm_tiles
 

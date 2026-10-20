@@ -43,14 +43,24 @@ class ElevationRangeJob:
         Returns:
             A dictionary with 'min' and 'max' elevation values.
         """
-        tile_paths = download_elevation_tiles_for_bounds(self.bounds)
+        try:
+            tile_paths = download_elevation_tiles_for_bounds(
+                self.bounds, include_bathymetry=self.include_bathymetry
+            )
+        except TypeError:
+            tile_paths = download_elevation_tiles_for_bounds(self.bounds)
+
         # Downsample by 10x for fast statistics (approx 20m res for Swiss data)
         # This drastically speeds up min/max calculation for map interactions
         elevation, transform = mosaic_and_crop(
             tile_paths, self.bounds, downsample_factor=10
         )
 
-        if self.include_bathymetry:
+        from core.utils.swiss_topo_api import get_swiss_lake_surface_elevation
+
+        swiss_lake_elev = get_swiss_lake_surface_elevation(self.bounds)
+
+        if self.include_bathymetry and swiss_lake_elev is None:
             try:
                 fetcher = BathymetryFetcher()
                 etopo_data = fetcher.fetch_elevation_for_bounds(self.bounds)

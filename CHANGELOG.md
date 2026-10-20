@@ -1,12 +1,15 @@
 # Changelog
 
-## v3.1.0 – Great Lakes Bathymetry, Faster Slicing Pipeline & Bounded Caches
+## v3.1.0 – SwissBATHY3D, Great Lakes Bathymetry, Faster Slicing Pipeline & Bounded Caches
 
-**Laser Slicer v3.1** adds high-resolution **Laurentian Great Lakes bathymetry (~90m)**, restores global ocean bathymetry via NOAA NCEI's ArcGIS ImageServer, accelerates contour slicing, and introduces bounded LRU disk caches for production deployments.
+**Laser Slicer v3.1** adds high-resolution **SwissBATHY3D (2m)** lake bathymetry across Switzerland, **Laurentian Great Lakes bathymetry (~90m)**, global ocean bathymetry via NOAA NCEI's ArcGIS ImageServer, a live UI bathymetry dataset indicator, accelerated contour slicing, and bounded LRU disk caches for production deployments.
 
-### Great Lakes & Global Bathymetry
+### SwissBATHY3D & Great Lakes Bathymetry
+- **SwissBATHY3D (2m)**: Integration of swisstopo's `ch.swisstopo.swissbathy3d` collection covering all 22 mapped Swiss lakes (Lake Geneva, Lake Constance, Lake Zurich, Lake Lucerne, Lake Thun, Lake Brienz, Lake Neuchatel, Lake Biel, Rotsee, etc.).
+- **HTTP Range ZIP Streaming**: `HttpRangeFile` wrapper allows on-demand partial reads of remote multi-hundred megabyte lake archives from `data.geo.admin.ch`, downloading and reprojecting only intersecting 1km x 1km ESRI ASCII Grid tiles without pulling entire archives.
 - **NOAA Great Lakes Bathymetry (~90m / 3-arc-second)**: Automatic detection for Lakes Superior, Michigan, Huron, St. Clair, Erie, and Ontario via NOAA NCEI's `DEM_global_mosaic` ImageServer.
-- **IGLD 1985 Surface Datum Fusion**: Converts negative Low Water Datum lake depths (`-depth`) to true elevation above sea level (`183.2m` Superior, `176.0m` Michigan/Huron, `174.4m` St. Clair, `173.5m` Erie, `74.2m` Ontario), eliminating artificial shoreline cliffs and automatically inserting a shoreline contour at the lake surface.
+- **Surface Datum Fusion & Automatic Shoreline Contours**: Converts lake depths to true elevation above sea level for both Swiss lakes (LN02/LHN95 datum) and Great Lakes (IGLD 1985 datum), inserting exact shoreline contour levels without artificial cliffs.
+- **Live UI Dataset Indicator**: Real-time sidebar guidance displays the active bathymetry dataset for the current bounding box (`SwissBATHY3D 2m`, `NOAA Great Lakes 90m`, `EMODnet Europe 115m`, `NOAA Global 450m`, or instructions to use Fix Elevation for other inland water bodies).
 - **3D Preview Water Level Support**: Underwater lake layers (`elevation < water_level`) render in the blue bathymetry palette with the translucent 3D water plane positioned at the lake surface.
 - **Restored Global Ocean Fallback**: Replaced deprecated static GEBCO/ETOPO file URLs with NOAA NCEI `DEM_global_mosaic` (450m) and `ETOPO1_bedrock` ImageServer GeoTIFF exports alongside EMODnet WCS (115m) for Europe.
 - **OSM Water Mask Fix**: Switched water-mask tile fetching from CartoDB's retired unauthenticated endpoint to OpenStreetMap tiles (`#AAD3DF`).
