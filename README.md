@@ -12,8 +12,8 @@ Live site: [laserslicer.legradic.ch](https://laserslicer.legradic.ch)
   * **SwissALTI3D (2 m)** and **SwissBATHY3D (2 m)** for Switzerland (covering all 22 mapped Swiss lakes via swisstopo HTTP Range ZIP streaming)
   * **SRTM (30 m)** global land elevation with outlier/noise filtering
   * **NOAA Great Lakes (~90 m)**, **EMODnet Europe (~115 m)**, and **NOAA ETOPO 2022 (~450 m)** underwater bathymetry
-* **OSM Water Masking & Fixed Elevation** tools for crisp coastlines and flat inland lakes
-* **Live Dataset Availability**: Sidebar indicators display which bathymetry dataset is active for the current bounding box
+* **OSM Water Masking & Connected-Component Coastline Clamping**: Crisp coastlines, automatic absorption of coastal radar noise, and clean flat water surfaces when bathymetry is disabled
+* **Live Dataset Availability Line**: An indicator line directly beneath the Bathymetry checkbox in the sidebar displays in real-time which underwater dataset covers the current selection (e.g. `Available: SwissBATHY3D Switzerland (2m)`, `Available: NOAA Great Lakes (90m)`, `Available: EMODnet Europe (115m)`, `Available: NOAA Global (450m)`), or advises when to use Fix Elevation for inland water bodies
 * A **Dockerised Django + Celery + React workflow** with bounded LRU disk caches
 
 ---
@@ -24,11 +24,29 @@ Live site: [laserslicer.legradic.ch](https://laserslicer.legradic.ch)
 |------------------------------------------|---------------------------------------------|
 | **Leaflet map** – search any address or pan/zoom to select bounds | **Geocoding** & coordinate parsing via Nominatim |
 | Automatic elevation range detection (`min` / `max` m) | **Multi-source DEM & Bathymetry** (SRTM 30m, SwissALTI3D 2m, SwissBATHY3D 2m, EMODnet 115m, NOAA Great Lakes 90m & Global 450m) |
-| Parameter panel – layer count/height, substrate size, smoothing, simplification | **OSM Water Masking** from tiles + shoreline blending & IGLD85 Great Lakes datum conversion |
+| Parameter panel – layer count/height, substrate size, smoothing, simplification | **OSM Water Masking** with connected-component coastline analysis & IGLD85/LN02 datum conversion |
 | Waterbody click tool & optional fixed elevation (inland lakes) | Fetch & clip **OSM roads, buildings & waterways** per visible layer band |
-| Toggle roads, buildings, waterways, bathymetry with live dataset indicator | Fast contour generation (`scikit-image` marching squares) & parallel `shapely` post-processing |
+| Toggle roads, buildings, waterways, bathymetry with **live dataset availability line** | Fast contour generation (`scikit-image` marching squares) & parallel `shapely` post-processing |
 | Live **Three.js / R3F** 3D preview with water plane & dark/light themes | **Prepared-DEM `.npz` cache** & bounded **LRU disk cache eviction** (~3.5 GB cap) |
 | **Download SVGs** – custom layer stroke colors packaged as a ZIP | Background task orchestration via **Celery + Redis** |
+
+---
+
+## Bathymetry & Water Datasets
+
+Laser Slicer automatically detects and blends terrain and underwater topography based on your selected region:
+
+* **Switzerland (2 m)**: SwissALTI3D land elevation and SwissBATHY3D lake bed depth for 22 lakes (Lake Geneva, Lake Constance, Lake Zurich, Lake Lucerne, Lake Thun, Lake Brienz, Lake Neuchatel, Lake Biel, Rotsee, etc.) via swisstopo HTTP Range ZIP streaming.
+* **Laurentian Great Lakes (~90 m / 3 arc-second)**: Lakes Superior, Michigan, Huron, St. Clair, Erie, and Ontario via NOAA NCEI ImageServer, with IGLD 1985 datum conversion.
+* **European Seas (~115 m)**: High-resolution marine bathymetry via EMODnet WCS.
+* **Global Oceans (~450 m / 15 arc-second)**: Worldwide oceanic bathymetry via NOAA NCEI ImageServer (ETOPO 2022).
+* **Live Dataset Availability Indicator**: A status line directly below the "Include Bathymetry" toggle in the sidebar updates as you move the map to indicate what bathymetry data is available for the current bounds:
+  * `Available: SwissBATHY3D Switzerland (2m)`
+  * `Available: NOAA Great Lakes (90m)`
+  * `Available: EMODnet Europe (115m)`
+  * `Available: NOAA Global (450m)`
+  * `No bathymetry dataset available for inland areas. Use 'Fix Elevation' for flat water bodies.`
+* **Clean Coastlines Without Bathymetry**: When bathymetry is disabled, connected-component analysis cleanly flattens coastal water to sea level, absorbing SRTM coastal radar noise while keeping inland rivers and high-altitude mountain lakes intact.
 
 ---
 
@@ -161,6 +179,6 @@ Feel free to reach out via [GitHub](https://github.com/borsic77) or [email](mail
 ## Acknowledgements
 
 * NASA / NGA – SRTM 30m elevation data
-* swisstopo – SwissALTI3D 2m elevation data for Switzerland
+* swisstopo – SwissALTI3D 2m elevation and SwissBATHY3D 2m lake bathymetry data for Switzerland
 * NOAA NCEI & EMODnet – Great Lakes, European, and global ETOPO 2022 bathymetry
 * OpenStreetMap, Overpass API & Nominatim
