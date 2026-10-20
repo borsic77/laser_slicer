@@ -497,9 +497,34 @@ class ContourSlicingJob:
                 # Note: SRTM voids are -32768, which is < 15, so voids in lakes will unfortunately be masked.
                 # But ETOPO fill will likely be 0 or negative, which is acceptable for a "void" lake.
 
-                ocean_candidates = water_mask_dest.astype(bool) & (
-                    land_raw < water_threshold
-                )
+                import scipy.ndimage
+
+                # Identify ocean/sea-level water candidates using connected components.
+                # Pixel-by-pixel thresholding fails in coastal zones where SRTM radar noise and
+                # void-filling interpolation from cliffs can push water pixels to 20-30m,
+                # cutting a single continuous bay/sea into artificial land fragments.
+                labeled_water, num_features = scipy.ndimage.label(water_mask_dest)
+                ocean_candidates = np.zeros(land_raw.shape, dtype=bool)
+
+                for feat_id in range(1, num_features + 1):
+                    comp_mask = labeled_water == feat_id
+                    comp_elevs = land_raw[comp_mask]
+                    valid_elevs = comp_elevs[
+                        (comp_elevs != -32768) & ~np.isnan(comp_elevs)
+                    ]
+                    if len(valid_elevs) == 0:
+                        ocean_candidates |= comp_mask
+                        continue
+                    baseline_elev = float(np.percentile(valid_elevs, 25))
+                    min_elev = float(np.min(valid_elevs))
+                    if (
+                        baseline_elev <= water_threshold
+                        or min_elev <= water_surface + 5.0
+                    ):
+                        # Water body at sea/lake datum. Allow up to water_threshold + 35m
+                        # to absorb coastal radar cliff noise while preserving steep upstream river sections.
+                        cutoff = max(water_threshold + 35.0, baseline_elev + 40.0)
+                        ocean_candidates |= comp_mask & (land_raw < cutoff)
 
                 if not skip_ocean_bathy:
                     land_raw[ocean_candidates] = np.nan
@@ -547,15 +572,9 @@ class ContourSlicingJob:
             # Enforce Water Mask on Merged Data
             # If we have a water mask, any pixel in it MUST be underwater.
             # ETOPO/Bathymetry might be positive (land) due to resolution issues.
-            if self.use_osm_water_mask and "water_mask_dest" in locals():
-                mask_bool = water_mask_dest.astype(bool)
-                # Identify "Bad Ocean" (Water mask says Yes, Elevation says Land > water_surface - 0.1m)
-                # We also check elevation < Threshold to avoid flattening inland rivers.
-                bad_ocean = (
-                    mask_bool
-                    & (elevation > water_surface - 0.1)
-                    & (elevation < water_threshold)
-                )
+            if self.use_osm_water_mask and "ocean_candidates" in locals():
+                # Identify "Bad Ocean" (Ocean candidate says Water, Elevation says Land > water_surface - 0.1m)
+                bad_ocean = ocean_candidates & (elevation > water_surface - 0.1)
                 count = np.count_nonzero(bad_ocean)
 
                 if count > 0:

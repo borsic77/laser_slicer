@@ -62,3 +62,73 @@ def test_clamping_logic():
     assert bad_ocean[0] == False, "High river flagged as bad ocean"
     assert bad_ocean[1] == True, "Low ocean bleed NOT flagged"
     assert bad_ocean[2] == False, "Correct ocean flagged"
+
+
+def test_coastal_radar_noise_ocean_candidate_detection():
+    """Test connected-component ocean candidate logic absorbs coastal radar blur (e.g. 23m in bay)."""
+    import scipy.ndimage
+
+    # Grid with:
+    # - A continuous ocean bay on the right (water_mask_dest=1) with sea level (1m) and radar cliff noise (23m)
+    # - An isolated inland river on the left (water_mask_dest=1) at 300m
+    # - Land in between (water_mask_dest=0) at 40m
+    land_raw = np.array(
+        [
+            [300.0, 40.0, 23.0, 1.0],
+            [300.0, 40.0, 18.0, 0.0],
+            [300.0, 40.0, 40.0, 40.0],
+        ],
+        dtype=np.float32,
+    )
+    water_mask_dest = np.array(
+        [
+            [1, 0, 1, 1],
+            [1, 0, 1, 1],
+            [1, 0, 0, 0],
+        ],
+        dtype=np.uint8,
+    )
+
+    water_surface = 0.0
+    water_threshold = 15.0
+
+    labeled_water, num_features = scipy.ndimage.label(water_mask_dest)
+    ocean_candidates = np.zeros(land_raw.shape, dtype=bool)
+
+    for feat_id in range(1, num_features + 1):
+        comp_mask = labeled_water == feat_id
+        comp_elevs = land_raw[comp_mask]
+        valid_elevs = comp_elevs[(comp_elevs != -32768) & ~np.isnan(comp_elevs)]
+        if len(valid_elevs) == 0:
+            ocean_candidates |= comp_mask
+            continue
+        baseline_elev = float(np.percentile(valid_elevs, 25))
+        min_elev = float(np.min(valid_elevs))
+        if baseline_elev <= water_threshold or min_elev <= water_surface + 5.0:
+            cutoff = max(water_threshold + 35.0, baseline_elev + 40.0)
+            ocean_candidates |= comp_mask & (land_raw < cutoff)
+
+    # Ocean bay pixels (including 18m and 23m radar noise) must be marked as ocean
+    assert ocean_candidates[0, 2] == True, (
+        "23m coastal radar noise was not included in ocean"
+    )
+    assert ocean_candidates[1, 2] == True, (
+        "18m coastal radar noise was not included in ocean"
+    )
+    assert ocean_candidates[0, 3] == True, "1m ocean water was not included in ocean"
+    assert ocean_candidates[1, 3] == True, "0m ocean water was not included in ocean"
+
+    # High altitude inland river (300m) must NOT be marked as ocean
+    assert ocean_candidates[0, 0] == False, (
+        "300m inland river was incorrectly marked as ocean"
+    )
+    assert ocean_candidates[1, 0] == False, (
+        "300m inland river was incorrectly marked as ocean"
+    )
+    assert ocean_candidates[2, 0] == False, (
+        "300m inland river was incorrectly marked as ocean"
+    )
+
+    # Land pixels must NOT be marked as ocean
+    assert ocean_candidates[0, 1] == False
+    assert ocean_candidates[1, 1] == False
