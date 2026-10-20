@@ -66,9 +66,9 @@ TILE_PROVIDERS = {
         "attribution": "© OpenStreetMap contributors",
     },
     "cartodb_voyager_nolabels": {
-        "url": "https://a.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}.png",
-        "water_color": (213, 232, 235),  # #D5E8EB
-        "attribution": "© CartoDB, © OpenStreetMap contributors",
+        "url": "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+        "water_color": (170, 211, 223),  # #AAD3DF (CartoDB now requires API key)
+        "attribution": "© OpenStreetMap contributors",
     },
 }
 
@@ -146,29 +146,28 @@ def fetch_osm_static_image(bounds, zoom=15, provider="osm"):
                     with Image.open(tile_path) as tile_img:
                         px = (x - x_min) * tile_size
                         py = (y - y_min) * tile_size
-                        result_image.paste(tile_img, (px, py))
+                        result_image.paste(tile_img.convert("RGB"), (px, py))
                     continue
                 except Exception as e:
                     logger.warning(f"Failed to read cached tile {tile_path}: {e}")
             tiles_to_fetch.append((x, y))
 
     if tiles_to_fetch:
-        headers = {"User-Agent": "LaserSlicer/1.0"}
-        session = requests.Session()
+        headers = {"User-Agent": "LaserSlicer/1.0 (https://github.com/laser-slicer)"}
 
         def _fetch_tile(coords):
             x_coord, y_coord = coords
             url = url_template.format(z=zoom, x=x_coord, y=y_coord)
             tile_path = tiles_dir / f"{provider_key}_{zoom}_{x_coord}_{y_coord}.png"
-            tmp_path = tile_path.with_suffix(".tmp.png")
+            tmp_path = tile_path.with_suffix(f".{os.getpid()}.tmp.png")
             try:
-                resp = session.get(url, headers=headers, timeout=5)
+                resp = requests.get(url, headers=headers, timeout=5)
                 if resp.status_code == 200:
                     with open(tmp_path, "wb") as f:
                         f.write(resp.content)
                     os.replace(tmp_path, tile_path)
                     touch_cache_file(tile_path)
-                    img = Image.open(io.BytesIO(resp.content))
+                    img = Image.open(io.BytesIO(resp.content)).convert("RGB")
                     return (x_coord, y_coord), img, True
                 else:
                     logger.warning(
@@ -193,8 +192,6 @@ def fetch_osm_static_image(bounds, zoom=15, provider="osm"):
                     px = (x_coord - x_min) * tile_size
                     py = (y_coord - y_min) * tile_size
                     result_image.paste(tile_img, (px, py))
-
-        session.close()
 
     if new_tiles_downloaded:
         enforce_cache_limit(cache_root, max_bytes)

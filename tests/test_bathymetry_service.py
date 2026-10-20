@@ -5,6 +5,11 @@ import rasterio
 import rasterio.transform
 
 from core.services.bathymetry_service import BathymetryFetcher
+from core.utils.dem import (
+    get_great_lakes_surface_elevation,
+    is_in_great_lakes,
+    merge_srtm_and_etopo,
+)
 
 
 def _create_geotiff_bytes(
@@ -129,3 +134,63 @@ def test_fetch_bathymetry(tmp_path, monkeypatch):
     (tmp_path / "global").mkdir(parents=True, exist_ok=True)
     test_emodnet_fetch(tmp_path / "eu", monkeypatch)
     test_gebco_fetch_global(tmp_path / "global", monkeypatch)
+
+
+def test_great_lakes_detection_and_surface_elevation():
+    """Verify Great Lakes bounding box detection and IGLD85 surface datums."""
+    fetcher = BathymetryFetcher()
+    # Lake Superior, Lake Michigan, Lake Erie, Lake Ontario
+    assert fetcher.is_in_great_lakes((-87.5, 47.0, -87.0, 47.5)) is True
+    assert is_in_great_lakes((-87.7, 41.8, -87.5, 42.0)) is True
+    assert is_in_great_lakes((5.32, 43.20, 5.34, 43.22)) is False
+
+    assert get_great_lakes_surface_elevation((-87.5, 47.0, -87.0, 47.5)) == 183.2
+    assert get_great_lakes_surface_elevation((-87.7, 41.8, -87.5, 42.0)) == 176.0
+    assert get_great_lakes_surface_elevation((-81.7, 41.5, -81.5, 41.7)) == 173.5
+    assert get_great_lakes_surface_elevation((-79.4, 43.5, -79.2, 43.7)) == 74.2
+
+
+def test_great_lakes_merge_srtm_and_etopo():
+    """Verify negative LWD depths in Great Lakes are converted to absolute elevation above sea level."""
+    bounds = (
+        -87.70,
+        41.85,
+        -87.55,
+        41.95,
+    )  # Chicago / Lake Michigan (surface = 176.0m)
+    transform = rasterio.transform.from_bounds(*bounds, 4, 4)
+
+    # Left two columns: Land at 185m; Right two columns: Lake Michigan surface at 176m in SRTM
+    srtm = np.array(
+        [
+            [185.0, 185.0, 176.0, 176.0],
+            [185.0, 185.0, 176.0, 176.0],
+            [185.0, 185.0, 176.0, 176.0],
+            [185.0, 185.0, 176.0, 176.0],
+        ],
+        dtype=np.float32,
+    )
+    # NOAA Great Lakes bathymetry: positive on land (+185m), negative depth below LWD (-20m) in water
+    bathy = np.array(
+        [
+            [185.0, 185.0, -10.0, -20.0],
+            [185.0, 185.0, -10.0, -20.0],
+            [185.0, 185.0, -10.0, -20.0],
+            [185.0, 185.0, -10.0, -20.0],
+        ],
+        dtype=np.float32,
+    )
+    land_mask = np.array(
+        [
+            [True, True, False, False],
+            [True, True, False, False],
+            [True, True, False, False],
+            [True, True, False, False],
+        ]
+    )
+
+    merged = merge_srtm_and_etopo(srtm, bathy, land_mask=land_mask, transform=transform)
+    # Land remains 185.0m; water depth -10m -> 166.0m, -20m -> 156.0m (no 176m artificial cliff!)
+    np.testing.assert_allclose(merged[:, 0], 185.0, atol=1e-3)
+    np.testing.assert_allclose(merged[:, 2], 166.0, atol=1e-3)
+    np.testing.assert_allclose(merged[:, 3], 156.0, atol=1e-3)

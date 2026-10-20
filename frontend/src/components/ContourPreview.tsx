@@ -78,6 +78,7 @@ export interface ContourLayer {
   geometry: MultiPolygon
   elevation: number
   thickness?: number
+  water_level?: number
   roads?: Record<string, MultiLineString>
   waterways?: MultiLineString
   buildings?: MultiPolygon
@@ -277,6 +278,10 @@ export function WaterPlane({ width, height, positionY }: { width: number; height
 }
 
 export default function ContourPreview({ layers, darkMode = true }: ContourPreviewProps) {
+  const waterLevel = layers.length > 0 && typeof layers[0].water_level === 'number'
+    ? layers[0].water_level
+    : 0;
+
   // Compute the minimum elevation for potential use.
   const minElevation = layers.length > 0
     ? layers.reduce((min, l) => Math.min(min, l.elevation), Infinity)
@@ -349,22 +354,22 @@ export default function ContourPreview({ layers, darkMode = true }: ContourPrevi
 
   // Calculate extents for color interpolation
   const waterStats = useMemo(() => {
-    const bathyLayers = layers.filter(l => l.elevation < 0);
+    const bathyLayers = layers.filter(l => l.elevation < waterLevel);
     if (!bathyLayers.length) return { min: 0, max: 0 };
     return bathyLayers.reduce(
       (acc, l) => ({ min: Math.min(acc.min, l.elevation), max: Math.max(acc.max, l.elevation) }),
       { min: Infinity, max: -Infinity }
     );
-  }, [layers]);
+  }, [layers, waterLevel]);
 
   const landStats = useMemo(() => {
-    const landLayers = layers.filter(l => l.elevation >= 0);
+    const landLayers = layers.filter(l => l.elevation >= waterLevel);
     if (!landLayers.length) return { min: 0, max: 0 };
     return landLayers.reduce(
       (acc, l) => ({ min: Math.min(acc.min, l.elevation), max: Math.max(acc.max, l.elevation) }),
       { min: Infinity, max: -Infinity }
     );
-  }, [layers]);
+  }, [layers, waterLevel]);
 
   // Color Constants
   const colors = useMemo(() => {
@@ -418,7 +423,7 @@ export default function ContourPreview({ layers, darkMode = true }: ContourPrevi
             
             // Calculate color based on relative elevation within its group (land or water)
             let colorHex = "#888888"; // Default gray
-            if (layer.elevation < 0) {
+            if (layer.elevation < waterLevel) {
               // Bathymetry
               // Deepest point (min) -> t=0 (Deep Color)
               // Shallowest point (max) -> t=1 (Shallow Color)
@@ -475,13 +480,13 @@ export default function ContourPreview({ layers, darkMode = true }: ContourPrevi
           */}
           <axesHelper args={[0.2]} />
           
-          {/* Render Water Plane if we have negative elevations */}
-          {minElevation < 0 && (
-            // Find z-position where elevation crosses 0
-            // Since layers are sorted, we find the first layer with elevation >= 0
+          {/* Render Water Plane if we have elevations below waterLevel */}
+          {minElevation < waterLevel && (
+            // Find z-position where elevation crosses waterLevel
+            // Since layers are sorted, we find the first layer with elevation >= waterLevel
             // and use its Z position.
             (() => {
-              const seaLevelIndex = layers.findIndex(l => l.elevation >= 0);
+              const seaLevelIndex = layers.findIndex(l => l.elevation >= waterLevel);
               const z = seaLevelIndex >= 0 ? cumulativeHeights[seaLevelIndex] : cumulativeHeights[cumulativeHeights.length - 1];
               // Use extent of data for plane size
               const width = xyExtent * 1.5; 

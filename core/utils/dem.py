@@ -48,24 +48,82 @@ def clean_srtm_dem(
     return arr
 
 
+def is_in_great_lakes(bounds: tuple[float, float, float, float]) -> bool:
+    """Return True if ``bounds`` (lon_min, lat_min, lon_max, lat_max) intersects the Great Lakes basin."""
+    lon_min, lat_min, lon_max, lat_max = bounds
+    return (
+        lon_min <= lon_max
+        and lat_min <= lat_max
+        and lon_max >= -92.5
+        and lon_min <= -75.8
+        and lat_max >= 41.2
+        and lat_min <= 49.2
+    )
+
+
+def get_great_lakes_surface_elevation(
+    bounds: tuple[float, float, float, float],
+    shape: tuple[int, int] | None = None,
+) -> float | np.ndarray:
+    """Return IGLD 1985 Low Water Datum surface elevation (meters) for the Great Lakes.
+
+    Args:
+        bounds: (lon_min, lat_min, lon_max, lat_max) in WGS84.
+        shape: Optional (rows, cols) to return a per-pixel 2D float32 array.
+
+    Returns:
+        Scalar float when ``shape`` is None, or a 2D float32 array matching ``shape``.
+    """
+    lon_min, lat_min, lon_max, lat_max = bounds
+    if shape is None:
+        cx = (lon_min + lon_max) / 2.0
+        cy = (lat_min + lat_max) / 2.0
+        if cy >= 46.25 and cx <= -84.2:
+            return 183.2  # Lake Superior
+        if cy >= 43.1 and cx >= -79.95:
+            return 74.2  # Lake Ontario
+        if 42.2 <= cy <= 42.75 and -83.0 <= cx <= -82.35:
+            return 174.4  # Lake St. Clair
+        if cy <= 42.95 and cx >= -83.6:
+            return 173.5  # Lake Erie
+        return 176.0  # Lake Michigan & Lake Huron
+
+    rows, cols = shape
+    lons = np.linspace(lon_min, lon_max, cols, dtype=np.float32)[None, :]
+    lats = np.linspace(lat_max, lat_min, rows, dtype=np.float32)[:, None]
+
+    surface = np.full(shape, 176.0, dtype=np.float32)  # Michigan & Huron default
+    surface = np.where((lats <= 42.95) & (lons >= -83.6), np.float32(173.5), surface)
+    surface = np.where(
+        (lats >= 42.2) & (lats <= 42.75) & (lons >= -83.0) & (lons <= -82.35),
+        np.float32(174.4),
+        surface,
+    )
+    surface = np.where((lats >= 43.1) & (lons >= -79.95), np.float32(74.2), surface)
+    surface = np.where((lats >= 46.25) & (lons <= -84.2), np.float32(183.2), surface)
+    return surface
+
+
 def merge_srtm_and_etopo(
     srtm_dem: np.ndarray,
     etopo_dem: np.ndarray,
     land_mask: np.ndarray | None = None,
     transform: rasterio.Affine | None = None,
+    bounds: tuple[float, float, float, float] | None = None,
 ) -> np.ndarray:
-    """Merge high-res SRTM (Land) with high-res Bathymetry (Ocean) using a land mask.
+    """Merge high-res SRTM (Land) with high-res Bathymetry (Ocean or Great Lakes) using a land mask.
 
     Args:
         srtm_dem: High resolution land data (SRTM).
-        etopo_dem: Bathymetry data (GEBCO/ETOPO/EMODnet).
+        etopo_dem: Bathymetry data (GEBCO/ETOPO/EMODnet/NOAA Great Lakes).
         land_mask: Optional boolean mask where True indicates Land.
-                   If not provided, falls back to (srtm > 0).
-        transform: Optional Affine transform (unused now, kept for compatibility/future).
+                   If not provided, falls back to (srtm > 0) and (bathy >= 0 in Great Lakes).
+        transform: Optional Affine transform used to infer geographic bounds when ``bounds`` is None.
+        bounds: Optional (lon_min, lat_min, lon_max, lat_max) bounding box.
 
     Returns:
-        Combined DEM with SRTM on land and upsampled bathymetry in ocean,
-        seamlessly blended at the coastline.
+        Combined DEM with SRTM on land and upsampled bathymetry in water,
+        seamlessly blended at the shoreline.
     """
 
     # Safety check
@@ -73,6 +131,16 @@ def merge_srtm_and_etopo(
         return srtm_dem
     if srtm_dem.size == 0:
         return etopo_dem
+
+    if bounds is None and isinstance(transform, rasterio.Affine):
+        try:
+            bounds = rasterio.transform.array_bounds(
+                srtm_dem.shape[0], srtm_dem.shape[1], transform
+            )
+        except Exception:
+            bounds = None
+
+    in_great_lakes = bounds is not None and is_in_great_lakes(bounds)
 
     # 1. Clean NaNs in Bathymetry before cubic spline zoom (order=3 spreads NaNs globally)
     etopo_clean = np.where(
@@ -107,21 +175,21 @@ def merge_srtm_and_etopo(
         # Use provided mask (e.g. from OSM Tiles)
         is_land = land_mask.astype(bool)
     else:
-        # Fallback: SRTM positive and valid
+        # Fallback: SRTM positive and valid (and not negative lake depth in Great Lakes)
         logger.debug(
-            "No land_mask provided to merge_srtm_and_etopo. Falling back to value-based masking (srtm > 0)."
+            "No land_mask provided to merge_srtm_and_etopo. Falling back to value-based masking."
         )
         is_land = (srtm_dem > 0) & (~np.isnan(srtm_dem)) & (srtm_dem != -32768)
+        if in_great_lakes:
+            is_land = is_land & (bathy_upsampled >= -0.1)
 
     # 3. Distance-based Blending at Coastline
-    if land_mask is not None:
-        # If we have a high-quality explicit mask, we do NOT want to blend.
-        # Blending would "smear" the coastline and deviate from the mask.
-        # We want an exact match: Land is Land, Water is Water.
+    if land_mask is not None or not is_land.any() or is_land.all():
+        # If we have a high-quality explicit mask (or all-water/all-land), do NOT blend.
         land_weight = is_land.astype(np.float32)  # 1.0 where Land, 0.0 where Water
         sea_weight = (~is_land).astype(np.float32)  # 1.0 where Water, 0.0 where Land
     else:
-        # We want SRTM to transition to 0.0 at the coast, and Bathy to do the same.
+        # We want SRTM to transition to the shoreline datum, and Bathy to do the same.
         # We'll use a 100m blend (approx 3-4 pixels at 30m).
         pixel_res = 30.0  # Approximate
         blend_dist_m = 100.0
@@ -138,28 +206,37 @@ def merge_srtm_and_etopo(
         sea_weight = np.clip(dist_to_land / blend_width_pixels, 0, 1)
 
     # 4. Final Merge
-    # Forced Coastline Point: 0.0m
-    # Combine:
-    # - Deep Land: SRTM
-    # - Near Coast Land: SRTM blended with 0.0
-    # - Near Coast Sea: 0.0 blended with Bathy
-    # - Deep Sea: Bathy
-
-    # Clean SRTM/Bathy local copies for merging
-    srtm_clean = srtm_dem.copy()
-    srtm_clean[(srtm_dem == -32768) | np.isnan(srtm_dem)] = 0.0
-
-    bathy_clean = bathy_upsampled.copy()
+    srtm_clean = srtm_dem.astype(np.float32, copy=True)
+    bathy_clean = bathy_upsampled.astype(np.float32, copy=True)
     bathy_clean[np.isnan(bathy_clean)] = 0.0
 
     final_dem = np.zeros(srtm_dem.shape, dtype=np.float32)
 
-    # Calculate merged values
-    # Land area: Blend SRTM towards 0.0 as we approach the coast
-    final_dem[is_land] = srtm_clean[is_land] * land_weight[is_land]
+    if in_great_lakes and bounds is not None:
+        water_surface = get_great_lakes_surface_elevation(bounds, srtm_dem.shape)
+        invalid_srtm = (srtm_dem == -32768) | np.isnan(srtm_dem)
+        srtm_clean[invalid_srtm] = water_surface[invalid_srtm]
 
-    # Sea area: Blend Bathy towards 0.0 as we approach the coast
-    final_dem[~is_land] = bathy_clean[~is_land] * sea_weight[~is_land]
+        # NOAA Great Lakes bathymetry stores water depths as negative meters below LWD (< 0).
+        # Convert negative depths to absolute elevation above sea level (water_surface + depth).
+        bathy_abs = np.where(
+            bathy_clean < 0.0,
+            water_surface + bathy_clean,
+            water_surface - 1.0,
+        ).astype(np.float32)
+
+        final_dem[is_land] = (
+            water_surface[is_land]
+            + (srtm_clean[is_land] - water_surface[is_land]) * land_weight[is_land]
+        )
+        final_dem[~is_land] = (
+            water_surface[~is_land]
+            + (bathy_abs[~is_land] - water_surface[~is_land]) * sea_weight[~is_land]
+        )
+    else:
+        srtm_clean[(srtm_dem == -32768) | np.isnan(srtm_dem)] = 0.0
+        final_dem[is_land] = srtm_clean[is_land] * land_weight[is_land]
+        final_dem[~is_land] = bathy_clean[~is_land] * sea_weight[~is_land]
 
     return final_dem
 

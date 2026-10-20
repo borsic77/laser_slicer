@@ -296,6 +296,8 @@ class ContourSlicingJob:
             clean_srtm_dem,
             download_elevation_tiles_for_bounds,
             fill_nans_in_dem,
+            get_great_lakes_surface_elevation,
+            is_in_great_lakes,
             merge_srtm_and_etopo,
             mosaic_and_crop,
         )
@@ -303,6 +305,14 @@ class ContourSlicingJob:
         def report(msg, pct):
             if progress_callback:
                 progress_callback(msg, pct)
+
+        in_great_lakes = is_in_great_lakes(self.bounds)
+        water_surface = (
+            float(get_great_lakes_surface_elevation(self.bounds))
+            if in_great_lakes
+            else 0.0
+        )
+        water_threshold = water_surface + OCEAN_LEVEL_THRESHOLD
 
         is_real = _is_unmocked_dem_func(
             download_elevation_tiles_for_bounds, "download_elevation_tiles_for_bounds"
@@ -338,7 +348,7 @@ class ContourSlicingJob:
                 )
                 cache_file.unlink(missing_ok=True)
 
-        provider = "cartodb_voyager_nolabels"
+        provider = "osm"
         bathy_future = None
         osm_future = None
 
@@ -471,12 +481,12 @@ class ContourSlicingJob:
                 # But ETOPO fill will likely be 0 or negative, which is acceptable for a "void" lake.
 
                 ocean_candidates = water_mask_dest.astype(bool) & (
-                    land_raw < OCEAN_LEVEL_THRESHOLD
+                    land_raw < water_threshold
                 )
 
                 land_raw[ocean_candidates] = np.nan
                 logger.info(
-                    f"OSM Water Mask applied: {np.count_nonzero(ocean_candidates)} pixels forced to NaN (Elevation < {OCEAN_LEVEL_THRESHOLD}m)."
+                    f"OSM Water Mask applied: {np.count_nonzero(ocean_candidates)} pixels forced to NaN (Elevation < {water_threshold}m)."
                 )
 
             except Exception as e:
@@ -502,17 +512,20 @@ class ContourSlicingJob:
             # ETOPO/Bathymetry might be positive (land) due to resolution issues.
             if self.use_osm_water_mask and "water_mask_dest" in locals():
                 mask_bool = water_mask_dest.astype(bool)
-                # Identify "Bad Ocean" (Water mask says Yes, Elevation says Land > -0.1m)
+                # Identify "Bad Ocean" (Water mask says Yes, Elevation says Land > water_surface - 0.1m)
                 # We also check elevation < Threshold to avoid flattening inland rivers.
                 bad_ocean = (
-                    mask_bool & (elevation > -0.1) & (elevation < OCEAN_LEVEL_THRESHOLD)
+                    mask_bool
+                    & (elevation > water_surface - 0.1)
+                    & (elevation < water_threshold)
                 )
                 count = np.count_nonzero(bad_ocean)
 
                 if count > 0:
-                    elevation[bad_ocean] = -5.0
+                    clamp_val = water_surface - 5.0
+                    elevation[bad_ocean] = clamp_val
                     logger.info(
-                        f"Enforced water mask: {count} pixels clamped to -5.0m to prevent 'Vanishing Island' artifacts."
+                        f"Enforced water mask: {count} pixels clamped to {clamp_val}m to prevent 'Vanishing Island' artifacts."
                     )
         else:
             elevation = land_raw
@@ -524,11 +537,11 @@ class ContourSlicingJob:
         if self.include_bathymetry:
             min_valid = -11000
         else:
-            COAST_OFFSET = -1.0
+            COAST_OFFSET = water_surface - 1.0
             if self.use_osm_water_mask and "ocean_candidates" in locals():
                 elevation[ocean_candidates] = COAST_OFFSET
             elevation[elevation == -32768] = COAST_OFFSET
-            elevation[elevation < 0] = COAST_OFFSET
+            elevation[elevation < water_surface] = COAST_OFFSET
             min_valid = COAST_OFFSET
 
         elevation = clean_srtm_dem(elevation, min_valid=min_valid)
@@ -583,8 +596,13 @@ class ContourSlicingJob:
     def _generate_base_contours(
         self, elevation, masked_elevation, transform, progress_callback=None
     ):
+        from core.utils.dem import get_great_lakes_surface_elevation, is_in_great_lakes
+
         if progress_callback:
             progress_callback("Generating base contours...", 25)
+        effective_fixed_elev = self.fixed_elevation
+        if effective_fixed_elev is None and is_in_great_lakes(self.bounds):
+            effective_fixed_elev = float(get_great_lakes_surface_elevation(self.bounds))
         contours = generate_contours(
             masked_elevation_data=masked_elevation,
             elevation_data=elevation,
@@ -594,7 +612,7 @@ class ContourSlicingJob:
             debug_image_path=settings.DEBUG_IMAGE_PATH,
             center=self.center,
             bounds=self.bounds,
-            fixed_elevation=self.fixed_elevation,
+            fixed_elevation=effective_fixed_elev,
             num_layers=self.num_layers,
             water_polygon=self.water_polygon,
             resolution_scale=1.0,
@@ -849,9 +867,19 @@ class ContourSlicingJob:
             else []
         )
 
+        from core.utils.dem import get_great_lakes_surface_elevation, is_in_great_lakes
+
+        great_lakes_water_level = (
+            float(get_great_lakes_surface_elevation(self.bounds))
+            if (self.include_bathymetry and is_in_great_lakes(self.bounds))
+            else None
+        )
+
         for idx, contour in enumerate(contours):
             # Recalculate thickness (was done in sequential loop)
             contour["thickness"] = self.layer_thickness_mm / 1000.0
+            if great_lakes_water_level is not None:
+                contour["water_level"] = great_lakes_water_level
 
             # OSM intersections (still sequential, usually fast)
             if self.include_roads or self.include_waterways or self.include_buildings:
