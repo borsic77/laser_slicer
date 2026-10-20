@@ -14,19 +14,20 @@ import os
 from pathlib import Path
 
 import dj_database_url
+from django.core.exceptions import ImproperlyConfigured
 
 
-def get_env(var, default=None):
+def get_env(name: str, default: str | Path | None = None) -> str:
+    """Return environment variable ``name`` or ``default`` if set and non-empty.
+
+    Raises ``ImproperlyConfigured`` when neither is provided.
     """
-    Get an environment variable, or raise an error if not found.
-    If a default value is provided, return that instead.
-    """
-    val = os.environ.get(var)
-    if val is not None:
+    val = os.getenv(name)
+    if val:
         return val
     if default is not None:
-        return default
-    raise RuntimeError(f"Missing required env var: {var}")
+        return str(default)
+    raise ImproperlyConfigured(f"{name} environment variable is required")
 
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -35,23 +36,31 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 # Core Django settings
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = get_env("DJANGO_SECRET_KEY", "dev-secret-key")
-
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = get_env("DJANGO_DEBUG", "False").lower() == "true"
 
-ALLOWED_HOSTS = get_env("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
+# SECURITY WARNING: keep the secret key used in production secret!
+SECRET_KEY = get_env("DJANGO_SECRET_KEY", "dev-secret-key" if DEBUG else None)
+
+ALLOWED_HOSTS = [
+    h.strip()
+    for h in get_env("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
+    if h.strip()
+]
 
 
 # Security settings
 if not DEBUG:
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+    USE_X_FORWARDED_HOST = True
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
     SECURE_HSTS_SECONDS = 3600
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
     SECURE_HSTS_PRELOAD = True
-    SECURE_SSL_REDIRECT = True
+    SECURE_SSL_REDIRECT = (
+        get_env("DJANGO_SECURE_SSL_REDIRECT", "True").lower() == "true"
+    )
 
 
 # Directories for storing elevation files and cache
@@ -60,10 +69,19 @@ TILE_CACHE_DIR = Path(get_env("TILE_CACHE_DIR", BASE_DIR / "data" / "srtm_cache"
 ALTI3D_CACHE_DIR = Path(get_env("ALTI3D_CACHE_DIR", BASE_DIR / "data" / "alti3d_cache"))
 BATHY_CACHE_DIR = Path(get_env("BATHY_CACHE_DIR", BASE_DIR / "data" / "bathy_cache"))
 OSM_CACHE_DIR = Path(get_env("OSM_CACHE_DIR", BASE_DIR / "data" / "osm_cache"))
+PROCESSED_DEM_CACHE_DIR = Path(
+    get_env("PROCESSED_DEM_CACHE_DIR", BASE_DIR / "data" / "processed_dem_cache")
+)
 ALTI3D_DOWNLOADER = get_env("ALTI3D_DOWNLOADER", "alti3d-downloader")
 DEBUG_IMAGE_PATH = Path(get_env("DEBUG_IMAGE_PATH", BASE_DIR / "data" / "debug_images"))
 SVG_TMP_DIR = Path(get_env("SVG_TMP_DIR", BASE_DIR / "tmp" / "svg_tmp"))
 NOMINATIM_USER_AGENT = get_env("USER_AGENT", "laser-slicer/1.0 (contact@email.com)")
+
+TILE_CACHE_MAX_MB = int(get_env("TILE_CACHE_MAX_MB", "1024"))
+ALTI3D_CACHE_MAX_MB = int(get_env("ALTI3D_CACHE_MAX_MB", "1024"))
+BATHY_CACHE_MAX_MB = int(get_env("BATHY_CACHE_MAX_MB", "512"))
+OSM_CACHE_MAX_MB = int(get_env("OSM_CACHE_MAX_MB", "512"))
+PROCESSED_DEM_CACHE_MAX_MB = int(get_env("PROCESSED_DEM_CACHE_MAX_MB", "512"))
 
 MEDIA_URL = "/media/"
 MEDIA_ROOT = Path(get_env("MEDIA_ROOT", BASE_DIR / "media"))
@@ -141,8 +159,10 @@ else:
             "PASSWORD": get_env("POSTGRES_PASSWORD", "laserslicer"),
             "HOST": get_env("POSTGRES_HOST", "localhost"),
             "PORT": get_env("POSTGRES_PORT", 5432),
+            "OPTIONS": {"gssencmode": "disable"},
         }
     }
+os.environ.setdefault("PGGSSENCMODE", "disable")
 
 
 # Celery configuration

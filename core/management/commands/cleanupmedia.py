@@ -1,9 +1,10 @@
-import os
 import time
 from pathlib import Path
 
 from django.conf import settings
 from django.core.management.base import BaseCommand
+
+from core.utils.cache_ops import enforce_all_cache_limits
 
 
 class Command(BaseCommand):
@@ -31,29 +32,33 @@ class Command(BaseCommand):
         media_root = Path(settings.MEDIA_ROOT)
         if not media_root.exists():
             self.stderr.write(f"MEDIA_ROOT '{media_root}' does not exist.")
-            return
-
-        cutoff = time.time() - options["hours"] * 3600
-        deleted = 0
-        checked = 0
-        for file in media_root.glob("**/*"):
-            if file.is_file():
-                checked += 1
-                if file.stat().st_mtime < cutoff:
-                    if options["dry_run"]:
-                        self.stdout.write(f"[DRY RUN] Would delete: {file}")
-                    else:
-                        try:
-                            file.unlink()
-                            self.stdout.write(f"Deleted: {file}")
-                            deleted += 1
-                        except Exception as e:
-                            self.stderr.write(f"Failed to delete {file}: {e}")
-        if options["dry_run"]:
-            self.stdout.write(
-                f"Checked {checked} files. Would delete files older than {options['hours']} hour(s)."
-            )
         else:
-            self.stdout.write(
-                f"Checked {checked} files. Deleted {deleted} files older than {options['hours']} hour(s)."
-            )
+            cutoff = time.time() - options["hours"] * 3600
+            deleted = 0
+            checked = 0
+            for file in media_root.glob("**/*"):
+                if file.is_file():
+                    checked += 1
+                    if file.stat().st_mtime < cutoff:
+                        if options["dry_run"]:
+                            self.stdout.write(f"[DRY RUN] Would delete: {file}")
+                        else:
+                            try:
+                                file.unlink()
+                                self.stdout.write(f"Deleted: {file}")
+                                deleted += 1
+                            except Exception as e:
+                                self.stderr.write(f"Failed to delete {file}: {e}")
+            if options["dry_run"]:
+                self.stdout.write(
+                    f"Checked {checked} files. Would delete files older than {options['hours']} hour(s)."
+                )
+            else:
+                self.stdout.write(
+                    f"Checked {checked} files. Deleted {deleted} files older than {options['hours']} hour(s)."
+                )
+
+        if not options["dry_run"]:
+            cache_results = enforce_all_cache_limits()
+            for cache_name, freed_bytes in cache_results.items():
+                self.stdout.write(f"Cache {cache_name}: freed {freed_bytes} bytes.")

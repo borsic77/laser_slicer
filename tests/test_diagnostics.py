@@ -1,7 +1,4 @@
-from pathlib import Path
-
 import numpy as np
-import pytest
 
 from core.utils.diagnostics import save_elevation_visualization
 

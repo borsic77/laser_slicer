@@ -20,7 +20,7 @@ from core.utils.contour_ops import (
     _contours_to_polygons,
     _create_levels,
 )
-from core.utils.dem import download_srtm_tiles_for_bounds, mosaic_and_crop, round_affine
+from core.utils.dem import mosaic_and_crop, round_affine
 from core.utils.geometry_ops import (
     _force_multipolygon,
     clean_geometry,
@@ -44,13 +44,30 @@ def switzerland_bounds():
     return (6.5, 46.7, 6.7, 46.9)
 
 
-def test_mosaic_and_crop(switzerland_bounds):
-    paths = download_srtm_tiles_for_bounds(switzerland_bounds)
-    array, transform = mosaic_and_crop(paths, switzerland_bounds)
+def test_mosaic_and_crop(tmp_path):
+    bounds = (6.5, 46.7, 6.7, 46.9)
+    tif_path = tmp_path / "synthetic_dem.tif"
+    width, height = 20, 20
+    transform = rasterio.transform.from_bounds(6.4, 46.6, 6.8, 47.0, width, height)
+    data = np.arange(width * height, dtype=np.float32).reshape((1, height, width))
+    with rasterio.open(
+        tif_path,
+        "w",
+        driver="GTiff",
+        height=height,
+        width=width,
+        count=1,
+        dtype=np.float32,
+        crs="EPSG:4326",
+        transform=transform,
+    ) as dst:
+        dst.write(data)
+
+    array, out_transform = mosaic_and_crop([str(tif_path)], bounds)
     assert isinstance(array, np.ndarray)
     assert array.ndim == 2
     assert array.size > 0
-    assert transform is not None
+    assert out_transform is not None
 
 
 def test_is_almost_closed():
@@ -71,7 +88,6 @@ def test_is_almost_closed():
 
 # Test for walk_bbox_between
 def test_walk_bbox_between():
-    from core.utils.geometry_ops import walk_bbox_between
 
     bbox_coords = [(0, 1), (0, 0), (2, 0), (2, 1)]  # Clockwise: TL, BL, BR, TR
 
@@ -83,7 +99,9 @@ def test_walk_bbox_between():
     segment_ccw = walk_bbox_between(bbox_coords, 2, 0, direction="ccw")
     assert segment_ccw == [(0, 1), (2, 1), (2, 0)]
 
-    # Wraparound CW from end_idx=1 (
+    # Wraparound CW from end_idx=1 to start_idx=0
+    segment_wrap = walk_bbox_between(bbox_coords, 0, 1, direction="cw")
+    assert segment_wrap == [(0, 0), (2, 0), (2, 1), (0, 1)]
 
 
 # Test for project_geometry
@@ -91,7 +109,6 @@ def test_project_geometry(tmp_path):
     from shapely.geometry import Polygon, mapping
 
     from core.utils import slicer
-    from core.utils.geometry_ops import project_geometry
 
     # Create a square polygon near Yverdon-les-Bains
     poly = Polygon(
@@ -111,9 +128,7 @@ def test_project_geometry(tmp_path):
 
 # Test for scale_and_center_contours_to_substrate
 def test_scale_and_center_contours_to_substrate():
-    from shapely.geometry import Polygon, mapping, shape
-
-    from core.utils.geometry_ops import scale_and_center_contours_to_substrate
+    from shapely.geometry import Polygon, mapping
 
     # Create a large UTM-scale square around (300000, 5200000)
     utm_poly = Polygon(
@@ -229,7 +244,6 @@ def test_force_multipolygon():
 
 # Test for _compute_layer_bands
 def test_compute_layer_bands():
-    from core.utils.contour_ops import _contours_to_polygons, _create_levels
 
     elevation = np.array([[1, 2], [3, 4]])
     transform = rasterio.transform.from_origin(0, 1, 1, 1)
@@ -359,7 +373,6 @@ def test_save_debug_contour_polygon_invalid():
 
 
 # --- Additional tests for mosaic_and_crop edge cases ---
-import numpy as np
 import rasterio
 import rasterio.transform
 import rasterio.windows

@@ -18,7 +18,7 @@
 import { Line, OrbitControls } from '@react-three/drei';
 import { Canvas, useThree } from '@react-three/fiber';
 import type { MultiLineString, MultiPolygon } from 'geojson';
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import * as THREE from 'three';
 
 const ROAD_STYLES: Record<string, { color: string; width: number }> = {
@@ -66,7 +66,7 @@ function CameraController({ layers }: { layers: ContourLayer[] }) {
 
   // Update the camera position and orientation whenever the target changes.
   // Position the camera slightly above the target looking down (z=1) for a top-down view.
-  useMemo(() => {
+  useEffect(() => {
     camera.position.set(target.x, target.y, 1); // optional: face top-down
     camera.lookAt(target);
   }, [camera, target]);
@@ -74,7 +74,7 @@ function CameraController({ layers }: { layers: ContourLayer[] }) {
   return <OrbitControls target={target.toArray()} />;
 }
 
-interface ContourLayer {
+export interface ContourLayer {
   geometry: MultiPolygon
   elevation: number
   thickness?: number
@@ -127,133 +127,84 @@ interface ContourPreviewProps {
  */
 function PolygonLayer({
   geometry,
-  elevation,
-  cx,
-  cy,
   positionY,
   thickness,
   index,
   color: colorProp,
 }: {
-  geometry: MultiPolygon
-  elevation: number
-  cx: number
-  cy: number
-  positionY: number
-  thickness: number
-  index: number
-  color?: string
+  geometry: MultiPolygon;
+  elevation: number;
+  cx: number;
+  cy: number;
+  positionY: number;
+  thickness: number;
+  index: number;
+  color?: string;
 }) {
-  const debug = false
-
-  // Early exit if geometry is missing or malformed to avoid runtime errors.
-  if (!geometry || !Array.isArray(geometry.coordinates) || geometry.coordinates.length === 0) {
-    console.warn("Skipping invalid or empty geometry", geometry);
-    return null;
-  }
-
-  const shapes: THREE.Shape[] = []
-
-  // Convert each polygon and its holes into THREE.Shape instances.
-  geometry.coordinates.forEach(polygon => {
-    if (!polygon[0]) return;
-
-    const outer = polygon[0];
-    const shape = new THREE.Shape();
-    outer.forEach(([x, y], i) => {
-      if (i === 0) shape.moveTo(x, y);
-      else shape.lineTo(x, y);
-    });
-
-    // Add holes as paths to the shape.
-    for (let ringIdx = 1; ringIdx < polygon.length; ringIdx++) {
-      const holeRing = polygon[ringIdx];
-      const holePath = new THREE.Path();
-      holeRing.forEach(([x, y], i) => {
-        if (i === 0) holePath.moveTo(x, y);
-        else holePath.lineTo(x, y);
-      });
-      shape.holes.push(holePath);
-    }
-
-    shapes.push(shape);
-  })
-
-  const pathPoints: [number, number][] = [];
-  
-  // Extract points from shapes for area estimation and validation.
-  for (const shape of shapes) {
-    const points = shape.getPoints?.();
-    if (!Array.isArray(points)) {
-      console.error(`⚠️ shape.getPoints() returned invalid value in layer ${index}:`, points);
-      continue;
-    }
-
-    for (const pt of points) {
-      if (pt && typeof pt.x === "number" && typeof pt.y === "number") {
-        pathPoints.push([pt.x, pt.y]);
-      } else {
-        console.error("⚠️ Invalid point in shape.getPoints():", pt);
-      }
-    }
-  }
-
-  // Validate path points to avoid rendering errors.
-  if (
-    pathPoints.some(p => !Array.isArray(p) || p.length !== 2 || typeof p[0] !== "number" || typeof p[1] !== "number")
-  ) {
-    console.error("Invalid shape pathPoints in PolygonLayer", index, pathPoints);
-    return null;
-  }
-
-  // Area estimation using shoelace formula to detect degenerate polygons.
-  let areaEstimate = 0;
-
-  if (!Array.isArray(pathPoints) || pathPoints.length < 3) {
-    console.warn(`Skipping area estimate: not enough valid points in layer ${index}`);
-    return null;
-  }
-
-  for (let i = 0; i < pathPoints.length; i++) {
-    const pt = pathPoints[i];
-    if (
-      !Array.isArray(pt) ||
-      pt.length !== 2 ||
-      typeof pt[0] !== "number" ||
-      typeof pt[1] !== "number"
-    ) {
-      console.error(`⚠️ Invalid point at index ${i} in layer ${index}:`, pt);
-      console.debug("Full pathPoints:", pathPoints);
+  const geom = useMemo(() => {
+    if (!geometry || !Array.isArray(geometry.coordinates) || geometry.coordinates.length === 0) {
       return null;
     }
-  }
 
-  for (let i = 0; i < pathPoints.length; i++) {
-    const pt1 = pathPoints[i]!;
-    const pt2 = pathPoints[(i + 1) % pathPoints.length]!;
-    areaEstimate += pt1[0] * pt2[1] - pt2[0] * pt1[1];
-  }
-  areaEstimate = Math.abs(areaEstimate / 2);
+    const shapes: THREE.Shape[] = [];
 
+    // Convert each polygon and its holes into THREE.Shape instances.
+    for (const polygon of geometry.coordinates) {
+      if (!polygon[0] || polygon[0].length < 3) continue;
 
-  // Skip rendering if shape is degenerate or too small, preventing unnecessary processing.
-  if (shapes.length === 0 || pathPoints.length < 3 || areaEstimate < 1e-10) {
-    console.warn(`Skipping degenerate shape at index ${index}`);
-    return null;
-  }
+      const outer = polygon[0];
+      const shape = new THREE.Shape();
+      outer.forEach(([x, y], i) => {
+        if (i === 0) shape.moveTo(x, y);
+        else shape.lineTo(x, y);
+      });
 
-  // Color chosen via HSL hue cycling based on elevation to visually differentiate layers.
-  const color = new THREE.Color(colorProp ?? `hsl(${(index * 50) % 360}, 100%, 50%)`);
+      // Add holes as paths to the shape.
+      for (let ringIdx = 1; ringIdx < polygon.length; ringIdx++) {
+        const holeRing = polygon[ringIdx];
+        if (!holeRing || holeRing.length < 3) continue;
+        const holePath = new THREE.Path();
+        holeRing.forEach(([x, y], i) => {
+          if (i === 0) holePath.moveTo(x, y);
+          else holePath.lineTo(x, y);
+        });
+        shape.holes.push(holePath);
+      }
 
-  let geom: THREE.ExtrudeGeometry;
-  try {
-    // Extrude shape with specified thickness, defaulting to 0.003 if invalid.
-    geom = new THREE.ExtrudeGeometry(shapes, {
-      depth: isFinite(thickness) && thickness > 0 ? thickness : 0.003,
-      bevelEnabled: false,
-    });
-  } catch (err) {
-    console.error(`Failed to extrude layer ${index}:`, err);
+      // Calculate area per shape using THREE.ShapeUtils.area
+      const points = shape.getPoints();
+      const area = Math.abs(THREE.ShapeUtils.area(points));
+      if (area >= 1e-10) {
+        shapes.push(shape);
+      }
+    }
+
+    if (shapes.length === 0) {
+      return null;
+    }
+
+    try {
+      return new THREE.ExtrudeGeometry(shapes, {
+        depth: isFinite(thickness) && thickness > 0 ? thickness : 0.003,
+        bevelEnabled: false,
+      });
+    } catch (err) {
+      console.error(`Failed to extrude layer ${index}:`, err);
+      return null;
+    }
+  }, [geometry, thickness, index]);
+
+  useEffect(() => {
+    return () => {
+      geom?.dispose();
+    };
+  }, [geom]);
+
+  const color = useMemo(() => {
+    return new THREE.Color(colorProp ?? `hsl(${(index * 50) % 360}, 100%, 50%)`);
+  }, [colorProp, index]);
+
+  if (!geom) {
     return null;
   }
 
@@ -266,7 +217,7 @@ function PolygonLayer({
         />
       </mesh>
     </group>
-  )
+  );
 }
 
 function RoadLines({ roads, z }: { roads: Record<string, MultiLineString>; z: number }) {
@@ -315,7 +266,7 @@ function BuildingLayer({ geometry, z }: { geometry: MultiPolygon; z: number }) {
   )
 }
 
-function WaterPlane({ width, height, positionY }: { width: number; height: number; positionY: number }) {
+export function WaterPlane({ width, height, positionY }: { width: number; height: number; positionY: number }) {
   // Semi-transparent blue plane
   return (
     <mesh position={[0, 0, positionY]} rotation={[0, 0, 0]}>
@@ -326,29 +277,59 @@ function WaterPlane({ width, height, positionY }: { width: number; height: numbe
 }
 
 export default function ContourPreview({ layers, darkMode = true }: ContourPreviewProps) {
-  // Compute the minimum elevation for potential use (not used currently).
-  const minElevation = layers.length > 0 ? Math.min(...layers.map(layer => layer.elevation)) : 0
+  // Compute the minimum elevation for potential use.
+  const minElevation = layers.length > 0
+    ? layers.reduce((min, l) => Math.min(min, l.elevation), Infinity)
+    : 0;
 
   /**
    * Compute centroid (cx, cy) and maximum extent (xyExtent) of all points.
    * This is used to center the camera and potentially scale the view.
    */
-  const { allPoints, cx, cy, xyExtent } = useMemo(() => {
-    const points: [number, number][] = layers
-      .flatMap(layer =>
-        layer.geometry.coordinates.flatMap(polygon =>
-          polygon.flat().filter((p): p is [number, number] => Array.isArray(p) && p.length === 2)
-        )
-      );
-    const xs = points.map(p => p[0]);
-    const ys = points.map(p => p[1]);
-    const cx = (Math.min(...xs) + Math.max(...xs)) / 2;
-    const cy = (Math.min(...ys) + Math.max(...ys)) / 2;
-    const xExtent = Math.max(...xs) - Math.min(...xs);
-    const yExtent = Math.max(...ys) - Math.min(...ys);
-    const xyExtent = Math.max(xExtent, yExtent);
-    // Also return bounds for screen fit
-    const bounds = { minX: Math.min(...xs), maxX: Math.max(...xs), minY: Math.min(...ys), maxY: Math.max(...ys) };
+  const { cx, cy, xyExtent } = useMemo(() => {
+    const points: [number, number][] = [];
+    let minX = Infinity;
+    let maxX = -Infinity;
+    let minY = Infinity;
+    let maxY = -Infinity;
+
+    for (const layer of layers) {
+      if (!layer.geometry || !Array.isArray(layer.geometry.coordinates)) continue;
+      for (const polygon of layer.geometry.coordinates) {
+        if (!Array.isArray(polygon)) continue;
+        for (const ring of polygon) {
+          if (!Array.isArray(ring)) continue;
+          for (const p of ring) {
+            if (Array.isArray(p) && p.length >= 2 && typeof p[0] === 'number' && typeof p[1] === 'number') {
+              const x = p[0];
+              const y = p[1];
+              points.push([x, y]);
+              if (x < minX) minX = x;
+              if (x > maxX) maxX = x;
+              if (y < minY) minY = y;
+              if (y > maxY) maxY = y;
+            }
+          }
+        }
+      }
+    }
+
+    if (points.length === 0) {
+      return {
+        allPoints: points,
+        cx: 0,
+        cy: 0,
+        xyExtent: 1,
+        bounds: { minX: 0, maxX: 0, minY: 0, maxY: 0 },
+      };
+    }
+
+    const cx = (minX + maxX) / 2;
+    const cy = (minY + maxY) / 2;
+    const xExtent = maxX - minX;
+    const yExtent = maxY - minY;
+    const xyExtent = Math.max(xExtent, yExtent) || 1;
+    const bounds = { minX, maxX, minY, maxY };
     return { allPoints: points, cx, cy, xyExtent, bounds };
   }, [layers]);
 
@@ -357,33 +338,32 @@ export default function ContourPreview({ layers, darkMode = true }: ContourPrevi
    * Uses default thickness of 0.003 if not specified.
    */
   const cumulativeHeights = useMemo(() => {
-    const result: number[] = []
-    let sum = 0
+    const result: number[] = [];
+    let sum = 0;
     for (const layer of layers) {
-      result.push(sum)
-      sum += layer.thickness ?? 0.003
+      result.push(sum);
+      sum += layer.thickness ?? 0.003;
     }
-    return result
-  }, [layers])
-
-  // Total height of all layers combined (not currently used in rendering).
-  const totalHeight = layers.reduce((sum, l) => sum + (l.thickness ?? 0.003), 0)
-
-  const validLayerCount = layers.length;
+    return result;
+  }, [layers]);
 
   // Calculate extents for color interpolation
   const waterStats = useMemo(() => {
     const bathyLayers = layers.filter(l => l.elevation < 0);
     if (!bathyLayers.length) return { min: 0, max: 0 };
-    const elevations = bathyLayers.map(l => l.elevation);
-    return { min: Math.min(...elevations), max: Math.max(...elevations) };
+    return bathyLayers.reduce(
+      (acc, l) => ({ min: Math.min(acc.min, l.elevation), max: Math.max(acc.max, l.elevation) }),
+      { min: Infinity, max: -Infinity }
+    );
   }, [layers]);
 
   const landStats = useMemo(() => {
     const landLayers = layers.filter(l => l.elevation >= 0);
     if (!landLayers.length) return { min: 0, max: 0 };
-    const elevations = landLayers.map(l => l.elevation);
-    return { min: Math.min(...elevations), max: Math.max(...elevations) };
+    return landLayers.reduce(
+      (acc, l) => ({ min: Math.min(acc.min, l.elevation), max: Math.max(acc.max, l.elevation) }),
+      { min: Infinity, max: -Infinity }
+    );
   }, [layers]);
 
   // Color Constants

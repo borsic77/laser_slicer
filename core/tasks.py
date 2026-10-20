@@ -1,6 +1,5 @@
 import logging
 import time
-import traceback
 from pathlib import Path
 
 from celery import shared_task
@@ -12,6 +11,7 @@ from core.models import ContourJob, ElevationJob, SVGJob
 from core.services.contour_generator import ContourSlicingJob
 from core.services.elevation_service import ElevationDataError, ElevationRangeJob
 from core.services.svg_zip_generator import generate_svg_layers, zip_svgs
+from core.utils.cache_ops import enforce_all_cache_limits
 from core.utils.export_filename import build_export_basename
 from core.utils.geocoding import _parse_bounds
 
@@ -20,16 +20,22 @@ logger = logging.getLogger(__name__)
 
 @shared_task
 def cleanup_old_media(hours=1):
-    """
-    Clean up media files older than a specified number of hours.
-    Args:
-        hours (int): The age of files to delete, in hours. Default is 1 hour.
-    """
-    cutoff = time.time() - hours * 3600
+    """Clean up media files and expired job records older than `hours`."""
+    cutoff_ts = time.time() - hours * 3600
     media_dir = Path(settings.MEDIA_ROOT)
-    for file in media_dir.glob("**/*"):
-        if file.is_file() and file.stat().st_mtime < cutoff:
-            file.unlink()
+    if media_dir.exists():
+        for file in media_dir.glob("**/*"):
+            try:
+                if file.is_file() and file.stat().st_mtime < cutoff_ts:
+                    file.unlink(missing_ok=True)
+            except OSError:
+                pass
+
+    cutoff_dt = timezone.now() - timezone.timedelta(hours=hours)
+    for model in (ContourJob, ElevationJob, SVGJob):
+        model.objects.filter(created_at__lt=cutoff_dt).delete()
+
+    enforce_all_cache_limits()
 
 
 @shared_task(bind=True)
@@ -61,18 +67,21 @@ def run_svg_export_job(self, job_id):
         svg_files = generate_svg_layers(contours, basename=base_filename)
         zip_bytes = zip_svgs(svg_files)
 
-        # Save to job.result_file
-        job.result_file.save(filename, ContentFile(zip_bytes))
+        # Save file without committing model until status/fields are updated
+        job.result_file.save(filename, ContentFile(zip_bytes), save=False)
         job.status = "SUCCESS"
         job.finished_at = timezone.now()
         job.progress = 100
         job.log += "\nSVGs exported and zipped."
-        job.save()
-    except Exception:
+        job.save(
+            update_fields=["result_file", "status", "finished_at", "progress", "log"]
+        )
+    except Exception as exc:
+        logger.exception("SVG export job %s failed", job_id)
         job.status = "FAILURE"
         job.finished_at = timezone.now()
-        job.log += "\n" + traceback.format_exc()
-        job.save()
+        job.log += f"\nExport failed: {exc}"
+        job.save(update_fields=["status", "finished_at", "log"])
         raise
 
 
@@ -101,27 +110,34 @@ def run_elevation_range_job(self, job_id):
         )
         include_bathymetry = params.get("include_bathymetry", False)
         result = ElevationRangeJob(bounds, include_bathymetry=include_bathymetry).run()
+        job.params["result"] = result
         job.status = "SUCCESS"
         job.finished_at = timezone.now()
         job.progress = 100
         job.log += "\nElevation data fetched successfully."
         job.result_file = None
         job.save(
-            update_fields=["status", "finished_at", "progress", "log", "result_file"]
+            update_fields=[
+                "params",
+                "status",
+                "finished_at",
+                "progress",
+                "log",
+                "result_file",
+            ]
         )
         logger.info(f"Elevation job {job_id} completed successfully. Result: {result}")
-        job.params["result"] = result
-        job.save(update_fields=["params"])
     except ElevationDataError as e:
         job.status = "FAILURE"
         job.finished_at = timezone.now()
         job.log += f"\nElevation data error: {e}"
-        job.save()
+        job.save(update_fields=["status", "finished_at", "log"])
     except Exception:
+        logger.exception("Elevation range job %s failed", job_id)
         job.status = "FAILURE"
         job.finished_at = timezone.now()
-        job.log += "\n" + traceback.format_exc()
-        job.save()
+        job.log += "\nFailed to calculate elevation range due to an internal error."
+        job.save(update_fields=["status", "finished_at", "log"])
         raise
 
 
@@ -164,34 +180,27 @@ def run_contour_slicing_job(self, job_id):
         def update_progress(msg, pct):
             job.status = "RUNNING"
             job.progress = pct
-            job.log = msg  # We use the log field to store the current status message "last line" style
-            # Or better, we can prepend it? No, replacing for status line style is better for UI.
-            # But 'log' is usually a persistent log.
-            # Let's append to log, but also maybe redundant?
-            # Actually, the frontend displays `data.log` in a <pre> block.
-            # If we want a dynamic "Status: Downloading...", we can misuse the 'status' field?
-            # No, status is ENUM usually.
-            # The frontend shows "Status: {jobStatus}".
-            # Let's overwrite job.log with just the current message for now, OR make it a growing log.
-            # If we make it a growing log, the frontend shows the whole thing.
-            # Let's append properly.
-            job.log += f"\n[{pct}%] {msg}"
+            entry = f"[{pct}%] {msg}"
+            job.log = f"{job.log}\n{entry}" if job.log else entry
             job.save(update_fields=["status", "progress", "log"])
 
         layers = csj.run(progress_callback=update_progress)
-        # Save layers to job.params for frontend to fetch (must be JSON serializable!)
         job.params["layers"] = layers
-        logger.info(f"Contour job {job_id} completed with {len(layers)} layers.")
-        job.save(update_fields=["params"])
-
         job.status = "SUCCESS"
         job.finished_at = timezone.now()
         job.progress = 100
         job.log += "\nDone."
-        job.save()
-    except Exception as e:
+        job.save(update_fields=["params", "status", "finished_at", "progress", "log"])
+        logger.info(f"Contour job {job_id} completed with {len(layers)} layers.")
+    except ElevationDataError as e:
         job.status = "FAILURE"
         job.finished_at = timezone.now()
-        job.log += "\n" + traceback.format_exc()
-        job.save()
+        job.log += f"\nElevation data error: {e}"
+        job.save(update_fields=["status", "finished_at", "log"])
+    except Exception:
+        logger.exception("Contour slicing job %s failed", job_id)
+        job.status = "FAILURE"
+        job.finished_at = timezone.now()
+        job.log += "\nContour slicing failed due to an internal error."
+        job.save(update_fields=["status", "finished_at", "log"])
         raise

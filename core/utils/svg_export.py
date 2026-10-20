@@ -14,13 +14,12 @@ Intended for use with laser-cuttable topographic models.
 import io
 import math
 import zipfile
-from typing import Dict, List, Tuple
 
 import svgwrite
 from shapely.geometry import LineString, MultiLineString, MultiPolygon, Polygon, shape
 
 # Default styling for different road types when exporting SVGs.
-ROAD_COLORS: Dict[str, str] = {
+ROAD_COLORS: dict[str, str] = {
     "motorway": "#ff0000",
     "trunk": "#ff6600",
     "primary": "#ffa500",
@@ -30,7 +29,7 @@ ROAD_COLORS: Dict[str, str] = {
     "service": "#bbbbbb",
 }
 
-ROAD_WIDTHS_MM: Dict[str, float] = {
+ROAD_WIDTHS_MM: dict[str, float] = {
     "motorway": 0.3,
     "trunk": 0.25,
     "primary": 0.2,
@@ -131,7 +130,7 @@ def _to_svg_coords(
     glob_maxx: float,
     glob_miny: float,
     glob_maxy: float,
-) -> Tuple[float, float]:
+) -> tuple[float, float]:
     """
     Convert UTM coordinates (in meters) to SVG coordinates (in mm), flipping
     Y axis to map north-up (UTM) to SVG’s y-down.
@@ -206,7 +205,7 @@ def _geom_to_paths(
     glob_miny: float,
     glob_maxy: float,
     include_holes: bool = True,
-) -> List[str]:
+) -> list[str]:
     """Convert a Shapely geometry into a list of SVG path strings.
     Recursively decompose MultiPolygons.
 
@@ -251,7 +250,7 @@ def _geom_to_paths(
 
 
 def contours_to_svg_zip(
-    contours: List[dict],
+    contours: list[dict],
     stroke_cut: str = "#000000",
     stroke_align: str = "#ff0000",
     stroke_road: str = "#0000ff",
@@ -314,10 +313,14 @@ def contours_to_svg_zip(
     # ------------------------------------------------------------------
     xs, ys = [], []
     for c in contours:
-        minx, miny, maxx, maxy = shape(c["geometry"]).bounds
+        geom = shape(c["geometry"])
+        if geom.is_empty:
+            continue
+        minx, miny, maxx, maxy = geom.bounds
         xs += [minx, maxx]
         ys += [miny, maxy]
-
+    if not xs or not ys:
+        raise ValueError("Contours list contains no non-empty geometries")
     glob_minx, glob_maxx = min(xs), max(xs)
     glob_miny, glob_maxy = min(ys), max(ys)
 
@@ -484,7 +487,9 @@ def contours_to_svg_zip(
             # ----------------------------------------------
             if layer.get("roads") is not None:
                 roads_dict = layer["roads"]
-                if isinstance(roads_dict, dict):
+                if isinstance(roads_dict, dict) and not (
+                    "type" in roads_dict and "coordinates" in roads_dict
+                ):
                     for rtype, rgeom_json in roads_dict.items():
                         rgeom = shape(rgeom_json)
                         if rgeom.is_empty:

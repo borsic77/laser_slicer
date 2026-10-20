@@ -17,6 +17,8 @@ services:
       dockerfile: core/Dockerfile
     volumes:
       - ./core:/app/core
+      - ./config:/app/config
+      - ./data:/app/data
       - ./tests:/app/tests
       - ./pyproject.toml:/app/pyproject.toml
       - ./media:/app/media
@@ -40,6 +42,8 @@ services:
     command: celery -A core worker -l info
     volumes:
       - ./core:/app/core
+      - ./config:/app/config
+      - ./data:/app/data
       - ./pyproject.toml:/app/pyproject.toml
       - ./media:/app/media
     env_file: .env.docker  

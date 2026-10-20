@@ -3,7 +3,6 @@
 import logging
 import math
 from collections import defaultdict
-from typing import List, Tuple
 
 import numpy as np
 import pyproj
@@ -63,7 +62,7 @@ def clean_geometry_strict(geom: BaseGeometry) -> BaseGeometry | None:
     if not geom.is_valid:
         return None
     if isinstance(geom, GeometryCollection):
-        polys = [g for g in geom.geoms if isinstance(g, (Polygon, MultiPolygon))]
+        polys = _flatten_polygons(list(geom.geoms))
         if not polys:
             return None
         geom = polys[0] if len(polys) == 1 else MultiPolygon(polys)
@@ -109,7 +108,7 @@ def is_almost_closed(line: LineString, tolerance: float = 1e-8) -> bool:
     )
 
 
-def _flatten_polygons(geoms: List[Polygon]) -> List[Polygon]:
+def _flatten_polygons(geoms: list[Polygon]) -> list[Polygon]:
     """Extract polygon parts from heterogeneous geometries.
 
     Args:
@@ -118,7 +117,7 @@ def _flatten_polygons(geoms: List[Polygon]) -> List[Polygon]:
     Returns:
         A list containing only ``Polygon`` objects.
     """
-    flat: List[Polygon] = []
+    flat: list[Polygon] = []
     for geom in geoms:
         if geom.geom_type == "Polygon":
             flat.append(geom)
@@ -139,8 +138,7 @@ def _force_multipolygon(geom):
     if isinstance(geom, (Polygon, MultiPolygon)):
         return MultiPolygon([geom]) if isinstance(geom, Polygon) else geom
     if isinstance(geom, GeometryCollection):
-        polys = [g for g in geom.geoms if g.geom_type == "Polygon"]
-        return MultiPolygon(polys)
+        return MultiPolygon(_flatten_polygons(list(geom.geoms)))
     return MultiPolygon()
 
 
@@ -179,7 +177,7 @@ def _grid_convergence_angle_from_geometry(projected_geoms: list) -> float:
 
 
 def project_geometry(
-    contours: List[dict],
+    contours: list[dict],
     center_lon: float,
     center_lat: float,
     simplify_tolerance: float = 0.0,
@@ -203,7 +201,7 @@ def project_geometry(
             "EPSG:4326", f"EPSG:{epsg_code}", always_xy=True
         )
     else:
-        zone_number = int((center_lon + 180) / 6) + 1
+        zone_number = min(60, max(1, int((center_lon + 180) / 6) + 1))
         is_northern = center_lat >= 0
         epsg_code = f"326{zone_number:02d}" if is_northern else f"327{zone_number:02d}"
         proj = pyproj.Transformer.from_crs(
@@ -273,7 +271,7 @@ def project_geometry(
 
 
 def clip_contours_to_bbox(
-    contours: list[dict], bbox: Tuple[float, float, float, float]
+    contours: list[dict], bbox: tuple[float, float, float, float]
 ) -> list[dict]:
     """Clip projected contours to a bounding box.
 
@@ -306,10 +304,10 @@ def clip_contours_to_bbox(
 
 
 def scale_and_center_contours_to_substrate(
-    contours: List[dict],
+    contours: list[dict],
     substrate_size_mm: float,
-    utm_bounds: Tuple[float, float, float, float],
-) -> List[dict]:
+    utm_bounds: tuple[float, float, float, float],
+) -> list[dict]:
     """Scale and center contours to the print substrate.
 
     Args:
@@ -361,7 +359,7 @@ def scale_and_center_contours_to_substrate(
     return updated
 
 
-def smooth_geometry(contours: List[dict], smoothing: int) -> List[dict]:
+def smooth_geometry(contours: list[dict], smoothing: int) -> list[dict]:
     """Smooth projected contours using the buffer trick.
 
     Args:
@@ -389,8 +387,8 @@ def smooth_geometry(contours: List[dict], smoothing: int) -> List[dict]:
 
 
 def filter_small_features(
-    contours: List[dict], min_area_cm2: float, min_width_mm: float = 0.0
-) -> List[dict]:
+    contours: list[dict], min_area_cm2: float, min_width_mm: float = 0.0
+) -> list[dict]:
     """Remove tiny or thin features from contour layers.
 
     Args:

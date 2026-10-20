@@ -1,13 +1,21 @@
 import logging
+from functools import lru_cache
 
 import shapely
 import shapely.affinity
-from shapely.geometry import LineString, MultiPolygon, box, mapping, shape
+from shapely.geometry import MultiPolygon, box, mapping, shape
 from shapely.ops import transform, unary_union
 
 from core.utils.geometry_ops import clean_geometry_strict
 
 logger = logging.getLogger(__name__)
+
+
+@lru_cache(maxsize=32)
+def _get_utm_transformer(epsg_code: int):
+    import pyproj
+
+    return pyproj.Transformer.from_crs("EPSG:4326", f"EPSG:{epsg_code}", always_xy=True)
 
 
 # Standalone function for parallel processing
@@ -37,12 +45,7 @@ def process_and_scale_single_contour(
         # Unpack proj_params: (epsg_code, center_point, rot_angle)
         epsg_code, rot_center, rot_angle = proj_params
 
-        # Re-create transformer in the worker process to avoid pickling issues
-        import pyproj
-
-        transformer = pyproj.Transformer.from_crs(
-            "EPSG:4326", f"EPSG:{epsg_code}", always_xy=True
-        )
+        transformer = _get_utm_transformer(epsg_code)
 
         geom = shape(contour["geometry"])
         # Transform (WGS84 -> UTM)

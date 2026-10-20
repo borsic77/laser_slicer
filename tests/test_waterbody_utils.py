@@ -25,7 +25,13 @@ class DummyResponse:
 
 def test_is_relation_bbox_too_large_small(monkeypatch):
     def fake_post(url, data=None, timeout=30):
-        return DummyResponse(json_data={"elements": [{"bounds": {"minlat": 0, "minlon": 0, "maxlat": 0.5, "maxlon": 0.5}}]})
+        return DummyResponse(
+            json_data={
+                "elements": [
+                    {"bounds": {"minlat": 0, "minlon": 0, "maxlat": 0.5, "maxlon": 0.5}}
+                ]
+            }
+        )
 
     monkeypatch.setattr("core.utils.waterbody.requests.post", fake_post)
     assert not _is_relation_bbox_too_large(1)
@@ -33,7 +39,13 @@ def test_is_relation_bbox_too_large_small(monkeypatch):
 
 def test_is_relation_bbox_too_large_large(monkeypatch):
     def fake_post(url, data=None, timeout=30):
-        return DummyResponse(json_data={"elements": [{"bounds": {"minlat": 0, "minlon": 0, "maxlat": 3.0, "maxlon": 3.0}}]})
+        return DummyResponse(
+            json_data={
+                "elements": [
+                    {"bounds": {"minlat": 0, "minlon": 0, "maxlat": 3.0, "maxlon": 3.0}}
+                ]
+            }
+        )
 
     monkeypatch.setattr("core.utils.waterbody.requests.post", fake_post)
     assert _is_relation_bbox_too_large(1)
@@ -110,18 +122,23 @@ OSM_XML = """
 def mock_features_from_xml(path):
     tree = ET.parse(path)
     root = tree.getroot()
-    nodes = {n.get("id"): (float(n.get("lon")), float(n.get("lat"))) for n in root.iter("node")}
+    nodes = {
+        n.get("id"): (float(n.get("lon")), float(n.get("lat")))
+        for n in root.iter("node")
+    }
     coords = [nodes[nd.get("ref")] for nd in root.find("way").iter("nd")]
     poly = Polygon(coords)
     return gpd.GeoDataFrame({"geometry": [poly]})
 
 
 def test_fetch_waterbody_polygon_osmnx(monkeypatch):
-    def fake_get(url):
+    def fake_get(url, timeout=30, **kwargs):
         return DummyResponse(text=OSM_XML)
 
     monkeypatch.setattr("core.utils.waterbody.requests.get", fake_get)
-    monkeypatch.setattr("core.utils.waterbody.ox.features_from_xml", mock_features_from_xml)
+    monkeypatch.setattr(
+        "core.utils.waterbody.ox.features_from_xml", mock_features_from_xml
+    )
 
     poly = fetch_waterbody_polygon_osmnx(20)
     assert isinstance(poly, Polygon)

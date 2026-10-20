@@ -9,7 +9,7 @@ services:
       pip install poetry
       poetry install
       # You may also need: python manage.py collectstatic --noinput
-    startCommand: poetry run python manage.py migrate && poetry run gunicorn core.wsgi:application --bind 0.0.0.0:10000
+    startCommand: poetry run python manage.py migrate && poetry run gunicorn config.wsgi:application --bind 0.0.0.0:10000
     envVars:
       - key: DJANGO_SECRET_KEY
         generateValue: true
@@ -24,8 +24,8 @@ services:
           type: redis
           name: laser-slicer-redis
           property: connectionString
-      - key: ALLOWED_HOSTS
-        value: laser-slicer.onrender.com,laser_slicer.legradic.ch
+      - key: DJANGO_ALLOWED_HOSTS
+        value: laser-slicer.onrender.com,laserslicer.legradic.ch
       # Add more as needed (EMAIL_HOST, etc.)
 
   - type: worker

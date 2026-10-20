@@ -1,8 +1,6 @@
 import logging
 from pathlib import Path
 
-import rasterio
-
 from core.services.bathymetry_service import BathymetryFetcher
 
 # Configure logging

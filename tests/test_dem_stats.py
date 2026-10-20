@@ -1,7 +1,6 @@
 from unittest.mock import patch
 
 import numpy as np
-import pytest
 
 from core.utils.dem import get_elevation_stats_fast
 

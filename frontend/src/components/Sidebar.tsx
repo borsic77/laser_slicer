@@ -1,5 +1,5 @@
 import React from 'react';
-import { Action, SlicerParams } from '../reducers/slicerReducer';
+import type { Action, SlicerParams } from '../reducers/slicerReducer';
 
 const API_URL = import.meta.env.VITE_API_URL;
 
@@ -86,7 +86,7 @@ export default function Sidebar(props: SidebarProps) {
                 type="number"
                 id="num-layers"
                 value={params.numLayers}
-                min={0}
+                min={1}
                 onChange={(e) => {
                   const val = Math.max(1, Math.floor(Number(e.target.value)));
                   dispatch({ type: 'SET_NUM_LAYERS', value: val });
@@ -113,11 +113,18 @@ export default function Sidebar(props: SidebarProps) {
                 step="10"
                 placeholder="Elevation (m)"
                 value={fixedElevation ?? ''}
-                disabled={!fixedElevationEnabled && !fixMode}
                 onChange={e => {
-                  const v = Number(e.target.value);
-                  setFixedElevation(isNaN(v) ? null : v);
-                  setFixedElevationEnabled(true);
+                  const raw = e.target.value.trim();
+                  if (raw === '') {
+                    setFixedElevation(null);
+                    setFixedElevationEnabled(false);
+                    return;
+                  }
+                  const v = Number(raw);
+                  if (Number.isFinite(v)) {
+                    setFixedElevation(v);
+                    setFixedElevationEnabled(true);
+                  }
                 }}
 
               />
@@ -220,7 +227,9 @@ export default function Sidebar(props: SidebarProps) {
             </label>
             <hr style={{ width: '100%', border: 'none', borderTop: '1px solid #ccc', margin: '0.5em 0' }} />
             <div className="button-group">
-              <button id="slice-button" onClick={handleSlice}>Slice!</button>
+              <button id="slice-button" onClick={handleSlice} disabled={slicing}>
+                {slicing ? 'Slicing...' : 'Slice!'}
+              </button>
               <button id="export-button" onClick={handleExport} disabled={!sliced || slicing}>Export</button>
             </div>
             {jobResultUrl && (

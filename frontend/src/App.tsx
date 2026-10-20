@@ -5,7 +5,7 @@
  * Refactored to use modular components, services, and hooks.
  */
 
-import React, { useEffect, useReducer, useState } from 'react';
+import React, { useEffect, useReducer, useRef, useState } from 'react';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import './App.css';
@@ -26,13 +26,16 @@ const MapControllerMemo = React.memo(MapController);
 function App() {
   // Theme state
   const [darkMode, setDarkMode] = useState(() => {
-    if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-       return true;
+    if (typeof window !== 'undefined' && typeof window.matchMedia === 'function') {
+      return window.matchMedia('(prefers-color-scheme: dark)').matches;
     }
-    return true; 
+    return true;
   });
 
   useEffect(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+      return;
+    }
     const handler = (e: MediaQueryListEvent) => setDarkMode(e.matches);
     const media = window.matchMedia('(prefers-color-scheme: dark)');
     media.addEventListener('change', handler);
@@ -71,7 +74,7 @@ function App() {
   const [fixMode, setFixMode] = useState(false);
   const [fixedElevation, setFixedElevation] = useState<number | null>(null);
   const [fixedElevationEnabled, setFixedElevationEnabled] = useState(false);
-  const [waterPolygon, setWaterPolygon] = useState<any | null>(null);
+  const [waterPolygon, setWaterPolygon] = useState<Record<string, unknown> | null>(null);
 
   // Reset fixed elevation when bounds change
   useEffect(() => {
@@ -93,25 +96,35 @@ function App() {
   useEffect(() => {
     if (!elevationStats) return;
     const range = elevationStats.max - elevationStats.min;
-    const newHeight = Math.max(10, Math.min(5000, range / params.numLayers));
+    const newHeight = Math.max(10, Math.min(5000, range / Math.max(1, params.numLayers)));
     if (newHeight !== params.heightPerLayer) {
       dispatch({ type: 'SET_HEIGHT_PER_LAYER', value: newHeight });
     }
-  }, [elevationStats, params.numLayers]);
+  }, [elevationStats, params.numLayers, params.heightPerLayer]);
+
+  const geocodeAbortRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    return () => {
+      geocodeAbortRef.current?.abort();
+    };
+  }, []);
 
   // Handlers
   const handleGeocode = () => {
+    if (!address.trim()) return;
+    geocodeAbortRef.current?.abort();
     const controller = new AbortController();
-    api.fetchCoordinates(address, controller.signal)
+    geocodeAbortRef.current = controller;
+    api.fetchCoordinates(address.trim(), controller.signal)
       .then(setCoordinates)
-      .catch((error) => {
-        if (error instanceof Error && error.name !== 'AbortError') {
-          toast.error('Geocoding failed: ' + error.message);
-        } else {
-          toast.error('Geocoding failed');
-        }
+      .catch((error: unknown) => {
+        if (error instanceof Error && error.name === 'AbortError') return;
+        toast.error(
+          error instanceof Error ? 'Geocoding failed: ' + error.message : 'Geocoding failed'
+        );
       });
-  }
+  };
 
   // Initial Geolocation
   useEffect(() => {
@@ -221,7 +234,7 @@ function App() {
                 squareOutput={params.squareOutput}
                 fixMode={fixMode}
                 setFixMode={setFixMode}
-                setFixedElevation={(val) => { setFixedElevation(val); setFixedElevationEnabled(true); }}
+                setFixedElevation={setFixedElevation}
                 setFixedElevationEnabled={setFixedElevationEnabled}
                 setWaterPolygon={setWaterPolygon}
             />

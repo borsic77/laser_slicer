@@ -1,7 +1,5 @@
 import numpy as np
-import pytest
 import rasterio
-from shapely.geometry import Polygon
 
 from core.utils.contour_ops import generate_contours
 
@@ -158,11 +156,10 @@ def test_sample_elevation(tmp_path):
 
     # Gzip it
     d1_gz = tmp_path / "sample.tif.gz"
-    with open(d1, "rb") as f_in:
-        with gzip.open(d1_gz, "wb") as f_out:
-            import shutil
+    with open(d1, "rb") as f_in, gzip.open(d1_gz, "wb") as f_out:
+        import shutil
 
-            shutil.copyfileobj(f_in, f_out)
+        shutil.copyfileobj(f_in, f_out)
 
     # Function takes absolute path to .tif.gz
     # The function inside dem.py does `f"/vsigzip/{dem_path}"`.

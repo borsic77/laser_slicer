@@ -44,15 +44,29 @@ docker-compose.prod.yml
 !.vscode/settings.json
 
 # Frontend: Node, Vite, React
+node_modules/
 frontend/node_modules/
 frontend/dist/
-frontend/.env
 frontend/.vite/
+frontend/.env
+frontend/.env.*.local
+*.tsbuildinfo
+
+# Coverage & test artifacts
+.coverage
+media/
+job_results/
+staticfiles/
+srtm_cache/
+dump.rdb
+tests/debug_output/
+
+# VSCode / JetBrains / editors
+.vscode/
+.idea/
 
 # System
 .DS_Store
 Thumbs.db
-
-dump.rdb
 
 Caddyfile

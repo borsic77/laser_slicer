@@ -11,6 +11,10 @@ from shapely.ops import polygonize, unary_union
 
 logger = logging.getLogger(__name__)
 
+if getattr(settings, "OSM_CACHE_DIR", None):
+    ox.settings.use_cache = True
+    ox.settings.cache_folder = settings.OSM_CACHE_DIR
+
 OVERPASS_URL = "https://overpass-api.de/api/interpreter"
 
 
@@ -33,7 +37,8 @@ def is_land_central_point(lat, lon):
         resp = requests.post(OVERPASS_URL, data={"data": query}, timeout=15)
         resp.raise_for_status()
         data = resp.json()
-        count = int(data.get("elements", [{}])[0].get("tags", {}).get("total", 0))
+        elements = data.get("elements") or [{}]
+        count = int(elements[0].get("tags", {}).get("total", 0))
         # If we found land-use or specific land places, it's land.
         return count > 0
     except Exception as e:
@@ -121,6 +126,8 @@ def fetch_coastline_mask(bounds, shape, transform):
         # Merge all land polygons
         land_union = unary_union(polygons)
         land_union = land_union.intersection(bbox_poly)
+        if land_union.is_empty:
+            return np.zeros(shape, dtype=np.uint8)
 
         # Rasterize
         mask = rasterio.features.rasterize(

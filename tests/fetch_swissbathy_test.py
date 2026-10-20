@@ -1,9 +1,6 @@
-import json
 import sys
 
-import rasterio
 import requests
-from rasterio.io import MemoryFile
 
 
 def test_swissbathy_access():
@@ -61,7 +58,6 @@ def test_swissbathy_access():
         print("Note: In production, we would download, unzip, and read the .asc file.")
 
         # End of test
-        pass
 
     except Exception as e:
         print(f"\nFAILURE: {e}")

@@ -1,9 +1,6 @@
-import os
-
 import matplotlib.pyplot as plt
 import numpy as np
 import rasterio
-from rasterio.session import AWSSession
 from rasterio.windows import from_bounds
 
 

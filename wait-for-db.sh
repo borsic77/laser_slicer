@@ -5,15 +5,24 @@ set -e
 
 hostport="$1"
 shift
+if [ "${1:-}" = "--" ]; then
+  shift
+fi
 
-# Split host and port
-IFS=':' read -r host port <<< "$hostport"
+host=$(echo "$hostport" | cut -d: -f1)
+port=$(echo "$hostport" | cut -d: -f2)
 
-echo "Waiting for $host:$port to be available..."
+echo "Waiting for $host:$port..."
 
+retries=60
 while ! nc -z "$host" "$port"; do
-  sleep 0.5
+  retries=$((retries - 1))
+  if [ "$retries" -le 0 ]; then
+    echo "Error: Timed out waiting for $host:$port" >&2
+    exit 1
+  fi
+  sleep 1
 done
 
-echo "$host:$port is available — executing command"
+echo "$host:$port is available — starting app."
 exec "$@"

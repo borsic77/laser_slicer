@@ -1,8 +1,6 @@
 import time
 from unittest.mock import MagicMock
 
-import pytest
-
 from core.services.contour_generator import ContourSlicingJob
 
 

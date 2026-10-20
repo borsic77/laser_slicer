@@ -17,7 +17,7 @@
 
 .modal-content {
   background: var(--color-sidebar-bg, #1a1a1a);
-  color: #ffffff;
+  color: var(--color-sidebar-text, #ffffff);
   padding: 2.5rem;
   border-radius: 12px;
   max-width: 700px;
@@ -150,34 +150,32 @@
 }
 
 /* Light Mode Overrides */
-@media (prefers-color-scheme: light) {
-  .modal-overlay {
-    background-color: rgba(255, 255, 255, 0.4);
-  }
-  
-  .step-block {
-    background-color: rgba(0, 0, 0, 0.03);
-  }
+.light-mode .modal-overlay {
+  background-color: rgba(255, 255, 255, 0.4);
+}
 
-  .modal-content {
-      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
-      background: var(--color-sidebar-bg, #f5f5f5); /* Explicit light fallback */
-      color: #213547; /* Explicit dark text */
-  }
+.light-mode .step-block {
+  background-color: rgba(0, 0, 0, 0.03);
+}
 
-  .modal-body strong {
-    color: var(--color-primary, #646cff);
-  }
+.light-mode .modal-content {
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+    background: var(--color-sidebar-bg, #f5f5f5); /* Explicit light fallback */
+    color: #213547; /* Explicit dark text */
+}
 
-  .close-button-top {
-      color: #213547;
-  }
-  
-  .modal-header {
-      border-bottom: 1px solid #ddd;
-  }
+.light-mode .modal-body strong {
+  color: var(--color-primary, #646cff);
+}
 
-  .advanced-section {
-    border-top: 1px solid #ddd;
-  }
+.light-mode .close-button-top {
+    color: #213547;
+}
+
+.light-mode .modal-header {
+    border-bottom: 1px solid #ddd;
+}
+
+.light-mode .advanced-section {
+  border-top: 1px solid #ddd;
 }

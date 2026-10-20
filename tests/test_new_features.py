@@ -1,7 +1,5 @@
 import numpy as np
-import pytest
 import rasterio.transform
-from shapely.geometry import Polygon
 
 from core.utils.dem import mosaic_and_crop
 

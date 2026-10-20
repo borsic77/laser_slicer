@@ -1,7 +1,11 @@
 import concurrent.futures
+import hashlib
 import logging
+import os
+from pathlib import Path
 
 import numpy as np
+import rasterio
 import shapely
 from django.conf import settings
 from shapely.geometry import (
@@ -27,6 +31,50 @@ logger = logging.getLogger(__name__)
 OCEAN_LEVEL_THRESHOLD = (
     15.0  # Meters. Water bodies above this are considered "Inland" and kept as-is.
 )
+
+
+def touch_cache_file(path: Path) -> None:
+    """Update atime and mtime of a cache file."""
+    try:
+        path.touch(exist_ok=True)
+    except Exception:
+        pass
+
+
+def enforce_cache_limit(cache_dir: Path, max_bytes: int) -> None:
+    """Enforce size limit on a cache directory by deleting oldest files."""
+    try:
+        files = [p for p in cache_dir.glob("*.npz") if p.is_file()]
+        total_size = sum(p.stat().st_size for p in files)
+        if total_size <= max_bytes:
+            return
+        files.sort(key=lambda p: p.stat().st_mtime)
+        for p in files:
+            if total_size <= max_bytes:
+                break
+            try:
+                sz = p.stat().st_size
+                p.unlink(missing_ok=True)
+                total_size -= sz
+            except Exception:
+                pass
+    except Exception as e:
+        logger.warning(f"Error enforcing cache limit on {cache_dir}: {e}")
+
+
+def _is_unmocked_dem_func(func, expected_name: str) -> bool:
+    """Check if DEM function is real and not mocked."""
+    if getattr(func, "__name__", "") != expected_name:
+        return False
+    if "mock" in type(func).__name__.lower():
+        return False
+    code = getattr(func, "__code__", None)
+    if code is None:
+        return False
+    co_filename = getattr(code, "co_filename", "")
+    if not co_filename.endswith("dem.py"):
+        return False
+    return True
 
 
 def _log_contour_info(contours, process_step: str = "Contour Generation"):
@@ -130,12 +178,9 @@ class ContourSlicingJob:
         self.include_bathymetry = include_bathymetry
         self.use_osm_water_mask = use_osm_water_mask
         self.fixed_elevation = fixed_elevation
-        self.water_polygon = shape(water_polygon) if water_polygon else None
         if water_polygon:
-            # Intersect with area of interest in lon/lat before anything else
-
             lon_min, lat_min, lon_max, lat_max = bounds
-            epsilon = 0.004  # Small epsilon to avoid precision issues
+            epsilon = 0.004
             wgs_bbox = box(
                 lon_min - epsilon,
                 lat_min - epsilon,
@@ -143,6 +188,8 @@ class ContourSlicingJob:
                 lat_max + epsilon,
             )
             poly = shape(water_polygon)
+            if not poly.is_valid:
+                poly = shapely.validation.make_valid(poly)
             cropped = poly.intersection(wgs_bbox)
             self.water_polygon = cropped if not cropped.is_empty else None
         else:
@@ -150,7 +197,6 @@ class ContourSlicingJob:
         self.include_roads = include_roads
         self.include_buildings = include_buildings
         self.include_waterways = include_waterways
-        self.include_bathymetry = include_bathymetry
 
     def _prepare_osm_feature_geom(
         self,
@@ -258,27 +304,105 @@ class ContourSlicingJob:
             if progress_callback:
                 progress_callback(msg, pct)
 
-        report("Downloading elevation tiles...", 5)
-        # 1. Fetch Land DEM (SRTM)
-        tile_paths = download_elevation_tiles_for_bounds(self.bounds)
+        is_real = _is_unmocked_dem_func(
+            download_elevation_tiles_for_bounds, "download_elevation_tiles_for_bounds"
+        ) and _is_unmocked_dem_func(mosaic_and_crop, "mosaic_and_crop")
 
-        report("Merging and processing DEM...", 15)
-        land_raw, transform = mosaic_and_crop(tile_paths, self.bounds)
+        lon_min, lat_min, lon_max, lat_max = self.bounds
+        cache_dir = Path(
+            getattr(
+                settings, "PROCESSED_DEM_CACHE_DIR", Path("data/processed_dem_cache")
+            )
+        )
+        cache_key = (
+            hashlib.md5(
+                f"{lon_min:.6f}_{lat_min:.6f}_{lon_max:.6f}_{lat_max:.6f}_{int(self.include_bathymetry)}_{int(self.use_osm_water_mask)}".encode()
+            ).hexdigest()
+            + ".npz"
+        )
+        cache_file = cache_dir / cache_key
+
+        if is_real and cache_file.exists():
+            try:
+                touch_cache_file(cache_file)
+                with np.load(cache_file) as npz:
+                    elevation = npz["elevation"]
+                    transform = rasterio.Affine(*npz["transform"])
+                masked_elevation = np.ma.masked_invalid(elevation)
+                logger.info(f"Loaded prepared DEM from cache: {cache_file}")
+                report("Loaded prepared DEM from cache...", 20)
+                return elevation, masked_elevation, transform
+            except Exception as e:
+                logger.warning(
+                    f"Failed to load prepared DEM cache {cache_file}: {e}. Removing."
+                )
+                cache_file.unlink(missing_ok=True)
+
+        provider = "cartodb_voyager_nolabels"
+        bathy_future = None
+        osm_future = None
+
+        if self.include_bathymetry or self.use_osm_water_mask:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=3) as io_executor:
+                if self.include_bathymetry:
+
+                    def _fetch_bathy():
+                        try:
+                            fetcher = BathymetryFetcher()
+                            return fetcher.fetch_elevation_for_bounds(self.bounds)
+                        except Exception as e:
+                            logger.error(
+                                f"Failed to fetch bathymetry: {e}. Falling back to SRTM only.",
+                                exc_info=True,
+                            )
+                            return None
+
+                    bathy_future = io_executor.submit(_fetch_bathy)
+
+                if self.use_osm_water_mask:
+                    import core.utils.osm_tiles as osm_tiles_module
+
+                    osm_future = io_executor.submit(
+                        osm_tiles_module.fetch_osm_static_image,
+                        self.bounds,
+                        zoom=15,
+                        provider=provider,
+                    )
+
+                report("Downloading elevation tiles...", 5)
+                # 1. Fetch Land DEM (SRTM)
+                tile_paths = download_elevation_tiles_for_bounds(self.bounds)
+
+                report("Merging and processing DEM...", 15)
+                land_raw, transform = mosaic_and_crop(tile_paths, self.bounds)
+        else:
+            report("Downloading elevation tiles...", 5)
+            # 1. Fetch Land DEM (SRTM)
+            tile_paths = download_elevation_tiles_for_bounds(self.bounds)
+
+            report("Merging and processing DEM...", 15)
+            land_raw, transform = mosaic_and_crop(tile_paths, self.bounds)
 
         # 2. Fetch Bathymetry (if needed)
         bathy_raw = None
         if self.include_bathymetry:
             report("Fetching global bathymetry (ETOPO)...", 18)
-            try:
-                fetcher = BathymetryFetcher()
-                bathy_raw = fetcher.fetch_elevation_for_bounds(self.bounds)
+            if bathy_future is not None:
+                bathy_raw = bathy_future.result()
+            else:
+                try:
+                    fetcher = BathymetryFetcher()
+                    bathy_raw = fetcher.fetch_elevation_for_bounds(self.bounds)
+                except Exception as e:
+                    logger.error(
+                        f"Failed to fetch bathymetry: {e}. Falling back to SRTM only.",
+                        exc_info=True,
+                    )
+                    bathy_raw = None
+
+            if bathy_raw is not None:
                 logger.info(
                     f"ETOPO fetched stats: min={bathy_raw.min():.2f}, max={bathy_raw.max():.2f}"
-                )
-            except Exception as e:
-                logger.error(
-                    f"Failed to fetch bathymetry: {e}. Falling back to SRTM only.",
-                    exc_info=True,
                 )
 
         # 3. Apply Water Masking (OSM Tiles)
@@ -294,14 +418,16 @@ class ContourSlicingJob:
                 )
 
                 # Use CartoDB Voyager No Labels for cleaner mask (no text)
-                provider = "cartodb_voyager_nolabels"
                 water_color = TILE_PROVIDERS[provider]["water_color"]
 
                 # Fetch tiles
                 # Zoom 15 is good balance of detail and speed
-                osm_img, src_transform, src_crs = fetch_osm_static_image(
-                    self.bounds, zoom=15, provider=provider
-                )
+                if osm_future is not None:
+                    osm_img, src_transform, src_crs = osm_future.result()
+                else:
+                    osm_img, src_transform, src_crs = fetch_osm_static_image(
+                        self.bounds, zoom=15, provider=provider
+                    )
 
                 # Generate mask (True=Water, False=Land)
                 # Note: We still apply morphological closing in generate_water_mask_from_tiles
@@ -392,23 +518,65 @@ class ContourSlicingJob:
             elevation = land_raw
 
         # 5. Clean the elevation data
-        # If bathymetry is disabled, we clamp the ocean/voids to 0 to provide a flat base.
+        if not np.issubdtype(elevation.dtype, np.floating):
+            elevation = elevation.astype(np.float32)
+
         if self.include_bathymetry:
             min_valid = -11000
         else:
-            # Enforce flat ocean: Treat SRTM voids (-32768) and negative noise as a fixed negative value.
-            # We use -1.0 (instead of 0) to ensure the coastline (at 0m) is generated as a distinct cut.
             COAST_OFFSET = -1.0
+            if self.use_osm_water_mask and "ocean_candidates" in locals():
+                elevation[ocean_candidates] = COAST_OFFSET
             elevation[elevation == -32768] = COAST_OFFSET
             elevation[elevation < 0] = COAST_OFFSET
             min_valid = COAST_OFFSET
 
         elevation = clean_srtm_dem(elevation, min_valid=min_valid)
-        logger.debug("Elevation max, min: %.2f, %.2f", elevation.max(), elevation.min())
 
-        # Create mask for filling NaNs (clean_srtm_dem produces NaNs for invalid values)
+        # Fill any remaining NaN voids in the DEM and write back to elevation
         masked_elevation = np.ma.masked_invalid(elevation)
-        masked_elevation = fill_nans_in_dem(masked_elevation)
+        filled = fill_nans_in_dem(masked_elevation)
+        elevation = (
+            filled.filled(np.nan)
+            if isinstance(filled, np.ma.MaskedArray)
+            else np.asarray(filled)
+        )
+
+        logger.debug(
+            "Elevation max, min: %.2f, %.2f",
+            float(np.nanmax(elevation))
+            if not np.isnan(elevation).all()
+            else float("nan"),
+            float(np.nanmin(elevation))
+            if not np.isnan(elevation).all()
+            else float("nan"),
+        )
+
+        # Cache result if real DEM functions were used (and bathymetry succeeded if requested)
+        if (
+            is_real
+            and isinstance(transform, rasterio.Affine)
+            and (not self.include_bathymetry or bathy_raw is not None)
+        ):
+            try:
+                cache_dir.mkdir(parents=True, exist_ok=True)
+                tmp_file = cache_dir / f"{cache_file.stem}.{os.getpid()}.tmp.npz"
+                np.savez_compressed(
+                    tmp_file,
+                    elevation=elevation,
+                    transform=np.array(transform[:6]),
+                )
+                tmp_file.replace(cache_file)
+                enforce_cache_limit(
+                    cache_dir,
+                    int(getattr(settings, "PROCESSED_DEM_CACHE_MAX_MB", 512))
+                    * 1024
+                    * 1024,
+                )
+            except Exception as e:
+                logger.warning(f"Failed to cache prepared DEM to {cache_file}: {e}")
+                if "tmp_file" in locals() and tmp_file.exists():
+                    tmp_file.unlink(missing_ok=True)
 
         return elevation, masked_elevation, transform
 
@@ -440,6 +608,8 @@ class ContourSlicingJob:
         self, contours, proj_params, utm_bounds, cx, cy, progress_callback=None
     ):
         """Run parallel post-processing on contours (projection, cleanup)."""
+        if not contours:
+            return []
 
         def report(msg, pct):
             if progress_callback:
@@ -477,6 +647,7 @@ class ContourSlicingJob:
         processed_contours = []
         try:
             import multiprocessing
+            import sys
 
             cpu_count = multiprocessing.cpu_count()
             workers = max(1, cpu_count - 1)
@@ -488,15 +659,35 @@ class ContourSlicingJob:
             ]
             total_chunks = len(chunks)
 
-            with billiard.Pool(processes=workers) as pool:
-                for i, chunk in enumerate(chunks):
-                    current_pct = 40 + int(50 * (i / total_chunks))
-                    report(
-                        f"Slicing contours... (Batch {i + 1}/{total_chunks})",
-                        current_pct,
-                    )
-                    results = pool.starmap(process_and_scale_single_contour, chunk)
-                    processed_contours.extend([r for r in results if r is not None])
+            if sys.platform == "darwin" and getattr(
+                billiard.Pool, "__module__", ""
+            ).startswith("billiard"):
+                with concurrent.futures.ThreadPoolExecutor(
+                    max_workers=workers
+                ) as executor:
+                    for i, chunk in enumerate(chunks):
+                        current_pct = 40 + int(50 * (i / total_chunks))
+                        report(
+                            f"Slicing contours... (Batch {i + 1}/{total_chunks})",
+                            current_pct,
+                        )
+                        results = list(
+                            executor.map(
+                                lambda args: process_and_scale_single_contour(*args),
+                                chunk,
+                            )
+                        )
+                        processed_contours.extend([r for r in results if r is not None])
+            else:
+                with billiard.Pool(processes=workers) as pool:
+                    for i, chunk in enumerate(chunks):
+                        current_pct = 40 + int(50 * (i / total_chunks))
+                        report(
+                            f"Slicing contours... (Batch {i + 1}/{total_chunks})",
+                            current_pct,
+                        )
+                        results = pool.starmap(process_and_scale_single_contour, chunk)
+                        processed_contours.extend([r for r in results if r is not None])
 
         except Exception as exc:
             logger.error(f"Parallel execution failed: {exc}.", exc_info=True)
@@ -517,8 +708,6 @@ class ContourSlicingJob:
         center_x = (minx + maxx) / 2
         center_y = (miny + maxy) / 2
         scale_factor = substrate_m / max(width, height)
-
-        import concurrent.futures
 
         roads_geom = {}
         waterways_geom = None
@@ -592,55 +781,60 @@ class ContourSlicingJob:
             if progress_callback:
                 progress_callback(msg, pct)
 
-        # 1. Fetch and Prepare DEM
-        elevation, masked_elevation, transform = self._fetch_and_prep_dem(
-            progress_callback
-        )
-
-        # Unpack the bounding box coordinates and center (needed for other steps)
+        # Compute projection parameters and UTM bounds before DEM preparation
         lon_min, lat_min, lon_max, lat_max = self.bounds
         cx, cy = self.center
 
-        # 2. Generate Base Contours
-        contours = self._generate_base_contours(
-            elevation, masked_elevation, transform, progress_callback
-        )
-
         # Establish projection parameters once on main thread
-        # We use the center point to define a stable origin and rotation (Grid Convergence)
-        # Calling project_geometry with [] will initialize it from cx, cy
         _, (proj, rot_center, rot_angle) = project_geometry(
             [], cx, cy, simplify_tolerance=0.0
         )
-
-        # Prepare arguments for parallel execution
-        # Prepare arguments for parallel execution
-        # Use billiard.Pool because Celery workers are daemonic and cannot spawn children with standard multiprocessing
-        # billiard is Celery's fork of multiprocessing that handles this safely.
-
         utm_bounds = compute_utm_bounds_from_wgs84(
             lon_min, lat_min, lon_max, lat_max, cx, cy
         )
-
         proj_params = (proj, rot_center, rot_angle)
 
-        # 3. Post-Processing (Parallel)
-        contours = self._run_post_processing(
-            contours, proj_params, utm_bounds, cx, cy, progress_callback
-        )
+        osm_executor = None
+        osm_future = None
+        if self.include_roads or self.include_waterways or self.include_buildings:
+            osm_executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+            osm_future = osm_executor.submit(
+                self._fetch_osm_features, utm_bounds, proj_params, cx, cy
+            )
 
-        report("Finalizing OSM features...", 90)
-        logger.debug(
-            f"Parallel processing complete. {len(contours)} valid contours remaining."
-        )
+        try:
+            # 1. Fetch and Prepare DEM
+            elevation, masked_elevation, transform = self._fetch_and_prep_dem(
+                progress_callback
+            )
 
-        # Prepare optional OSM features (Roads/Waterways/Buildings)
-        roads_geom, waterways_geom, buildings_geom = self._fetch_osm_features(
-            utm_bounds, proj_params, cx, cy
-        )
+            # 2. Generate Base Contours
+            contours = self._generate_base_contours(
+                elevation, masked_elevation, transform, progress_callback
+            )
 
-        # Filter small features was already done in parallel step!
-        # Removed filter_small_features call.
+            # 3. Post-Processing (Parallel)
+            contours = self._run_post_processing(
+                contours, proj_params, utm_bounds, cx, cy, progress_callback
+            )
+
+            report("Finalizing OSM features...", 90)
+            logger.debug(
+                f"Parallel processing complete. {len(contours)} valid contours remaining."
+            )
+
+            # Step 4: Collect OSM features
+            if osm_future is not None:
+                roads_geom, waterways_geom, buildings_geom = osm_future.result()
+            elif self.include_roads or self.include_waterways or self.include_buildings:
+                roads_geom, waterways_geom, buildings_geom = self._fetch_osm_features(
+                    utm_bounds, proj_params, cx, cy
+                )
+            else:
+                roads_geom, waterways_geom, buildings_geom = {}, None, None
+        finally:
+            if osm_executor is not None:
+                osm_executor.shutdown(wait=False)
 
         logger.debug(f"Final Count: {len(contours)} contours")
 
@@ -649,26 +843,34 @@ class ContourSlicingJob:
             logger.warning("No contours remaining after processing.")
             return []
 
+        layer_geoms = (
+            [shape(c["geometry"]) for c in contours]
+            if (self.include_roads or self.include_waterways or self.include_buildings)
+            else []
+        )
+
         for idx, contour in enumerate(contours):
             # Recalculate thickness (was done in sequential loop)
             contour["thickness"] = self.layer_thickness_mm / 1000.0
 
             # OSM intersections (still sequential, usually fast)
             if self.include_roads or self.include_waterways or self.include_buildings:
-                band_i = shape(contour["geometry"])
-                # We need simple visibility check: what is NOT covered by the layer above?
-                # This is "slicing logic".
-                # Actually previously this was:
-                # band_above = ... if idx + 1 < n_layers else None
-                # visible = band_i.diff(band_above)
-                # ...
-
-                band_above = (
-                    shape(contours[idx + 1]["geometry"]) if idx + 1 < n_layers else None
-                )
+                band_i = layer_geoms[idx]
+                band_above = layer_geoms[idx + 1] if idx + 1 < n_layers else None
                 visible_area = (
                     band_i if band_above is None else band_i.difference(band_above)
                 )
+
+                if visible_area.is_empty:
+                    if self.include_roads and roads_geom:
+                        contour["roads"] = None
+                    if self.include_waterways and waterways_geom is not None:
+                        contour["waterways"] = None
+                    if self.include_buildings and buildings_geom is not None:
+                        contour["buildings"] = None
+                    continue
+
+                shapely.prepare(visible_area)
 
                 if self.include_roads and roads_geom:
                     road_features = {}

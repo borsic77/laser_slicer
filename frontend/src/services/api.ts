@@ -46,7 +46,7 @@ export interface SliceJobParams {
     substrate_size: number;
     layer_thickness: number;
     fixedElevation?: number;
-    water_polygon?: any;
+    water_polygon?: Record<string, unknown> | null;
     include_roads: boolean;
     include_buildings: boolean;
     include_waterways: boolean;
@@ -54,10 +54,28 @@ export interface SliceJobParams {
 }
 
 export interface ExportJobParams {
-    layers: any[];
+    layers: unknown[];
     address: string;
     coordinates: [number, number];
     height_per_layer: number;
+}
+
+export interface JobStatusResponse {
+    status: string;
+    progress?: number;
+    log?: string;
+    result_url?: string;
+    params?: {
+        result?: { min: number; max: number };
+        layers?: unknown[];
+        [key: string]: unknown;
+    };
+    [key: string]: unknown;
+}
+
+export interface WaterBodyResponse {
+    in_water: boolean;
+    polygon?: Record<string, unknown> | null;
 }
 
 export const api = {
@@ -109,19 +127,21 @@ export const api = {
         return await res.json();
     },
 
-    async getJobStatus(jobId: string): Promise<any> {
+    async getJobStatus(jobId: string): Promise<JobStatusResponse> {
         const res = await fetch(`${API_URL}/api/jobs/${jobId}/`);
         if (!res.ok) throw new Error(`Failed to get job status for ${jobId}`);
-        return await res.json();
+        return (await res.json()) as JobStatusResponse;
     },
 
-    async fetchWaterBody(lat: number, lon: number): Promise<any | null> {
+    async fetchWaterBody(lat: number, lon: number): Promise<WaterBodyResponse | null> {
          try {
             const wres = await fetch(`${API_URL}/api/waterbody/?lat=${lat}&lon=${lon}`);
             if (wres.ok) {
-            return await wres.json();
+                return (await wres.json()) as WaterBodyResponse;
             }
-        } catch {}
+        } catch (error) {
+            console.debug('Failed to fetch water body:', error);
+        }
         return null;
     },
 

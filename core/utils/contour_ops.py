@@ -2,7 +2,6 @@
 
 import logging
 import os
-from typing import List, Tuple
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -10,7 +9,7 @@ import numpy as np
 import rasterio
 import scipy.ndimage
 from django.conf import settings
-from shapely.geometry import LinearRing, Polygon, mapping, shape
+from shapely.geometry import LinearRing, Polygon, mapping
 from shapely.geometry.polygon import orient
 from shapely.ops import unary_union
 from skimage import measure
@@ -23,7 +22,7 @@ logger = logging.getLogger(__name__)
 
 DEBUG_IMAGE_PATH = settings.DEBUG_IMAGE_PATH
 DEBUG = settings.DEBUG
-if DEBUG:
+if DEBUG and DEBUG_IMAGE_PATH:
     os.makedirs(DEBUG_IMAGE_PATH, exist_ok=True)
 
 
@@ -51,7 +50,7 @@ def _contours_to_polygons(
     elevation_data: np.ndarray,
     level: float,
     transform: rasterio.Affine,
-) -> List[Polygon]:
+) -> list[Polygon]:
     """Generate polygons for a specific elevation level using skimage marching squares.
 
     Args:
@@ -85,26 +84,15 @@ def _contours_to_polygons(
 
     polys = []
     for contour in contours:
-        # contour is (row, col) in PADDED space.
-        # Shift back by pad_width to get original image coordinates.
-        rows = contour[:, 0] - pad_width
-        cols = contour[:, 1] - pad_width
-
-        # rasterio transform: (row, col) -> (x, y)
-        # rasterio expects (row, col) to output (x, y)
-        xs, ys = rasterio.transform.xy(transform, rows, cols, offset="center")
-
-        # Combine to standard (x, y) coordinates
-        coords = list(zip(xs, ys))
-
-        # Filter small artifacts (less than 3 points)
-        if len(coords) < 3:
+        if len(contour) < 3:
             continue
-
-        # Ensure closure
-        if coords[0] != coords[-1]:
-            # Close it
-            coords.append(coords[0])
+        rows = contour[:, 0] - pad_width + 0.5
+        cols = contour[:, 1] - pad_width + 0.5
+        xs = transform.c + cols * transform.a + rows * transform.b
+        ys = transform.f + cols * transform.d + rows * transform.e
+        coords = np.column_stack((xs, ys))
+        if coords[0, 0] != coords[-1, 0] or coords[0, 1] != coords[-1, 1]:
+            coords = np.vstack((coords, coords[0]))
 
         try:
             # Create a LinearRing first to check validity
@@ -136,7 +124,7 @@ def _create_levels(
     interval: float,
     fixed_elevation: float | None = None,
     num_layers: int | None = None,
-) -> List[float]:
+) -> list[float]:
     """Compute contour levels."""
     if np.isnan(min_elev) or np.isnan(max_elev):
         raise ValueError("Elevation data contains NaN.")
@@ -155,16 +143,18 @@ def _create_levels(
         if min(levels) < fixed_elevation < max(levels):
             levels.append(fixed_elevation)
 
+    min_r = round(float(min_elev), 6)
+    max_r = round(float(max_elev), 6)
     levels = sorted(set(round(lvl, 6) for lvl in levels))
-    levels = [l for l in levels if l >= min_elev and l <= max_elev]
+    levels = [lvl for lvl in levels if min_r <= lvl <= max_r]
     return levels
 
 
 def _compute_layer_bands(
-    level_polys: List[Tuple[float, List[Polygon]]],
+    level_polys: list[tuple[float, list[Polygon]]],
     transform: rasterio.Affine,
     simplify_tolerance: float = 0.0,
-) -> List[dict]:
+) -> list[dict]:
     """Build a cumulative stack of contour bands.
 
     This replicates the original logic:
@@ -207,7 +197,6 @@ def _compute_layer_bands(
                 )
 
             band = orient(_force_multipolygon(cumulative))
-            pass
 
             contour_layers.append(
                 {"elevation": float(level), "geometry": mapping(band), "closed": True}
@@ -233,7 +222,7 @@ def generate_contours(
     resolution_scale: float = 1.0,
     min_area_deg2: float = 1e-10,
     dem_smoothing: float = 0.0,
-) -> List[dict]:
+) -> list[dict]:
     """Generate contours using skimage marching squares (smooth)."""
 
     logger.debug(f"generate_contours (skimage) called. Smoothing: {dem_smoothing}")
@@ -252,12 +241,9 @@ def generate_contours(
 
     # 3. Extract Polygons for each level
     level_polys_list = []
+    data_safe = np.where(np.isnan(elevation_data), -99999.0, elevation_data)
 
     for level in levels:
-        # Fill NaNs with a value well below min to ensure they are "outside"
-        data_safe = elevation_data.copy()
-        data_safe[np.isnan(data_safe)] = -99999.0
-
         polys = _contours_to_polygons(data_safe, level, transform)
         if polys:
             # Filter small
@@ -266,10 +252,23 @@ def generate_contours(
             if polys:
                 level_polys_list.append((level, polys))
 
-    # 4. Handle Water / Fixed Elevation (Simple version: Insert water logic here)
+    # 4. Handle Water / Fixed Elevation
     if fixed_elevation is not None and water_polygon is not None:
-        # Skipped complex water logic for this refactor verification step
-        pass
+        water_geom = water_polygon
+        if bounds is not None:
+            from shapely.geometry import box
+
+            water_geom = water_geom.intersection(box(*bounds))
+        water_polys = _flatten_polygons([water_geom]) if not water_geom.is_empty else []
+        if water_polys:
+            replaced = False
+            for idx, (lvl, polys) in enumerate(level_polys_list):
+                if abs(lvl - fixed_elevation) < 1e-5:
+                    level_polys_list[idx] = (lvl, polys + water_polys)
+                    replaced = True
+                    break
+            if not replaced:
+                level_polys_list.append((float(fixed_elevation), water_polys))
 
     # 5. Compute Stacked Bands
     contour_layers = _compute_layer_bands(

@@ -2,7 +2,6 @@ import os
 import sys
 
 import django
-import numpy as np
 
 # Setup Django environment
 sys.path.append("/app")

@@ -1,9 +1,22 @@
 import logging
 from pathlib import Path
-from typing import List, Tuple
 
+import rasterio
 import requests
 from django.conf import settings
+from filelock import FileLock
+from rasterio.warp import Resampling, calculate_default_transform, reproject
+
+try:
+    from core.utils.cache_ops import enforce_cache_limit, touch_cache_file
+except ImportError:  # pragma: no cover
+
+    def touch_cache_file(path):
+        pass
+
+    def enforce_cache_limit(cache_dir, max_bytes):
+        pass
+
 
 logger = logging.getLogger(__name__)
 
@@ -17,7 +30,7 @@ PREFERRED_RESOLUTION = "2"
 ALTI3D_CACHE_DIR = settings.ALTI3D_CACHE_DIR
 
 
-def download_swissalti3d_tiles(bounds: Tuple[float, float, float, float]) -> List[str]:
+def download_swissalti3d_tiles(bounds: tuple[float, float, float, float]) -> list[str]:
     """
     Downloads SwissALTI3D tiles covering the given bounding box using the STAC API.
 
@@ -43,7 +56,7 @@ def download_swissalti3d_tiles(bounds: Tuple[float, float, float, float]) -> Lis
 
     try:
         logger.info(f"Querying SwissTopo STAC API with bbox={bbox_str}")
-        resp = requests.get(STAC_API_URL, params=params)
+        resp = requests.get(STAC_API_URL, params=params, timeout=30)
         resp.raise_for_status()
         data = resp.json()
 
@@ -88,29 +101,38 @@ def download_swissalti3d_tiles(bounds: Tuple[float, float, float, float]) -> Lis
             # Determine local filename
             filename = asset_url.split("/")[-1]
             local_path = ALTI3D_CACHE_DIR / filename
-
-            if not local_path.exists():
-                logger.info(f"Downloading {asset_url} -> {local_path}")
-                # Download with stream
-                with requests.get(asset_url, stream=True) as r:
-                    r.raise_for_status()
-                    with open(local_path, "wb") as f:
-                        for chunk in r.iter_content(chunk_size=8192):
-                            f.write(chunk)
-            else:
-                logger.debug(f"Tile already cached: {local_path}")
-
-            # Reproject to WGS84 if needed
             wgs84_path = local_path.with_name(local_path.stem + "_wgs84.tif")
-            if not wgs84_path.exists():
-                logger.info(f"Reprojecting {local_path} to WGS84 -> {wgs84_path}")
-                try:
-                    reproject_to_wgs84(local_path, wgs84_path)
-                except Exception as e:
-                    logger.error(f"Failed to reproject {local_path}: {e}")
-                    # Do NOT fallback to original local_path as it has different CRS (EPSG:2056)
-                    # causing "array too big" errors in merge.
-                    continue
+            lock_path = str(local_path) + ".lock"
+
+            with FileLock(lock_path, timeout=120):
+                if not local_path.exists():
+                    logger.info(f"Downloading {asset_url} -> {local_path}")
+                    tmp_local = local_path.with_suffix(".tmp.tif")
+                    try:
+                        with requests.get(asset_url, stream=True, timeout=60) as r:
+                            r.raise_for_status()
+                            with open(tmp_local, "wb") as f:
+                                f.writelines(r.iter_content(chunk_size=8192))
+                        tmp_local.replace(local_path)
+                    except Exception:
+                        tmp_local.unlink(missing_ok=True)
+                        raise
+                else:
+                    logger.debug(f"Tile already cached: {local_path}")
+                    touch_cache_file(local_path)
+
+                if not wgs84_path.exists():
+                    logger.info(f"Reprojecting {local_path} to WGS84 -> {wgs84_path}")
+                    tmp_wgs84 = wgs84_path.with_suffix(".tmp.tif")
+                    try:
+                        reproject_to_wgs84(local_path, tmp_wgs84)
+                        tmp_wgs84.replace(wgs84_path)
+                    except Exception as e:
+                        tmp_wgs84.unlink(missing_ok=True)
+                        logger.error(f"Failed to reproject {local_path}: {e}")
+                        continue
+                else:
+                    touch_cache_file(wgs84_path)
 
             downloaded_paths.append(str(wgs84_path))
 
@@ -118,11 +140,12 @@ def download_swissalti3d_tiles(bounds: Tuple[float, float, float, float]) -> Lis
         logger.error(f"Failed to query or download from SwissTopo API: {e}")
         raise RuntimeError(f"SwissTopo API error: {e}")
 
+    enforce_cache_limit(
+        ALTI3D_CACHE_DIR,
+        int(getattr(settings, "ALTI3D_CACHE_MAX_MB", 1024)) * 1024 * 1024,
+    )
+
     return downloaded_paths
-
-
-import rasterio
-from rasterio.warp import Resampling, calculate_default_transform, reproject
 
 
 def reproject_to_wgs84(src_path: Path, dst_path: Path):

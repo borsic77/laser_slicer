@@ -6,37 +6,71 @@ import { getWidthHeightMeters } from '../utils/geo';
 export function useElevationJob(bounds: [[number, number], [number, number]] | null, includeBathymetry: boolean) {
     const [areaStats, setAreaStats] = useState<{ width: number; height: number } | null>(null);
     const [elevationStats, setElevationStats] = useState<{ min: number; max: number } | null>(null);
-    const [elevationJobId, setElevationJobId] = useState<string | null>(null);
     const elevationPollRef = useRef<number | null>(null);
+    const activeJobIdRef = useRef<string | null>(null);
+    const inFlightRef = useRef<boolean>(false);
 
     // Poll elevation job
     const pollElevationJobStatus = (jobId: string) => {
-        if (elevationPollRef.current) clearInterval(elevationPollRef.current);
+        if (elevationPollRef.current) {
+            clearInterval(elevationPollRef.current);
+            elevationPollRef.current = null;
+        }
+        activeJobIdRef.current = jobId;
+        inFlightRef.current = false;
+
         elevationPollRef.current = window.setInterval(async () => {
+            if (activeJobIdRef.current !== jobId) {
+                return;
+            }
+            if (inFlightRef.current) {
+                return;
+            }
+            inFlightRef.current = true;
             try {
                 const data = await api.getJobStatus(jobId);
+                if (activeJobIdRef.current !== jobId) {
+                    return;
+                }
                 if (data.status === "SUCCESS") {
                     const result = data.params?.result;
                     if (result && typeof result.min === "number" && typeof result.max === "number") {
                         setElevationStats({ min: result.min, max: result.max });
                     }
-                    clearInterval(elevationPollRef.current!);
-                    elevationPollRef.current = null;
+                    if (elevationPollRef.current) {
+                        clearInterval(elevationPollRef.current);
+                        elevationPollRef.current = null;
+                    }
                 } else if (data.status === "FAILURE") {
-                    clearInterval(elevationPollRef.current!);
-                    elevationPollRef.current = null;
+                    if (elevationPollRef.current) {
+                        clearInterval(elevationPollRef.current);
+                        elevationPollRef.current = null;
+                    }
                     toast.error("Elevation job failed: " + (data.log || 'Unknown error'));
                 }
             } catch (err) {
+                if (activeJobIdRef.current !== jobId) {
+                    return;
+                }
                 console.error(err);
-                clearInterval(elevationPollRef.current!);
-                elevationPollRef.current = null;
+                if (elevationPollRef.current) {
+                    clearInterval(elevationPollRef.current);
+                    elevationPollRef.current = null;
+                }
                 // Silent fail on polling error to avoid spam
+            } finally {
+                inFlightRef.current = false;
             }
         }, 2000);
     };
 
     useEffect(() => {
+        if (elevationPollRef.current) {
+            clearInterval(elevationPollRef.current);
+            elevationPollRef.current = null;
+        }
+        activeJobIdRef.current = null;
+
         if (!bounds) return;
         const dims = getWidthHeightMeters(bounds);
         setAreaStats(dims);
@@ -54,7 +88,6 @@ export function useElevationJob(bounds: [[number, number], [number, number]] | n
                     include_bathymetry: includeBathymetry,
                 }, controller.signal);
                 
-                setElevationJobId(job_id);
                 pollElevationJobStatus(job_id);
             } catch (err) {
                 if (err instanceof Error && err.name !== "AbortError") {
@@ -67,7 +100,11 @@ export function useElevationJob(bounds: [[number, number], [number, number]] | n
 
         return () => {
             controller.abort();
-            if (elevationPollRef.current) clearInterval(elevationPollRef.current);
+            activeJobIdRef.current = null;
+            if (elevationPollRef.current) {
+                clearInterval(elevationPollRef.current);
+                elevationPollRef.current = null;
+            }
         };
     }, [bounds, includeBathymetry]);
 

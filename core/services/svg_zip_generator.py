@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import io
 import zipfile
-from typing import Iterable
+from collections.abc import Iterable
 
 from core.utils.svg_export import contours_to_svg_zip
 
@@ -19,6 +19,7 @@ def generate_svg_layers(
     stroke_align: str = "#ff0000",
     stroke_road: str = "#0000ff",
     stroke_building: str = "#880000",
+    stroke_waterway: str = "#00aaff",
     stroke_width_mm: float = 0.1,
 ) -> list[tuple[str, bytes]]:
     """
@@ -47,6 +48,7 @@ def generate_svg_layers(
         stroke_width_mm=stroke_width_mm,
         stroke_road=stroke_road,
         stroke_building=stroke_building,
+        stroke_waterway=stroke_waterway,
     )
 
     with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:

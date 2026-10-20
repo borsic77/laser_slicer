@@ -27,7 +27,7 @@ class BaseJob(models.Model):
     )  # E.g., PENDING, RUNNING, SUCCESS, FAILURE
     progress = models.PositiveSmallIntegerField(default=0)  # 0-100
     params = models.JSONField(default=dict, blank=True)
-    result_file = models.FileField(null=True, blank=True, upload_to="media/")
+    result_file = models.FileField(null=True, blank=True, upload_to="exports/")
     log = models.TextField(blank=True)
 
     class Meta:
@@ -41,16 +41,10 @@ class BaseJob(models.Model):
 class ContourJob(BaseJob):
     """Job for generating contour layers from an area."""
 
-    pass
-
 
 class ElevationJob(BaseJob):
     """Job for fetching elevation data without slicing."""
 
-    pass
-
 
 class SVGJob(BaseJob):
     """Job for exporting existing contours to SVG/ZIP."""
-
-    pass

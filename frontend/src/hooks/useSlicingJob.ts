@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { toast } from 'react-toastify';
-import { api, ExportJobParams, SliceJobParams } from '../services/api';
+import type { ContourLayer } from '../components/ContourPreview';
+import { api, type ExportJobParams, type SliceJobParams } from '../services/api';
 
 export function useSlicingJob() {
     const [jobId, setJobId] = useState<string | null>(null);
@@ -12,73 +13,147 @@ export function useSlicingJob() {
     // Slicing specific state
     const [slicing, setSlicing] = useState(false);
     const [sliced, setSliced] = useState(false);
-    const [contourLayers, setContourLayers] = useState<any[]>([]);
+    const [contourLayers, setContourLayers] = useState<ContourLayer[]>([]);
 
     const slicingPollRef = useRef<number | null>(null);
     const exportPollRef = useRef<number | null>(null);
+    const activeSliceJobIdRef = useRef<string | null>(null);
+    const activeExportJobIdRef = useRef<string | null>(null);
+    const slicingInFlightRef = useRef<boolean>(false);
+    const exportInFlightRef = useRef<boolean>(false);
+
+    const clearExistingIntervals = () => {
+        if (slicingPollRef.current) {
+            clearInterval(slicingPollRef.current);
+            slicingPollRef.current = null;
+        }
+        if (exportPollRef.current) {
+            clearInterval(exportPollRef.current);
+            exportPollRef.current = null;
+        }
+        activeSliceJobIdRef.current = null;
+        activeExportJobIdRef.current = null;
+        slicingInFlightRef.current = false;
+        exportInFlightRef.current = false;
+    };
 
     const pollSlicingJobStatus = (id: string) => {
-        if (slicingPollRef.current) clearInterval(slicingPollRef.current);
+        if (slicingPollRef.current) {
+            clearInterval(slicingPollRef.current);
+            slicingPollRef.current = null;
+        }
+        activeSliceJobIdRef.current = id;
+        slicingInFlightRef.current = false;
+
         slicingPollRef.current = window.setInterval(async () => {
+            if (activeSliceJobIdRef.current !== id) {
+                return;
+            }
+            if (slicingInFlightRef.current) {
+                return;
+            }
+            slicingInFlightRef.current = true;
             try {
                 const data = await api.getJobStatus(id);
+                if (activeSliceJobIdRef.current !== id) {
+                    return;
+                }
                 setJobStatus(data.status);
-                setJobProgress(data.progress);
+                setJobProgress(data.progress ?? null);
                 setJobLog(data.log || '');
                 setJobResultUrl(data.result_url || null);
 
                 if (data.status === "SUCCESS") {
-                    if (data.params && data.params.layers) {
-                        setContourLayers(data.params.layers);
+                    if (data.params && Array.isArray(data.params.layers)) {
+                        setContourLayers(data.params.layers as ContourLayer[]);
                     }
                     setSliced(true);
                     setSlicing(false);
-                    clearInterval(slicingPollRef.current!);
-                    slicingPollRef.current = null;
+                    if (slicingPollRef.current) {
+                        clearInterval(slicingPollRef.current);
+                        slicingPollRef.current = null;
+                    }
                     toast.success("Slicing done!");
                 } else if (data.status === "FAILURE") {
                     setSlicing(false);
-                    clearInterval(slicingPollRef.current!);
-                    slicingPollRef.current = null;
+                    if (slicingPollRef.current) {
+                        clearInterval(slicingPollRef.current);
+                        slicingPollRef.current = null;
+                    }
                     toast.error("Slicing failed: " + (data.log || 'Unknown error'));
                 }
-            } catch (err) {
+            } catch {
+                if (activeSliceJobIdRef.current !== id) {
+                    return;
+                }
                 setSlicing(false);
-                clearInterval(slicingPollRef.current!);
-                slicingPollRef.current = null;
+                if (slicingPollRef.current) {
+                    clearInterval(slicingPollRef.current);
+                    slicingPollRef.current = null;
+                }
                 toast.error("Error polling slicing job status");
+            } finally {
+                slicingInFlightRef.current = false;
             }
         }, 2000);
     };
 
     const pollExportJobStatus = (id: string) => {
-        if (exportPollRef.current) clearInterval(exportPollRef.current);
+        if (exportPollRef.current) {
+            clearInterval(exportPollRef.current);
+            exportPollRef.current = null;
+        }
+        activeExportJobIdRef.current = id;
+        exportInFlightRef.current = false;
+
         exportPollRef.current = window.setInterval(async () => {
-             try {
+            if (activeExportJobIdRef.current !== id) {
+                return;
+            }
+            if (exportInFlightRef.current) {
+                return;
+            }
+            exportInFlightRef.current = true;
+            try {
                 const data = await api.getJobStatus(id);
+                if (activeExportJobIdRef.current !== id) {
+                    return;
+                }
                 setJobStatus(data.status);
-                setJobProgress(data.progress);
+                setJobProgress(data.progress ?? null);
                 setJobLog(data.log || '');
                 setJobResultUrl(data.result_url || null);
                 
                 if (data.status === "SUCCESS") {
-                    clearInterval(exportPollRef.current!);
-                    exportPollRef.current = null;
+                    if (exportPollRef.current) {
+                        clearInterval(exportPollRef.current);
+                        exportPollRef.current = null;
+                    }
                     toast.success("Export ready! Download ZIP below.");
                 } else if (data.status === "FAILURE") {
-                    clearInterval(exportPollRef.current!);
-                    exportPollRef.current = null;
+                    if (exportPollRef.current) {
+                        clearInterval(exportPollRef.current);
+                        exportPollRef.current = null;
+                    }
                     toast.error("Export job failed: " + (data.log || 'Unknown error'));
                 }
-            } catch (err) {
-                clearInterval(exportPollRef.current!);
-                exportPollRef.current = null;
+            } catch {
+                if (activeExportJobIdRef.current !== id) {
+                    return;
+                }
+                if (exportPollRef.current) {
+                    clearInterval(exportPollRef.current);
+                    exportPollRef.current = null;
+                }
                 toast.error("Error polling export job status");
+            } finally {
+                exportInFlightRef.current = false;
             }
         }, 2000);
     };
 
     const startSliceJob = async (params: SliceJobParams) => {
+        clearExistingIntervals();
         try {
             setSlicing(true);
             setContourLayers([]);
@@ -89,14 +164,15 @@ export function useSlicingJob() {
             setJobLog('');
             setJobResultUrl(null);
             pollSlicingJobStatus(data.job_id);
-        } catch (error) {
+        } catch {
             setSlicing(false);
             toast.error("Failed to start slicing job");
         }
     };
 
     const startExportJob = async (params: ExportJobParams) => {
-         try {
+        clearExistingIntervals();
+        try {
             const data = await api.startExportJob(params);
             setJobId(data.job_id);
             setJobStatus('PENDING');
@@ -104,7 +180,7 @@ export function useSlicingJob() {
             setJobLog('');
             setJobResultUrl(null);
             pollExportJobStatus(data.job_id);
-        } catch (error) {
+        } catch {
             toast.error("Failed to start export job");
         }
     };
@@ -112,8 +188,7 @@ export function useSlicingJob() {
     // Cleanup
     useEffect(() => {
         return () => {
-            if (slicingPollRef.current) clearInterval(slicingPollRef.current);
-            if (exportPollRef.current) clearInterval(exportPollRef.current);
+            clearExistingIntervals();
         };
     }, []);
 

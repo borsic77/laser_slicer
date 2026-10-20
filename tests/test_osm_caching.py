@@ -1,11 +1,4 @@
-import os
-import shutil
-
 import osmnx as ox
-import pytest
-from django.conf import settings
-
-from core.services.osm_service import is_land_central_point
 
 
 def test_osm_caching_enabled(tmp_path, settings):

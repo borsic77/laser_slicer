@@ -16,8 +16,6 @@ logger = logging.getLogger(__name__)
 class ElevationDataError(ValueError):
     """Raised when elevation data is missing or invalid within a bounding box."""
 
-    pass
-
 
 class ElevationRangeJob:
     """Class to compute the elevation range within a specified bounding box.
@@ -60,7 +58,7 @@ class ElevationRangeJob:
                 # merge_srtm_and_etopo resamples ETOPO to match the SRTM grid (elevation arg).
                 # So this should work fine even with downsampled SRTM.
                 elevation = merge_srtm_and_etopo(
-                    elevation, etopo_data, bounds=self.bounds, transform=transform
+                    elevation, etopo_data, transform=transform
                 )
             except Exception as e:
                 logger.warning(
@@ -84,6 +82,10 @@ class ElevationRangeJob:
         masked = np.ma.masked_where(
             ~np.isfinite(elevation) | (elevation <= -32768), elevation
         )
+        if masked.count() == 0:
+            raise ElevationDataError(
+                "Elevation data contains only void values for the given area."
+            )
 
         real_min = float(masked.min())
         real_max = float(masked.max())

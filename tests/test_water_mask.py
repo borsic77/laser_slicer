@@ -1,5 +1,4 @@
 import numpy as np
-import pytest
 from PIL import Image
 
 from core.utils.osm_tiles import generate_water_mask_from_tiles

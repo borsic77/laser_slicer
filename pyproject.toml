@@ -3,35 +3,32 @@ name = "laser-slicer"
 version = "3.0.0"
 description = "Download geodata and slice contour maps for laser cutting"
 readme = "README.md"
-requires-python = ">=3.10, <4.0"
+requires-python = ">=3.11, <4.0"
 dependencies = [
-    "celery[redis]>=5.5.2",
+    "billiard>=4.2.0",
+    "celery>=5.5.3",
     "dj-database-url>=2.3.0",
-    "django>=5.2.1",
-    "django-celery-beat>=2.8.1",
-    "django-celery-results>=2.6.0",
+    "django>=5.2.3",
     "django-cors-headers>=4.7.0",
     "django-extensions>=4.1",
     "djangorestframework>=3.16.0",
     "filelock>=3.18.0",
-    "flower>=2.0.1",
-    "gdal==3.6.2",
-    "geojson>=3.2.0",
+    "geopandas>=1.1.0",
     "gunicorn>=23.0.0",
     "matplotlib>=3.10.3",
-    "netcdf4>=1.7.3",
-    "numpy>=2.2.5",
+    "numpy>=2.3.0",
     "osmnx>=2.0.4",
+    "pillow>=11.0.0",
     "psycopg2-binary>=2.9.10",
     "pyproj>=3.7.1",
     "python-dotenv>=1.1.0",
     "rasterio>=1.4.3",
-    "requests>=2.32.3",
+    "redis>=6.2.0",
+    "requests>=2.32.4",
     "scikit-image>=0.25.2",
     "scipy>=1.15.3",
-    "shapely>=2.1.0",
+    "shapely>=2.1.1",
     "svgwrite>=1.4.3",
-    "xarray>=2025.6.1",
 ]
 
 [dependency-groups]
@@ -39,6 +36,5 @@ dev = [
     "pytest>=8.3.5",
     "pytest-cov>=6.1.1",
     "pytest-django>=4.11.1",
+    "ruff>=0.9.0",
 ]
-
-

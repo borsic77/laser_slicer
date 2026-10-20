@@ -2,7 +2,6 @@ import logging
 from pathlib import Path
 
 import numpy as np
-from django.conf import settings
 from django.core.management.base import BaseCommand
 from PIL import Image
 

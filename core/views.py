@@ -1,4 +1,5 @@
 import logging
+import math
 from functools import wraps
 
 from django.apps import apps
@@ -43,37 +44,79 @@ def safe_api(view_func):
     return wrapper
 
 
+def _validate_lat_lon(lat_raw, lon_raw) -> tuple[float, float]:
+    lat = float(lat_raw)
+    lon = float(lon_raw)
+    if not (math.isfinite(lat) and math.isfinite(lon)):
+        raise ValueError("Coordinates must be finite numbers.")
+    if not (-90.0 <= lat <= 90.0 and -180.0 <= lon <= 180.0):
+        raise ValueError("Coordinates out of range.")
+    return lat, lon
+
+
+def _validate_bounds_dict(bounds: dict, max_span_deg: float = 5.0) -> dict[str, float]:
+    if not isinstance(bounds, dict):
+        raise ValueError("bounds must be an object.")
+    lon_min = float(bounds["lon_min"])
+    lat_min = float(bounds["lat_min"])
+    lon_max = float(bounds["lon_max"])
+    lat_max = float(bounds["lat_max"])
+    if not all(math.isfinite(v) for v in (lon_min, lat_min, lon_max, lat_max)):
+        raise ValueError("bounds coordinates must be finite.")
+    if not (-90.0 <= lat_min < lat_max <= 90.0):
+        raise ValueError("Invalid latitude bounds.")
+    if not (-180.0 <= lon_min < lon_max <= 180.0):
+        raise ValueError("Invalid longitude bounds.")
+    if (lat_max - lat_min) > max_span_deg or (lon_max - lon_min) > max_span_deg:
+        raise ValueError(
+            f"Bounding box exceeds maximum span of {max_span_deg} degrees."
+        )
+    return {
+        "lon_min": lon_min,
+        "lat_min": lat_min,
+        "lon_max": lon_max,
+        "lat_max": lat_max,
+    }
+
+
 @require_GET
 def get_elevation(request):
-    """Fetch elevation data for a specific latitude and longitude.
-    Args:
-        request (HttpRequest): GET request with 'lat' and 'lon' parameters.
-    Returns:
-        JsonResponse: JSON with elevation data or error message.
-    """
+    """Fetch elevation data for a specific latitude and longitude."""
     logger.debug("Received elevation request with params: %s", request.GET)
     try:
-        lat = float(request.GET["lat"])
-        lon = float(request.GET["lon"])
-    except (KeyError, ValueError):
+        lat, lon = _validate_lat_lon(request.GET["lat"], request.GET["lon"])
+    except (KeyError, ValueError, TypeError):
         return JsonResponse(
             {"detail": "Invalid or missing lat/lon", "code": "bad_request"},
             status=400,
         )
 
-    # Use your slicer/dem logic: you may need to determine which DEM to open
-    dem_path = ensure_tile_downloaded(lat, lon)
+    try:
+        dem_path = ensure_tile_downloaded(lat, lon)
+    except Exception:
+        logger.exception("Failed to download DEM tile for (%s, %s)", lat, lon)
+        return JsonResponse(
+            {"detail": "Could not retrieve elevation tile", "code": "dem_error"},
+            status=500,
+        )
+
     if dem_path is None:
         return JsonResponse(
             {"detail": "DEM not found for this location", "code": "not_found"},
             status=404,
         )
     try:
-        elevation = sample_elevation(lat, lon, dem_path)
-    except Exception as e:
+        elevation = sample_elevation(lat, lon, str(dem_path))
+    except Exception:
+        logger.exception("Failed to sample elevation at (%s, %s)", lat, lon)
         return JsonResponse(
-            {"detail": f"Could not retrieve elevation: {e}", "code": "dem_error"},
+            {"detail": "Could not retrieve elevation", "code": "dem_error"},
             status=500,
+        )
+    if not math.isfinite(elevation) or elevation <= -32768:
+        return JsonResponse(
+            {"detail": "No valid elevation data at this point", "code": "not_found"},
+            status=404,
         )
     logger.debug("Elevation for (%s, %s): %s", lat, lon, elevation)
     return JsonResponse({"elevation": round(elevation, 1)})
@@ -83,9 +126,8 @@ def get_elevation(request):
 def waterbody(request):
     """Return the waterbody polygon containing a point if any."""
     try:
-        lat = float(request.GET["lat"])
-        lon = float(request.GET["lon"])
-    except (KeyError, ValueError):
+        lat, lon = _validate_lat_lon(request.GET["lat"], request.GET["lon"])
+    except (KeyError, ValueError, TypeError):
         return JsonResponse({"detail": "Invalid or missing lat/lon"}, status=400)
 
     polygon = fetch_waterbody_polygon(lat, lon)
@@ -97,16 +139,15 @@ def waterbody(request):
 @api_view(["POST"])
 @safe_api
 def elevation_range(request) -> Response:
-    """
-    Create a job to fetch elevation data for a bounding box.
-    Args:
-        request (Request): POST request with bounding box coordinates.
-    Returns:
-        Response: JSON with job ID or error message.
-    """
+    """Create a job to fetch elevation data for a bounding box."""
     logger.debug("Received elevation range request with data: %s", request.data)
+    try:
+        bounds = _validate_bounds_dict(request.data["bounds"], max_span_deg=5.0)
+    except (KeyError, ValueError, TypeError) as exc:
+        return Response({"error": f"Invalid bounds: {exc}"}, status=400)
+
     params = {
-        "bounds": request.data["bounds"],
+        "bounds": bounds,
         "include_bathymetry": bool(request.data.get("include_bathymetry", False)),
     }
     job = ElevationJob.objects.create(params=params, status="PENDING")
@@ -117,9 +158,13 @@ def elevation_range(request) -> Response:
 @api_view(["POST"])
 @safe_api
 def export_svgs_job(request):
+    layers = request.data.get("layers")
+    if not isinstance(layers, list) or not layers:
+        return Response({"error": "A non-empty layers list is required"}, status=400)
+    raw_address = request.data.get("address")
     params = {
-        "layers": request.data.get("layers"),
-        "address": request.data.get("address", "").strip(),
+        "layers": layers,
+        "address": raw_address.strip() if isinstance(raw_address, str) else "",
         "coordinates": request.data.get("coordinates", None),
         "height_per_layer": request.data.get("height_per_layer", "unknown"),
     }
@@ -131,40 +176,24 @@ def export_svgs_job(request):
 @api_view(["POST"])
 @safe_api
 def geocode(request) -> Response:
-    """Resolve an address to latitude and longitude using Nominatim.
-
-    Args:
-        request (Request): POST request with an 'address' field.
-
-    Returns:
-        Response: JSON with 'lat' and 'lon' or error.
-    """
+    """Resolve an address to latitude and longitude using Nominatim."""
     address = request.data.get("address")
-    if not address:
+    if not address or not isinstance(address, str) or not address.strip():
         return Response({"error": "Address is required"}, status=400)
-    coords = geocode_address(address)
+    try:
+        coords = geocode_address(address.strip())
+    except ValueError as exc:
+        return Response({"error": str(exc)}, status=404)
     return Response({"lat": coords.lat, "lon": coords.lon})
 
 
-def index(request) -> Response:
-    """Render the main frontend index page.
-
-    Args:
-        request (Request): Django request.
-
-    Returns:
-        Response: Rendered HTML response.
-    """
+def index(request):
+    """Render the main frontend index page."""
     return render(request, "core/index.html")
 
 
 def _compute_center(bounds: dict) -> tuple[float, float]:
-    """Compute the center of a bounding box.
-    Args:
-        bounds (dict): Dictionary containing 'lon_min', 'lat_min', 'lon_max', 'lat_max'.
-    Returns:
-        tuple[float, float]: Tuple of (lon_center, lat_center).
-    """
+    """Compute the center of a bounding box."""
     lat_min = float(bounds["lat_min"])
     lat_max = float(bounds["lat_max"])
     lon_min = float(bounds["lon_min"])
@@ -175,36 +204,55 @@ def _compute_center(bounds: dict) -> tuple[float, float]:
 @api_view(["POST"])
 @safe_api
 def slice_contours(request):
-    """Create a contour slicing job with the provided parameters.
-    Args:
-        request (Request): POST request with slicing parameters.
-    Returns:
-        Response: JSON with job ID or error message.
-    """
-    fixed_elevation_value = request.data.get("fixedElevation", None)
+    """Create a contour slicing job with the provided parameters."""
+    try:
+        bounds = _validate_bounds_dict(request.data["bounds"], max_span_deg=5.0)
+        height_per_layer = float(request.data["height_per_layer"])
+        num_layers = int(request.data["num_layers"])
+        simplify = float(request.data["simplify"])
+        substrate_size_mm = float(request.data["substrate_size"])
+        layer_thickness_mm = float(request.data["layer_thickness"])
+        smoothing = int(request.data.get("smoothing", 0))
+        min_area = float(request.data.get("min_area", 0.0))
+        min_feature_width_mm = float(request.data.get("min_feature_width", 0.0))
+        fixed_elevation_value = request.data.get("fixedElevation", None)
+        fixed_elevation = (
+            float(fixed_elevation_value)
+            if fixed_elevation_value not in (None, "", "null")
+            else None
+        )
+    except (KeyError, ValueError, TypeError) as exc:
+        return Response({"error": f"Invalid parameter: {exc}"}, status=400)
+
+    if not (1 <= num_layers <= 200):
+        return Response({"error": "num_layers must be between 1 and 200"}, status=400)
+    if height_per_layer <= 0 or substrate_size_mm <= 0 or layer_thickness_mm <= 0:
+        return Response(
+            {
+                "error": "height_per_layer, substrate_size, and layer_thickness must be positive"
+            },
+            status=400,
+        )
+
     params = {
-        "bounds": request.data["bounds"],
-        "height_per_layer": float(request.data["height_per_layer"]),
-        "num_layers": int(request.data["num_layers"]),
-        "simplify": float(request.data["simplify"]),
-        "substrate_size_mm": float(request.data["substrate_size"]),
-        "layer_thickness_mm": float(request.data["layer_thickness"]),
-        "center": _compute_center(request.data["bounds"]),
-        "smoothing": int(request.data.get("smoothing", 0)),
-        "min_area": float(request.data.get("min_area", 0.0)),
-        "min_feature_width_mm": float(request.data.get("min_feature_width", 0.0)),
-        "fixed_elevation": float(fixed_elevation_value)
-        if fixed_elevation_value not in (None, "", "null")
-        else None,
+        "bounds": bounds,
+        "height_per_layer": height_per_layer,
+        "num_layers": num_layers,
+        "simplify": max(0.0, simplify),
+        "substrate_size_mm": substrate_size_mm,
+        "layer_thickness_mm": layer_thickness_mm,
+        "center": _compute_center(bounds),
+        "smoothing": max(0, smoothing),
+        "min_area": max(0.0, min_area),
+        "min_feature_width_mm": max(0.0, min_feature_width_mm),
+        "fixed_elevation": fixed_elevation,
         "water_polygon": request.data.get("water_polygon"),
         "include_roads": bool(request.data.get("include_roads", False)),
         "include_buildings": bool(request.data.get("include_buildings", False)),
         "include_waterways": bool(request.data.get("include_waterways", False)),
         "include_bathymetry": bool(request.data.get("include_bathymetry", False)),
     }
-    # logger.debug("Creating contour slicing job with params: %s", params)
     job = ContourJob.objects.create(params=params, status="PENDING")
-    # Start async task
     run_contour_slicing_job.delay(str(job.id))
     return Response({"job_id": str(job.id)}, status=202)
 

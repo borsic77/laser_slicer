@@ -1,8 +1,10 @@
 import logging
 import os
 import tempfile
-from typing import Optional
 
+import matplotlib
+
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import osmnx as ox
 import requests
@@ -54,6 +56,8 @@ def plot_fetched_water_polygon(
     """
     Plots the fetched (raw) water polygon in lon/lat coordinates.
     """
+    if not getattr(settings, "DEBUG", False) or not debug_image_path:
+        return
     if water_polygon is None:
         print("No water polygon to plot.")
         return
@@ -84,7 +88,7 @@ def plot_fetched_water_polygon(
     print(f"Saved water polygon plot to {outpath}")
 
 
-def _element_to_polygon(element) -> Optional[Polygon]:
+def _element_to_polygon(element) -> Polygon | None:
     """Convert an Overpass element to a Shapely polygon."""
     try:
         if element.get("type") == "way" and element.get("geometry"):
@@ -119,37 +123,34 @@ def _element_to_polygon(element) -> Optional[Polygon]:
 
 
 def fetch_waterbody_polygon_osmnx(rel_id):
-    """Fetch and return the full water multipolygon as GeoDataFrame using osmnx.
-    Args:
-        rel_id (int): The OSM relation ID for the water body.
-    Returns:
-        Optional[Polygon]: The largest water body polygon if found, otherwise None.
-    """
+    """Fetch and return the full water multipolygon as GeoDataFrame using osmnx."""
+    tmpfile_path = None
     try:
-        # Download the relation as OSM XML
-        url = f"https://www.openstreetmap.org/api/0.6/relation/{rel_id}/full"
-        response = requests.get(url)
+        url = f"https://www.openstreetmap.org/api/0.6/relation/{int(rel_id)}/full"
+        response = requests.get(url, timeout=30)
         response.raise_for_status()
-        osm_xml = response.content
-        # Write the XML to a temporary file
         with tempfile.NamedTemporaryFile(suffix=".osm", delete=False) as tmpfile:
-            tmpfile.write(osm_xml)
+            tmpfile.write(response.content)
             tmpfile_path = tmpfile.name
-        # Parse the XML into a GeoDataFrame
         gdf = ox.features_from_xml(tmpfile_path)
-        polys = gdf[gdf.geometry.type.isin(["Polygon", "MultiPolygon"])].geometry
+        polys = gdf[gdf.geometry.geom_type.isin(["Polygon", "MultiPolygon"])].geometry
         if polys.empty:
             return None
-        largest = polys.iloc[polys.area.argmax()]
-        return largest
+        return polys.iloc[polys.area.argmax()]
     except Exception as exc:
         logger.warning("osmnx fetch failed: %s", exc)
         return None
+    finally:
+        if tmpfile_path and os.path.exists(tmpfile_path):
+            try:
+                os.remove(tmpfile_path)
+            except OSError:
+                pass
 
 
 def fetch_waterbody_polygon(
     lat: float, lon: float, radius_km: float = 5
-) -> Optional[Polygon]:
+) -> Polygon | None:
     """Return the water polygon containing the point if any.
     Tries to use osmnx (which reconstructs complex multipolygons properly).
     Falls back to manual Overpass assembly if osmnx fails.

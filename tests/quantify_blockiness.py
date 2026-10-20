@@ -5,7 +5,7 @@ from pathlib import Path
 import django
 import matplotlib.pyplot as plt
 import numpy as np
-from shapely.geometry import LineString, MultiPolygon, Polygon, shape
+from shapely.geometry import shape
 
 # Setup Django environment
 sys.path.append("/app")  # Assuming running in Docker
@@ -153,7 +153,6 @@ def run_test():
         if abs(c["elevation"]) < 50:  # arbitrary closeness
             coastline_contour = c
             # Keep looking for better match?
-            pass
 
     if not coastline_contour:
         print("Warning: Could not find a contour near 0m. Using the middle one.")

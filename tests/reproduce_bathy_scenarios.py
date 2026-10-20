@@ -2,7 +2,6 @@ import os
 import sys
 
 import django
-import numpy as np
 from shapely.geometry import shape
 
 # Setup Django environment

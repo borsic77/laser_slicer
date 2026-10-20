@@ -1,4 +1,9 @@
+import threading
+from collections import OrderedDict
+from pathlib import Path
+
 import osmnx as ox
+from django.conf import settings
 from shapely.geometry import (
     GeometryCollection,
     LineString,
@@ -8,7 +13,12 @@ from shapely.geometry import (
 )
 from shapely.ops import unary_union
 
-__all__ = ["fetch_roads", "fetch_buildings", "fetch_waterways"]
+from core.utils.cache_ops import enforce_cache_limit, touch_cache_file
+
+__all__ = ["fetch_buildings", "fetch_roads", "fetch_waterways"]
+
+_OVERPASS_LOCK = threading.Lock()
+_DEFAULT_OVERPASS_URL = "https://overpass-api.de/api"
 
 
 def _bounds_polygon(bounds: tuple[float, float, float, float]) -> Polygon:
@@ -23,6 +33,32 @@ def _bounds_polygon(bounds: tuple[float, float, float, float]) -> Polygon:
     )
 
 
+def _find_cached_timeout(poly: Polygon, tags: dict) -> int | None:
+    """Return the timeout setting (180, 20, or 15) that already has a local OSMnx cache hit."""
+    try:
+        import osmnx._http as ox_http
+        import osmnx._overpass as ox_ov
+        import requests
+
+        coord_strs = ox_ov._make_overpass_polygon_coord_strs(poly)
+        if not coord_strs:
+            return None
+        url = _DEFAULT_OVERPASS_URL.rstrip("/") + "/interpreter"
+        for timeout_val in (180, 20, 15):
+            ox.settings.requests_timeout = timeout_val
+            q = ox_ov._create_overpass_features_query(coord_strs[0], tags)
+            prep = str(
+                requests.Request("GET", url, params=OrderedDict(data=q)).prepare().url
+            )
+            cache_path = ox_http._check_cache(prep)
+            if cache_path is not None:
+                touch_cache_file(cache_path)
+                return timeout_val
+    except Exception:
+        pass
+    return None
+
+
 def _features_from_polygon(poly, tags):
     """
     Fetch features from OSM within a polygon using OSMnx.
@@ -33,13 +69,39 @@ def _features_from_polygon(poly, tags):
     Returns:
         GeoDataFrame: A GeoDataFrame containing the features.
     """
+    cache_dir = Path(getattr(settings, "OSM_CACHE_DIR", Path("data/osm_cache")))
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    with _OVERPASS_LOCK:
+        ox.settings.use_cache = True
+        ox.settings.cache_folder = str(cache_dir)
+        ox.settings.overpass_rate_limit = False
+        ox.settings.overpass_url = _DEFAULT_OVERPASS_URL
 
-    if hasattr(ox, "geometries_from_polygon"):
-        gdf = ox.geometries_from_polygon(poly, tags=tags)
-    else:  # OSMnx ≥ 2.0
-        gdf = ox.features_from_polygon(poly, tags=tags)
-    # Always return in EPSG:4326
-    if gdf.crs is None or gdf.crs.to_epsg() != 4326:
+        cached_timeout = _find_cached_timeout(poly, tags)
+        ox.settings.requests_timeout = (
+            cached_timeout if cached_timeout is not None else 15
+        )
+
+        try:
+            if hasattr(ox, "geometries_from_polygon"):
+                gdf = ox.geometries_from_polygon(poly, tags=tags)
+            else:  # OSMnx ≥ 2.0
+                gdf = ox.features_from_polygon(poly, tags=tags)
+        except Exception as exc:
+            if "No matching features" in str(exc):
+                import geopandas as gpd
+
+                return gpd.GeoDataFrame(geometry=[], crs="EPSG:4326")
+            raise
+        finally:
+            enforce_cache_limit(
+                cache_dir,
+                int(getattr(settings, "OSM_CACHE_MAX_MB", 512)) * 1024 * 1024,
+            )
+
+    if gdf.crs is None:
+        gdf = gdf.set_crs(epsg=4326)
+    elif gdf.crs.to_epsg() != 4326:
         gdf = gdf.to_crs(epsg=4326)
     return gdf
 

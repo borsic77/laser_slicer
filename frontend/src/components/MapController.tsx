@@ -10,7 +10,7 @@ interface MapControllerProps {
     setFixMode: (mode: boolean) => void;
     setFixedElevation: (val: number) => void;
     setFixedElevationEnabled: (val: boolean) => void;
-    setWaterPolygon: (poly: any) => void;
+    setWaterPolygon: (poly: Record<string, unknown> | null) => void;
 }
 
 export default function MapController(props: MapControllerProps) {
@@ -30,11 +30,11 @@ export default function MapController(props: MapControllerProps) {
             setFixedElevationEnabled(true);
             
             if (water && water.in_water) {
-                setWaterPolygon(water.polygon);
+                setWaterPolygon(water.polygon ?? null);
             } else {
                 setWaterPolygon(null);
             }
-        } catch (error) {
+        } catch {
             toast.error("Failed to fetch elevation info");
         }
     };

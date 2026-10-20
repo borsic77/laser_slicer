@@ -19,11 +19,23 @@ def build_export_basename(
     Returns:
         str: A slug-safe export filename.
     """
-    if address:
-        location_slug = slugify(address)
-    elif coords and isinstance(coords, list) and len(coords) == 2:
-        location_slug = f"{coords[0]:.4f}_{coords[1]:.4f}"
-    else:
-        location_slug = "contours"
-    logger.debug(f"zip filename: {location_slug}_{height_mm}mm_{num_layers}layers")
-    return f"{location_slug}_{height_mm}mm_{num_layers}layers"
+    location_slug = slugify(address) if address else ""
+    if not location_slug:
+        if coords and isinstance(coords, (list, tuple)) and len(coords) == 2:
+            try:
+                location_slug = f"{float(coords[0]):.4f}_{float(coords[1]):.4f}"
+            except (TypeError, ValueError):
+                location_slug = "contours"
+        else:
+            location_slug = "contours"
+
+    try:
+        height_val = float(height_mm)
+        safe_height = f"{height_val:g}"
+    except (TypeError, ValueError):
+        safe_height = slugify(str(height_mm)) or "unknown"
+
+    safe_layers = int(num_layers)
+    result = f"{location_slug}_{safe_height}mm_{safe_layers}layers"
+    logger.debug("zip filename: %s", result)
+    return result

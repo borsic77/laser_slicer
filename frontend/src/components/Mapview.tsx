@@ -19,7 +19,7 @@
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import proj4 from 'proj4';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { MapContainer, Marker, Rectangle, TileLayer, useMap } from 'react-leaflet';
 
 const MAX_AREA_KM2 = 120; // Maximum selectable area in square kilometers to limit selection size for performance and UX
@@ -46,8 +46,7 @@ interface MapViewProps {
  */
 function getAdjustedBounds(
   bounds: [[number, number], [number, number]],
-  square: boolean,
-  map: L.Map
+  square: boolean
 ): [[number, number], [number, number]] {
   const [[south, west], [north, east]] = bounds;
 
@@ -56,7 +55,8 @@ function getAdjustedBounds(
 
   // Calculate UTM zone from center longitude to select appropriate projection
   // UTM zones are 6 degrees wide, EPSG:326xx for northern hemisphere, EPSG:327xx for southern
-  const zone = Math.floor((centerLon + 180) / 6) + 1;
+  const normLon = ((((centerLon + 180) % 360) + 360) % 360) - 180;
+  const zone = Math.max(1, Math.min(60, Math.floor((normLon + 180) / 6) + 1));
   const epsg = centerLat >= 0
     ? `EPSG:326${zone.toString().padStart(2, '0')}`
     : `EPSG:327${zone.toString().padStart(2, '0')}`;
@@ -139,17 +139,16 @@ function getAdjustedBounds(
  */
 function RecenterMap({
   coordinates,
-  squareOutput,
 }: {
   coordinates: [number, number],
-  squareOutput: boolean,
+  squareOutput?: boolean,
 }) {
-  const map = useMap()
+  const map = useMap();
   useEffect(() => {
     // Pan map center to coordinates when they change, without zoom or bounds adjustment
     map.panTo(coordinates);
-  }, [coordinates]);
-  return null
+  }, [coordinates, map]);
+  return null;
 }
 
 /**
@@ -197,7 +196,7 @@ function useSelectionBounds(
       ];
 
       // Adjust bounds with projection and area constraints
-      const adjustedBounds = getAdjustedBounds(rawBounds, squareOutput, map);
+      const adjustedBounds = getAdjustedBounds(rawBounds, squareOutput);
 
       if (onBoundsChange) onBoundsChange(adjustedBounds);
       setSelectionBounds(adjustedBounds);
@@ -221,6 +220,35 @@ function useSelectionBounds(
   return selectionBounds;
 }
 
+interface LocationMarkerProps {
+  position: [number, number];
+  setPosition: (pos: [number, number]) => void;
+  fixMode: boolean;
+}
+
+/**
+ * LocationMarker component handles user clicks on the map to update marker position.
+ * Uses map event listeners to update internal position state.
+ */
+function LocationMarker({ position, setPosition, fixMode }: LocationMarkerProps) {
+  const map = useMap();
+
+  useEffect(() => {
+    // Bind click event to update marker position on user click
+    const handleClick = (e: L.LeafletMouseEvent) => {
+      // Only allow normal marker movement if NOT in fix mode
+      if (!fixMode) setPosition([e.latlng.lat, e.latlng.lng]);
+    };
+
+    map.on('click', handleClick);
+    return () => {
+      map.off('click', handleClick);
+    };
+  }, [map, fixMode, setPosition]);
+
+  return <Marker position={position} />;
+}
+
 /**
  * Main MapView component rendering Leaflet map, marker, and selection rectangle.
  *
@@ -237,13 +265,11 @@ export default function MapView({ coordinates, onBoundsChange, squareOutput = fa
     coordinates ?? [46.83, 6.86]
   );
 
-  // Ref to Leaflet map instance for imperative API access
-  const mapRef = useRef<L.Map | null>(null);
+  const [map, setMap] = useState<L.Map | null>(null);
 
   // Effect to handle fixMode clicks on the map
   // If fixMode is enabled, clicking the map will call onFixedElevation with lat/lng
   useEffect(() => {
-    const map = mapRef.current;
     if (!map) return;
     if (!fixMode) return;
 
@@ -252,7 +278,7 @@ export default function MapView({ coordinates, onBoundsChange, squareOutput = fa
       if (onFixedElevation) {
         onFixedElevation(e.latlng.lat, e.latlng.lng);
       }
-      setFixMode?.(false)
+      setFixMode?.(false);
     };    
     map.on('click', handleFixClick);
 
@@ -260,40 +286,17 @@ export default function MapView({ coordinates, onBoundsChange, squareOutput = fa
     return () => {
       map.off('click', handleFixClick);
     };
-  }, [fixMode, onFixedElevation]);
+  }, [map, fixMode, onFixedElevation, setFixMode]);
 
   // Sync internal position state with external coordinates prop changes
   useEffect(() => {
     if (coordinates) {
-      setPosition(coordinates)
+      setPosition(coordinates);
     }
-  }, [coordinates])
+  }, [coordinates]);
 
   // Custom hook returns adjusted selection bounds based on current map view and props
-  const selectionBounds = useSelectionBounds(mapRef.current, squareOutput, onBoundsChange);
-
-  /**
-   * LocationMarker component handles user clicks on the map to update marker position.
-   * Uses map event listeners to update internal position state.
-   */
-  function LocationMarker() {
-    const map = useMap();
-
-    useEffect(() => {
-      // Bind click event to update marker position on user click
-      const handleClick = (e: L.LeafletMouseEvent) => {
-      // Only allow normal marker movement if NOT in fix mode
-        if (!fixMode) setPosition([e.latlng.lat, e.latlng.lng]);
-      };
-
-      map.on('click', handleClick);
-      return () => {
-        map.off('click', handleClick);
-      };
-    }, [map, fixMode]);
-
-    return <Marker position={position} />;
-  }
+  const selectionBounds = useSelectionBounds(map, squareOutput, onBoundsChange);
 
   return (
     // Leaflet MapContainer initializes the map view centered on current position with default zoom
@@ -303,7 +306,7 @@ export default function MapView({ coordinates, onBoundsChange, squareOutput = fa
       zoomDelta={.25}
       scrollWheelZoom={true}
       style={{ height: '400px', width: '100%' }}
-      ref={(instance) => { mapRef.current = instance as L.Map; }}
+      ref={setMap}
       whenReady={() => {}}
     >
       {/* TileLayer provides OpenStreetMap tiles with attribution */}
@@ -314,7 +317,7 @@ export default function MapView({ coordinates, onBoundsChange, squareOutput = fa
       {/* Recenter map when external coordinates prop changes */}
       {coordinates && <RecenterMap coordinates={coordinates} squareOutput={squareOutput} />}
       {/* Marker showing current selected position */}
-      <LocationMarker />
+      <LocationMarker position={position} setPosition={setPosition} fixMode={fixMode} />
       {/* Rectangle showing current adjusted selection bounds */}
       {selectionBounds && (
         <Rectangle
@@ -323,5 +326,5 @@ export default function MapView({ coordinates, onBoundsChange, squareOutput = fa
         />
       )}
     </MapContainer>
-  )
+  );
 }

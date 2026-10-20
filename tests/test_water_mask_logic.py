@@ -1,14 +1,11 @@
-from unittest.mock import MagicMock, patch
-
 import numpy as np
-import pytest
 
 # Import the functionality to be tested
 # We need to test the logic inside ContourSlicingJob._fetch_and_prep_dem
 # Since we can't easily import the *impl* of that huge method, we might mock the surrounding parts
 # or better, extract the logic to a helper if it were cleaner.
 # For now, we will create a unit test that mocks the dependencies and calls the method.
-from core.services.contour_generator import OCEAN_LEVEL_THRESHOLD, ContourSlicingJob
+from core.services.contour_generator import OCEAN_LEVEL_THRESHOLD
 
 # Logic tests only
 

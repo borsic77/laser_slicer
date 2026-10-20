@@ -1,32 +1,5 @@
-import sys
-import types
-
 import geopandas as gpd
 from shapely.geometry import LineString, Polygon
-
-# Insert a dummy 'celery' module so importing core does not fail
-celery_mod = types.ModuleType("celery")
-
-
-class DummyCelery:
-    def __init__(self, *args, **kwargs):
-        pass
-
-    def config_from_object(self, *args, **kwargs):
-        pass
-
-    def autodiscover_tasks(self, *args, **kwargs):
-        pass
-
-    def task(self, *args, **kwargs):
-        def decorator(func):
-            return func
-
-        return decorator
-
-
-celery_mod.Celery = DummyCelery
-sys.modules.setdefault("celery", celery_mod)
 
 from core.utils.osm_features import (
     fetch_buildings,

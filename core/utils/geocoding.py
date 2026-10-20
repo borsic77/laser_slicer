@@ -1,4 +1,5 @@
 import logging
+import math
 import time
 from dataclasses import dataclass
 from functools import lru_cache
@@ -36,7 +37,7 @@ def get_transformer_for_coords(center_x: float, center_y: float) -> Transformer:
     Returns:
         Transformer: A pyproj Transformer object for the specified coordinates.
     """
-    zone_number = int((center_x + 180) / 6) + 1
+    zone_number = min(60, max(1, int((center_x + 180) / 6) + 1))
     is_northern = center_y >= 0
     epsg_code = f"326{zone_number:02d}" if is_northern else f"327{zone_number:02d}"
     return Transformer.from_crs("EPSG:4326", f"EPSG:{epsg_code}", always_xy=True)
@@ -112,9 +113,6 @@ def compute_utm_bounds_from_wgs84(
     utm_minx, utm_miny = transformer.transform(lon_min, lat_min)
     utm_maxx, utm_maxy = transformer.transform(lon_max, lat_max)
     return (utm_minx, utm_miny, utm_maxx, utm_maxy)
-
-
-import math
 
 
 def compute_bounds_from_center_and_size(

@@ -1,10 +1,33 @@
+import concurrent.futures
 import io
+import logging
 import math
+import os
+import re
+from pathlib import Path
 
 import numpy as np
 import requests
 from PIL import Image
 from rasterio.transform import from_bounds
+
+try:
+    from django.conf import settings
+except ImportError:  # pragma: no cover
+    settings = None
+
+try:
+    from core.utils.cache_ops import enforce_cache_limit, touch_cache_file
+except ImportError:  # pragma: no cover
+
+    def touch_cache_file(path):
+        pass
+
+    def enforce_cache_limit(cache_dir, max_bytes):
+        pass
+
+
+logger = logging.getLogger(__name__)
 
 # Constants for Web Mercator
 EARTH_RADIUS = 6378137.0
@@ -27,10 +50,12 @@ def tile_to_web_mercator(xtile, ytile, zoom):
 
 
 def lat_lon_to_tile(lat, lon, zoom):
-    n = 2.0**zoom
-    xtile = int((lon + 180.0) / 360.0 * n)
-    ytile = int((1.0 - math.asinh(math.tan(math.radians(lat))) / math.pi) / 2.0 * n)
-    return (xtile, ytile)
+    n = int(2**zoom)
+    lat_c = max(-85.05112878, min(85.05112878, float(lat)))
+    lon_c = max(-180.0, min(180.0, float(lon)))
+    xtile = int((lon_c + 180.0) / 360.0 * n)
+    ytile = int((1.0 - math.asinh(math.tan(math.radians(lat_c))) / math.pi) / 2.0 * n)
+    return (max(0, min(n - 1, xtile)), max(0, min(n - 1, ytile)))
 
 
 # Tile Providers
@@ -66,6 +91,17 @@ def fetch_osm_static_image(bounds, zoom=15, provider="osm"):
     else:
         url_template = provider
 
+    # Adaptively step down zoom
+    while zoom > 10:
+        x_min, y_max = lat_lon_to_tile(lat_min, lon_min, zoom)
+        x_max, y_min = lat_lon_to_tile(lat_max, lon_max, zoom)
+        if y_min > y_max:
+            y_min, y_max = y_max, y_min
+        if (x_max - x_min + 1) * (y_max - y_min + 1) > 36:
+            zoom -= 1
+        else:
+            break
+
     # x is lon, y is lat
     x_min, y_max = lat_lon_to_tile(
         lat_min, lon_min, zoom
@@ -87,21 +123,81 @@ def fetch_osm_static_image(bounds, zoom=15, provider="osm"):
 
     result_image = Image.new("RGB", (pixel_width, pixel_height))
 
-    headers = {"User-Agent": "LaserSlicer/1.0"}
+    provider_key = re.sub(r"[^a-zA-Z0-9_-]+", "_", str(provider)).strip("_") or "tile"
+    try:
+        cache_root = Path(getattr(settings, "OSM_CACHE_DIR", Path("data/osm_cache")))
+        max_bytes = int(getattr(settings, "OSM_CACHE_MAX_MB", 512)) * 1024 * 1024
+    except Exception:
+        cache_root = Path("data/osm_cache")
+        max_bytes = 512 * 1024 * 1024
+
+    tiles_dir = cache_root / "tiles"
+    tiles_dir.mkdir(parents=True, exist_ok=True)
+
+    tiles_to_fetch = []
+    new_tiles_downloaded = False
 
     for x in range(x_min, x_max + 1):
         for y in range(y_min, y_max + 1):
-            url = url_template.format(z=zoom, x=x, y=y)
+            tile_path = tiles_dir / f"{provider_key}_{zoom}_{x}_{y}.png"
+            if tile_path.exists():
+                try:
+                    touch_cache_file(tile_path)
+                    with Image.open(tile_path) as tile_img:
+                        px = (x - x_min) * tile_size
+                        py = (y - y_min) * tile_size
+                        result_image.paste(tile_img, (px, py))
+                    continue
+                except Exception as e:
+                    logger.warning(f"Failed to read cached tile {tile_path}: {e}")
+            tiles_to_fetch.append((x, y))
+
+    if tiles_to_fetch:
+        headers = {"User-Agent": "LaserSlicer/1.0"}
+        session = requests.Session()
+
+        def _fetch_tile(coords):
+            x_coord, y_coord = coords
+            url = url_template.format(z=zoom, x=x_coord, y=y_coord)
+            tile_path = tiles_dir / f"{provider_key}_{zoom}_{x_coord}_{y_coord}.png"
+            tmp_path = tile_path.with_suffix(".tmp.png")
             try:
-                resp = requests.get(url, headers=headers, timeout=5)
+                resp = session.get(url, headers=headers, timeout=5)
                 if resp.status_code == 200:
-                    tile_img = Image.open(io.BytesIO(resp.content))
-                    # Paste position
-                    px = (x - x_min) * tile_size
-                    py = (y - y_min) * tile_size
-                    result_image.paste(tile_img, (px, py))
+                    with open(tmp_path, "wb") as f:
+                        f.write(resp.content)
+                    os.replace(tmp_path, tile_path)
+                    touch_cache_file(tile_path)
+                    img = Image.open(io.BytesIO(resp.content))
+                    return (x_coord, y_coord), img, True
+                else:
+                    logger.warning(
+                        f"Failed to fetch tile {x_coord},{y_coord}: HTTP {resp.status_code}"
+                    )
             except Exception as e:
-                print(f"Failed to fetch tile {x},{y}: {e}")
+                print(f"Failed to fetch tile {x_coord},{y_coord}: {e}")
+            finally:
+                if tmp_path.exists():
+                    try:
+                        tmp_path.unlink()
+                    except OSError:
+                        pass
+            return (x_coord, y_coord), None, False
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
+            for (x_coord, y_coord), tile_img, downloaded in executor.map(
+                _fetch_tile, tiles_to_fetch
+            ):
+                if downloaded and tile_img is not None:
+                    new_tiles_downloaded = True
+                    px = (x_coord - x_min) * tile_size
+                    py = (y_coord - y_min) * tile_size
+                    result_image.paste(tile_img, (px, py))
+
+        session.close()
+
+    if new_tiles_downloaded:
+        enforce_cache_limit(cache_root, max_bytes)
 
     # Calculate EPSG:3857 bounds of the STITCHED image
     # Top-Left corresponds to x_min, y_min
@@ -136,13 +232,13 @@ def generate_water_mask_from_tiles(
         np.ndarray: Boolean mask (height, width), True where pixel matches water_color.
     """
     # Convert to numpy
-    arr = np.array(image.convert("RGB"))
+    arr = np.array(image.convert("RGB"), dtype=np.int16)
 
     # Calculate difference
     # Tolerance is low because OSM tiles are usually flat colors, but compression might introduce noise?
     # PNG tiles should be exact.
 
-    diff = np.abs(arr - water_color)
+    diff = np.abs(arr - np.asarray(water_color, dtype=np.int16))
     mask = np.all(diff < 10, axis=2)  # Tolerance of 10 per channel
 
     # Clean up the mask: Close small holes (text, lines)

@@ -1,8 +1,3 @@
-import sys
-
-import requests
-
-
 def test_globathy_access():
     print("Testing GLOBathy access...")
 
