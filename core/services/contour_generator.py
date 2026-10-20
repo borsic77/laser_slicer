@@ -357,11 +357,11 @@ class ContourSlicingJob:
         bathy_future = None
         osm_future = None
 
-        if not skip_ocean_bathy and (
-            self.include_bathymetry or self.use_osm_water_mask
-        ):
+        if (
+            self.include_bathymetry and not skip_ocean_bathy
+        ) or self.use_osm_water_mask:
             with concurrent.futures.ThreadPoolExecutor(max_workers=3) as io_executor:
-                if self.include_bathymetry:
+                if self.include_bathymetry and not skip_ocean_bathy:
 
                     def _fetch_bathy():
                         try:
@@ -501,10 +501,30 @@ class ContourSlicingJob:
                     land_raw < water_threshold
                 )
 
-                land_raw[ocean_candidates] = np.nan
-                logger.info(
-                    f"OSM Water Mask applied: {np.count_nonzero(ocean_candidates)} pixels forced to NaN (Elevation < {water_threshold}m)."
-                )
+                if not skip_ocean_bathy:
+                    land_raw[ocean_candidates] = np.nan
+                    logger.info(
+                        f"OSM Water Mask applied: {np.count_nonzero(ocean_candidates)} pixels forced to NaN (Elevation < {water_threshold}m)."
+                    )
+                else:
+                    if self.include_bathymetry:
+                        # SwissBATHY3D lake bathymetry is already merged into land_raw.
+                        # Clamp any water pixels exceeding water_surface - 0.1m down so they stay submerged.
+                        bad_lake_water = ocean_candidates & (
+                            land_raw > water_surface - 0.1
+                        )
+                        count = np.count_nonzero(bad_lake_water)
+                        if count > 0:
+                            land_raw[bad_lake_water] = water_surface - 0.1
+                            logger.info(
+                                f"Clamped {count} Swiss lake water pixels to {water_surface - 0.1:.2f}m."
+                            )
+                    else:
+                        COAST_OFFSET = water_surface - 1.0
+                        land_raw[ocean_candidates] = COAST_OFFSET
+                        logger.info(
+                            f"Flattened {np.count_nonzero(ocean_candidates)} Swiss lake pixels to {COAST_OFFSET:.2f}m."
+                        )
 
             except Exception as e:
                 logger.error(f"Failed to apply OSM water mask: {e}", exc_info=True)
@@ -553,10 +573,22 @@ class ContourSlicingJob:
 
         if self.include_bathymetry:
             min_valid = -11000
+            if swiss_lake_elev is not None:
+                # Any SwissALTI3D lidar reflection off the lake surface (within 0.35m of surface elevation)
+                # that was not overridden by SwissBATHY3D must be clamped below the water level.
+                lake_lidar_water = (elevation >= water_surface) & (
+                    elevation <= water_surface + 0.35
+                )
+                elevation[lake_lidar_water] = water_surface - 0.1
         else:
             COAST_OFFSET = water_surface - 1.0
             if self.use_osm_water_mask and "ocean_candidates" in locals():
                 elevation[ocean_candidates] = COAST_OFFSET
+            if swiss_lake_elev is not None:
+                lake_lidar_water = (elevation >= water_surface) & (
+                    elevation <= water_surface + 0.35
+                )
+                elevation[lake_lidar_water] = COAST_OFFSET
             elevation[elevation == -32768] = COAST_OFFSET
             elevation[elevation < water_surface] = COAST_OFFSET
             min_valid = COAST_OFFSET

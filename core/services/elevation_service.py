@@ -100,6 +100,10 @@ class ElevationRangeJob:
         real_min = float(masked.min())
         real_max = float(masked.max())
 
+        # If on a Swiss lake with bathymetry disabled, include the lake surface datum
+        if not self.include_bathymetry and swiss_lake_elev is not None:
+            real_min = min(real_min, float(swiss_lake_elev))
+
         # Clamp only if NOT handling bathymetry, or ensure reasonable bounds
         # If bathymetry is ON, allow down to -11000. If OFF, clamp at -500.
         clamp_min = -11000 if self.include_bathymetry else -500

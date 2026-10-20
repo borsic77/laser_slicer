@@ -366,3 +366,95 @@ def test_swiss_lake_slicing_water_level(monkeypatch):
     assert len(contours) == 3
     # Swiss lake surface elevation for Rotsee is 419.0m
     assert all(c.get("water_level") == 419.0 for c in contours)
+
+
+def test_swiss_lake_water_mask_and_clamping(monkeypatch):
+    """Test that Swiss lake bathymetry is preserved and lidar lake reflection is clamped."""
+    from core.services.contour_generator import ContourSlicingJob
+
+    rotsee_bounds = (8.305, 47.068, 8.320, 47.074)
+    job = ContourSlicingJob(
+        bounds=rotsee_bounds,
+        height_per_layer=5.0,
+        num_layers=3,
+        simplify=0.0,
+        substrate_size_mm=100.0,
+        layer_thickness_mm=3.0,
+        center=(8.3125, 47.071),
+        smoothing=0,
+        min_area=0.0,
+        min_feature_width_mm=0.0,
+        include_bathymetry=True,
+        use_osm_water_mask=True,
+    )
+
+    # 10x10 synthetic DEM:
+    # Top half (land): 430.0m
+    # Bottom half (lake): 410.0m (bathymetry), plus one pixel with lidar reflection at 419.13m (datum is 419.0m)
+    synth_dem = np.full((10, 10), 430.0, dtype=np.float32)
+    synth_dem[5:, :] = 410.0
+    synth_dem[5, 5] = 419.13  # Lidar lake surface reflection
+
+    transform = rasterio.transform.from_bounds(*rotsee_bounds, 10, 10)
+
+    # Mock DEM download and mosaic
+    monkeypatch.setattr(
+        "core.utils.dem.download_elevation_tiles_for_bounds",
+        lambda b, include_bathymetry=False: ["mock_tile.tif"],
+    )
+    monkeypatch.setattr(
+        "core.utils.dem.mosaic_and_crop",
+        lambda paths, b: (synth_dem.copy(), transform),
+    )
+
+    # Mock OSM water mask: bottom half is water
+    mock_mask = np.zeros((10, 10), dtype=bool)
+    mock_mask[5:, :] = True
+    monkeypatch.setattr(
+        "core.utils.osm_tiles.fetch_osm_static_image",
+        lambda b, zoom=15, provider="osm": (
+            np.zeros((10, 10, 3), dtype=np.uint8),
+            transform,
+            "EPSG:4326",
+        ),
+    )
+    monkeypatch.setattr(
+        "core.utils.osm_tiles.generate_water_mask_from_tiles",
+        lambda img, water_color: mock_mask,
+    )
+
+    elev, masked, tf = job._fetch_and_prep_dem()
+
+    # Verify bathymetry was NOT wiped to NaN
+    assert not np.isnan(elev[5:, :]).any()
+    # Verify deep lake bed at 410.0m was preserved
+    assert elev[9, 9] == 410.0
+    # Verify lidar reflection at 419.13m was clamped below water surface (419.0m)
+    assert elev[5, 5] == 418.9
+
+
+def test_elevation_range_swiss_lake_no_bathy(monkeypatch):
+    """Test ElevationRangeJob includes the lake surface elevation when bathymetry is off."""
+    from core.services.elevation_service import ElevationRangeJob
+
+    rotsee_bounds = (8.305, 47.068, 8.320, 47.074)
+    job = ElevationRangeJob(rotsee_bounds, include_bathymetry=False)
+
+    # Synthetic DEM where lowest pixel is 419.13m (lidar reflection off lake surface, datum is 419.0m)
+    synth_dem = np.full((10, 10), 450.0, dtype=np.float32)
+    synth_dem[5:, :] = 419.13
+    transform = rasterio.transform.from_bounds(*rotsee_bounds, 10, 10)
+
+    monkeypatch.setattr(
+        "core.services.elevation_service.download_elevation_tiles_for_bounds",
+        lambda b, include_bathymetry=False: ["mock_tile.tif"],
+    )
+    monkeypatch.setattr(
+        "core.services.elevation_service.mosaic_and_crop",
+        lambda paths, b, downsample_factor=10: (synth_dem, transform),
+    )
+
+    stats = job.run()
+    # Min elevation should include 419.0m
+    assert stats["min"] == 419.0
+    assert stats["max"] == 450.0

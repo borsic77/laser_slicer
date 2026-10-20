@@ -397,13 +397,15 @@ def download_swissbathy3d_tiles(
                             with mem.open() as src:
                                 raw = src.read(1)
                                 # 2m target resolution (matches SwissALTI3D 2m tiles)
-                                w2 = max(1, src.width // 2)
-                                h2 = max(1, src.height // 2)
+                                span_x = src.bounds.right - src.bounds.left
+                                span_y = src.bounds.top - src.bounds.bottom
+                                target_w = max(1, int(round(span_x / 2.0)))
+                                target_h = max(1, int(round(span_y / 2.0)))
                                 transform, width, height = calculate_default_transform(
                                     src_crs,
                                     dst_crs,
-                                    w2,
-                                    h2,
+                                    target_w,
+                                    target_h,
                                     *src.bounds,
                                 )
                                 dst_data = np.full(
